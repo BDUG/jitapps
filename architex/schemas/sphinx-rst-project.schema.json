@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://architex.local/schemas/sphinx-rst-project.schema.json",
+  "title": "Sphinx RST project manifest",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "modelType",
+    "model",
+    "bindings"
+  ],
+  "properties": {
+    "format": {
+      "const": "architex-sphinx-rst"
+    },
+    "version": {
+      "const": 1
+    },
+    "modelType": {
+      "enum": [
+        "metamodel",
+        "instances"
+      ]
+    },
+    "model": {
+      "$ref": "https://architex.local/schemas/workspace.schema.json"
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "id",
+          "needId",
+          "path"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "metamodel",
+              "instances"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "needId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
