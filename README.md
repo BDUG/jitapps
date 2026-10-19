@@ -31,6 +31,48 @@ The project is licensed under the [MIT License](LICENSE), which permits commerci
 | [automatextiX](automatextiX/README.md) | Workflow automation | Connect JSON transforms, shared-workspace files, AI calls, approved local commands, web requests, branching, and execution logs. |
 | [reportiX](reportiX/README.md) | Research & reporting | Discover sources with Google or Bing, crawl public pages, and compile or discuss cited AI reports with tables and SVG charts. |
 
+## Screenshots
+
+The desktop and all 12 apps, shown with their built-in starting workspaces. Click a screenshot to view it at full size.
+
+### Desktop
+
+[![Desktop launcher with all 12 apps and shared virtual disk](assets/screenshots/desktop.png)](assets/screenshots/desktop.png)
+
+### Applications
+
+| | |
+| --- | --- |
+| **[Architex](architex/README.md)**<br>[![Architex editor workspace](assets/screenshots/architex.png)](assets/screenshots/architex.png) | **[graphiX](graphiX/README.md)**<br>[![graphiX editor workspace](assets/screenshots/graphiX.png)](assets/screenshots/graphiX.png) |
+| **[sketchiX](sketchiX/README.md)**<br>[![sketchiX editor workspace](assets/screenshots/sketchiX.png)](assets/screenshots/sketchiX.png) | **[mindiX](mindiX/README.md)**<br>[![mindiX editor workspace](assets/screenshots/mindiX.png)](assets/screenshots/mindiX.png) |
+| **[projectiX](projectiX/README.md)**<br>[![projectiX editor workspace](assets/screenshots/projectiX.png)](assets/screenshots/projectiX.png) | **[textiX](textiX/README.md)**<br>[![textiX editor workspace](assets/screenshots/textiX.png)](assets/screenshots/textiX.png) |
+| **[presentiX](presentiX/README.md)**<br>[![presentiX editor workspace](assets/screenshots/presentiX.png)](assets/screenshots/presentiX.png) | **[sheetiX](sheetiX/README.md)**<br>[![sheetiX editor workspace](assets/screenshots/sheetiX.png)](assets/screenshots/sheetiX.png) |
+| **[appiX](appiX/README.md)**<br>[![appiX editor workspace](assets/screenshots/appiX.png)](assets/screenshots/appiX.png) | **[codeiX](codeiX/README.md)**<br>[![codeiX editor workspace](assets/screenshots/codeiX.png)](assets/screenshots/codeiX.png) |
+| **[automatextiX](automatextiX/README.md)**<br>[![automatextiX editor workspace](assets/screenshots/automatextiX.png)](assets/screenshots/automatextiX.png) | **[reportiX](reportiX/README.md)**<br>[![reportiX editor workspace](assets/screenshots/reportiX.png)](assets/screenshots/reportiX.png) |
+
+To refresh these images, start the suite server and run `node scripts/capture-screenshots.cjs` with Playwright and Chromium installed. The capture script uses a fresh browser profile and does not call AI providers.
+
+## Agentic examples
+
+Configure a provider in the relay, open an app's **AI chat** (the integrated agent in codeiX), and send one of these prompts. These are examples to try, with the intended results—not recorded provider responses. Review the proposed changes and apply them to update the editor; a chat answer alone does not change your content. Export the result using the app's normal export controls.
+
+| App | Example chat prompt | Intended result |
+| --- | --- | --- |
+| **graphiX** | “Create a smiley: a yellow circular face, two dark eyes and a curved black smile, centered on the canvas. Return editable SVG artwork as a drawing proposal.” | An editable smiley drawing; export it as **SVG** and insert it into other tools from the virtual disk. |
+| **Architex** | “Create a small weather-monitoring system with Sensor, Gateway and Dashboard component definitions and one instance of each. Define compatible directional connection policies, give the instances temperature data-point ports, and connect Sensor → Gateway → Dashboard. Include useful descriptions and parameters.” | A consistent **metamodel and instance graph** to review, validate and export as JSON, YAML or draw.io. |
+| **sketchiX** | “Draw a UML-style order flow with Customer, Web shop, Payment service and Warehouse. Connect them with labeled arrows for placing, paying for and shipping an order. Use distinct colors and a clear left-to-right layout.” | An editable connected **diagram**; export as draw.io, SVG or PPTX. |
+| **mindiX** | “Create a mind map for a community garden, with branches for Site, People, Budget, Planting and Maintenance. Add three practical subtopics per branch, with notes explaining the next action.” | A hierarchical **mind map** with editable topics and notes; export as JSON, SVG, draw.io or PPTX. |
+| **projectiX** | “Plan a six-week community-garden launch starting 2026-11-02. Include site approval, recruiting volunteers, buying supplies, preparing beds, planting and an opening milestone. Give tasks durations, sensible dependencies and owners. Treat dates and costs as planning assumptions.” | An editable **project schedule and Gantt chart**; export as Microsoft Project XML, XLSX or SVG. |
+| **textiX** | “Draft a one-page volunteer welcome guide for a community garden. Include a title, short introduction, safety checklist, a two-column table of roles and responsibilities, and a friendly closing. Use sample details and label them as placeholders.” | A formatted **document**; export as DOCX, HTML or Markdown. |
+| **presentiX** | “Create a five-slide pitch for a community garden: vision, community benefits, proposed site, launch plan and volunteer call to action. Use concise text, coordinated colors and simple editable shapes, plus speaker notes. Label unverified details as assumptions.” | An editable **presentation** with five slides and speaker notes; export as PPTX. |
+| **sheetiX** | “Create a sample garden budget with Item, Quantity, Unit price and Total columns. Add seeds (10 × 3), soil (8 × 12), tools (5 × 25) and signs (2 × 18). Calculate row totals and a grand total with formulas, and format prices as currency.” | An editable **spreadsheet** with formulas and a grand total of **287**; export as XLSX or CSV. |
+| **appiX** | “Build a complete, self-contained Tetris game with arrow-key controls, rotation, line clearing, score, pause and restart. Include clear instructions and a responsive game board. Return the full HTML, CSS and JavaScript app proposal.” | A playable **single-page app** in the sandboxed preview; export as HTML. |
+| **codeiX** | “Add a self-contained garden watering calculator to this project in a new watering.html file. Let users enter bed area and water depth, validate the inputs, and calculate liters as square meters × millimeters. Include accessible labels and verification steps. Preserve existing files.” | A reviewable **file change** adding a calculator; apply it and export the project ZIP or write it to a linked local workspace. Run suggested checks yourself. |
+| **automatextiX** | “Create a manual workflow that reads garden-notes.txt from the virtual disk, passes its contents to an AI step asking for a concise action checklist, and writes the returned checklist to garden-actions.txt. Pass each step's result to the next and do not overwrite an existing output file.” | An editable **file → AI → file workflow**. Add the input file first, review mappings, then run it with a configured provider; the resulting checklist appears on the virtual disk. |
+| **reportiX** | “Using only the sources already collected in this workspace, write a concise report comparing community-garden watering options. Cite source IDs, add a comparison table, and explain evidence gaps. Include a chart only if the sources provide comparable numeric data.” | A source-backed **report proposal** with citations and a table; apply it and export HTML or print to PDF. Collect sources using search/crawl or import research before sending this prompt. |
+
+Continue the conversation to refine the result. For the graphiX smiley, try: **“Make the smile wider and add rosy cheeks. Preserve the face and eye positions.”** Review and apply the new proposal, then export the updated SVG. The same request → review → apply → refine cycle works across the suite. Use **New conversation** when you want to start without the previous chat history.
+
 ## Get started
 
 No frontend build or package installation is needed. From the repository root, start the suite with Python 3:
