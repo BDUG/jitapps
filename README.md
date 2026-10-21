@@ -4,7 +4,7 @@
 
 # Agentic Desktop Tool Suite
 
-A local-first collection of desktop-style tools that run in your browser. Design systems, draw vectors, organize mind maps, plan projects, write documents, create presentations, work with spreadsheets, edit code, automate workflows, and turn web research into reports—all from one repository.
+A local-first collection of desktop-style tools that run in your browser. Design systems, draw vectors, organize mind maps, plan projects, write documents, create presentations, edit video and animations, work with spreadsheets, edit code, automate workflows, and turn web research into reports—all from one repository.
 
 AI agents extend every tool through a shared relay: adapt architecture, refine SVG artwork, draft documents and slide decks, analyze spreadsheets, review code changes, generate single-page apps, design workflows, and compile or discuss source-backed reports. The editors work independently; AI features use the provider configured on your relay server.
 
@@ -19,6 +19,7 @@ The project is licensed under the [MIT License](LICENSE), which permits commerci
 | Tool | Workspace | What you can do |
 | --- | --- | --- |
 | [Architex](architex/README.md) | Architecture | Edit metamodels and instance graphs, connect ports, run scripted validation, and collaborate with an AI agent. |
+| [vidiX](vidiX/README.md) | Video & motion | Edit layered timelines, trim video, animate text/shapes, create GIFs and animated SVG, export browser-supported video, and review AI edits. |
 | [graphiX](graphiX/README.md) | Vector graphics | Draw and edit SVG artwork with layers, properties, resizing, and SVG/PNG export. |
 | [sketchiX](sketchiX/README.md) | Diagrams & sketches | Edit diagrams, draw freehand sketches, design reusable vector shapes with separate AI chats, and exchange draw.io, SVG, PlantUML, PPTX and Visio VSDX. |
 | [mindiX](mindiX/README.md) | Mind mapping | Build hierarchical maps with notes/tasks, arrange and collapse branches, collaborate with AI, and export draw.io, SVG and PPTX. |
@@ -33,11 +34,15 @@ The project is licensed under the [MIT License](LICENSE), which permits commerci
 
 ## Screenshots
 
-The desktop and all 12 apps, shown with their built-in starting workspaces. Click a screenshot to view it at full size.
+The desktop and all 13 apps, shown with their built-in starting workspaces. Click a screenshot to view it at full size.
 
 ### Desktop
 
-[![Desktop launcher with all 12 apps and shared virtual disk](assets/screenshots/desktop.png)](assets/screenshots/desktop.png)
+[![Desktop launcher with all 13 apps and shared virtual disk](assets/screenshots/desktop.png)](assets/screenshots/desktop.png)
+
+### vidiX · Video and animation
+
+[![vidiX timeline and motion preview](assets/screenshots/vidiX.png)](assets/screenshots/vidiX.png)
 
 ### Applications
 
@@ -52,12 +57,28 @@ The desktop and all 12 apps, shown with their built-in starting workspaces. Clic
 
 To refresh these images, start the suite server and run `node scripts/capture-screenshots.cjs` with Playwright and Chromium installed. The capture script uses a fresh browser profile and does not call AI providers.
 
+## Workspace extensions across every app
+
+Open **Workspace** or press **Ctrl+K / Cmd+K** in any editor for:
+
+- Searchable commands and quick navigation between apps.
+- Content search and bulk replacement with validation, change previews and stale-document protection.
+- Named recovery points, persistent native-document restores and portable backups through local or virtual disk.
+- Three app-specific AI workflow drafts for review, extension and interoperability; prompts preserve existing drafts and never send automatically.
+- Tool-specific document insights, downloadable Markdown inspection reports and schemas.
+- Coding-agent handoff ZIPs containing native content, AI context, contracts and a spec-driven editing template.
+
+These tools also support sketchiX’s sketch and shape editors. Recovery points retain full research libraries, source files and vidiX media where relevant; restoration never runs a preview or workflow or writes to an OS workspace automatically. See the [workspace guide](shared-suite/WORKSPACE.md) for formats, limits and verification.
+
+[![Shared Workspace inspection tools in textiX](assets/screenshots/workspace.png)](assets/screenshots/workspace.png)
+
 ## Agentic examples
 
 Configure a provider in the relay, open an app's **AI chat** (the integrated agent in codeiX), and send one of these prompts. These are examples to try, with the intended results—not recorded provider responses. Review the proposed changes and apply them to update the editor; a chat answer alone does not change your content. Export the result using the app's normal export controls.
 
 | App | Example chat prompt | Intended result |
 | --- | --- | --- |
+| **vidiX** | “Create a six-second looping title card saying Hello, motion!, with a purple background, a yellow circle moving across the canvas, and a white title fading in and out. Return editable text and shape layers.” | A reviewed **motion timeline**; export as animated GIF, animated SVG or silent video. |
 | **graphiX** | “Create a smiley: a yellow circular face, two dark eyes and a curved black smile, centered on the canvas. Return editable SVG artwork as a drawing proposal.” | An editable smiley drawing; export it as **SVG** and insert it into other tools from the virtual disk. |
 | **Architex** | “Create a small weather-monitoring system with Sensor, Gateway and Dashboard component definitions and one instance of each. Define compatible directional connection policies, give the instances temperature data-point ports, and connect Sensor → Gateway → Dashboard. Include useful descriptions and parameters.” | A consistent **metamodel and instance graph** to review, validate and export as JSON, YAML or draw.io. |
 | **sketchiX** | “Draw a UML-style order flow with Customer, Web shop, Payment service and Warehouse. Connect them with labeled arrows for placing, paying for and shipping an order. Use distinct colors and a clear left-to-right layout.” | An editable connected **diagram**; export as draw.io, SVG or PPTX. |
@@ -81,11 +102,12 @@ No frontend build or package installation is needed. From the repository root, s
 python3 server/server.py
 ```
 
-The server listens on port **8000** by default. Open `/` for the **desktop launcher** with all 12 apps, searchable cards, distinct icons and the shared virtual disk. Each app also has a Desktop shortcut. You can open a tool directly:
+The server listens on port **8000** by default. Open `/` for the **desktop launcher** with all 13 apps, searchable cards, distinct icons and the shared virtual disk. Each app also has a Desktop shortcut. You can open a tool directly:
 
 | Tool | Path |
 | --- | --- |
 | Architex | `/architex/` |
+| vidiX | `/vidiX/` |
 | graphiX | `/graphiX/` |
 | sketchiX | `/sketchiX/` |
 | mindiX | `/mindiX/` |
@@ -120,6 +142,8 @@ The disk persists in IndexedDB and is shared by all apps at the **same server ad
 3. In an AI-enabled tool, set its **AI relay** URL to the server origin. Provider endpoints, models, and API keys are configured on the relay rather than in each editor.
 4. Open **AI chat** in an editor (or the integrated codeiX agent), choose the context and reference attachments, and ask questions or request changes. Proposed edits require review before application. reportiX also retains its dedicated source-backed report compiler.
 
+Large conversations can use **AI paging**: read input in pages, reread exact source pages, reassemble output fragments, retry/continue failed pages, stop safely, and download partial results. Long message bodies also have display page controls. See the [paging guide](shared-ai/PAGING.md); per-call provider limits and editor validation still apply.
+
 See the [shared AI chat guide](shared-ai/README.md) for tool-specific context, schemas, review, Undo and request diagnostics.
 
 AI calls require a configured provider and network access. Crawling additionally requires public DNS and outbound access to search and source hosts. The current managed cloud environment restricts live discovery and DNS resolution; see [reportiX setup and limitations](reportiX/README.md).
@@ -131,3 +155,7 @@ Tools autosave their work locally in browser storage and provide explicit import
 AI-enabled tools send selected context through the relay to its configured provider. Workflow HTTP steps make requests when you run them, and research collection fetches the requested public pages. Basic editing does not require an AI account.
 
 Each tool's README describes its formats, supported features, limits, and verification commands. The suite is browser-based; it does not install native desktop applications or provide a shared background execution service.
+
+## Workspace coding agent
+
+Use **Workspace agent** in AI chat for iterative code inspection, file editing, managed scripts and real terminal execution. See the [runtime setup and workflow](shared-agent/README.md) for startup flags, permissions, session recovery and verification.

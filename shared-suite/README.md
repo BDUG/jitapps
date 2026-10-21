@@ -1,6 +1,6 @@
 # Shared desktop and virtual disk
 
-The suite desktop lives at `/` and lists all 12 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
+The suite desktop lives at `/` and lists all 13 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
 
 ## Save and open files
 
@@ -38,8 +38,14 @@ Serving through `python3 server/server.py` or another static web server is recom
 
 To add an app, register its identity and input IDs, add an SVG icon, load the shared stylesheet/scripts in its entry point, and route its download helper through `SuiteDiskUI.download`. Provider configuration exports deliberately stay in the relay's own UI and are not copied automatically to this disk.
 
-Run `node shared-suite/browser-test.cjs` with the suite on port 8000. It tests desktop cards/icons, all 12 apps' native imports and disk exports, binary preservation, cross-app SVG transfer, nested source imports, path validation and concurrent-write protection.
+Run `node shared-suite/browser-test.cjs` with the suite on port 8000. It tests desktop cards/icons, all 13 apps' native imports and disk exports, binary preservation, cross-app SVG transfer, nested source imports, path validation and concurrent-write protection.
 
 ## Workflow file access
 
 `automatextiX` can list, read and write this disk with native workflow steps. Paths and contents accept incoming-item templates, enabling file → AI/command/web → file pipelines. These are browser disk operations, independent of the optional OS command runner. File replacement is disabled by default; revision-checked write-back is available. See the [workflow file guide](../automatextiX/README.md#use-files-from-the-shared-workspace) for encodings, the 300 KB workflow file limit and completed-write behavior. `SuiteDisk.write` also accepts an optional `AbortSignal` to abort an uncommitted write.
+
+vidiX accepts project JSON bundles and video/GIF/SVG/image media through separate import targets. Its GIF, animated SVG, PNG and browser-supported video exports can also be saved to this disk; other apps must support the exported format to consume it.
+
+## Workspace productivity tools
+
+Every editor now has **Workspace** and the Ctrl/Cmd+K palette, with reviewed find/replace, named recovery points, portable backups, app-specific AI workflows, document insights, inspection reports and agent handoff ZIPs. See the [complete workspace guide](WORKSPACE.md). Recovery storage is separate from the shared virtual disk; portable backups and handoffs can be exported to either disk.

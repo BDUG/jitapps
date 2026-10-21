@@ -61,3 +61,17 @@ Reference files can now be attached below the native chat input. Use up to five 
 See the [shared AI chat guide](../shared-ai/README.md) for relay setup, context selection, attachments, review, Undo, request/schema downloads and troubleshooting.
 
 Run `node codeiX/workspace-browser-test.cjs` against the server on port 8000 for folder loading, explicit writes, conflicts, reload, renames, deletions and permission handling. This browser test uses directory API fixtures; native picker interaction requires a manual browser check.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.
+
+## Paged AI conversations
+
+codeiX now uses the shared [input/output paging transport](../shared-ai/PAGING.md). Its old 600,000-character chat guard and eight-message handover slice are removed: selected context and eligible conversation history can be paged, with output reassembled before file-change validation/review. Long message bodies have page controls and full-text downloads. Project/file limits remain enforced. Configure **AI paging** in the suite toolbar; Stop, retry and partial downloads do not apply incomplete file changes.
+
+## Workspace coding agent
+
+Use **Workspace agent** in AI chat for iterative code inspection, file editing, managed scripts and real terminal execution. See the [runtime setup and workflow](../shared-agent/README.md) for startup flags, permissions, session recovery and verification.

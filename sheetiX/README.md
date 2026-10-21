@@ -52,3 +52,9 @@ Imports are limited to 8 MB. Cells support up to 32,000 characters. Failed impor
 Discuss formulas and calculated values, analyze selected cells, create tables or propose formatting and workbook edits. The assistant receives the workbook, active sheet and selected-cell context; replacements pass workbook validation before review.
 
 See the [shared AI chat guide](../shared-ai/README.md) for relay setup, context selection, attachments, review, Undo, request/schema downloads and troubleshooting.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

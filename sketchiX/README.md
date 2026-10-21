@@ -113,3 +113,9 @@ PowerPoint and Visio use simplified editable native shapes; actor anatomy, class
 Verification: `node sketchiX/uml-test.cjs` and `node sketchiX/uml-browser-test.cjs` (server on port 8000). Tests cover all eleven stencils, compartment labels, history/persistence, routing, safe text, all six interchange formats, plain PlantUML/draw.io, and mocked AI proposals using the extended schema.
 
 Insert image accepts SVG artwork, including graphiX exports, from local or virtual disk. SVGs are converted to embedded PNGs (up to 2048 pixels per side) for reliable rendering and diagram/PowerPoint interchange. Scripts and external resources are disabled during decoding. To import editable vector elements instead, use the main diagram Import control.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

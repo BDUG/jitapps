@@ -70,3 +70,9 @@ On the computer running the relay:
 4. Open **Provider settings**, use **Save & activate** for your configured profile, and test the provider. Retry the app request. The updated relay reports the specific failure if a provider problem remains.
 
 When the relay runs on your computer, check that computer's proxy, DNS and CA trust. This cloud development environment's outbound policy does not control your local relay.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

@@ -73,3 +73,9 @@ python3 projectiX/office-validation.py validate
 ```
 
 Browser tests use Playwright and `/usr/bin/chromium`. Independent tests use Java, Python `mpxj`, `JPype1` and `openpyxl` (verification dependencies only). They generate native Project XML with MPXJ, import it, then read projectiX's exported XML and XLSX with independent readers. Tests cover calendar/dependency math, lag, milestone boundaries, summaries/slack, invalid/cyclic plans, Gantt drag/resize, hierarchy, history/persistence, five file exports, atomic import rejection and mocked AI review/apply/Undo. They do not certify native Microsoft Project rendering or every scheduling feature, and do not call a paid AI provider.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

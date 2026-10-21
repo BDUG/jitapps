@@ -51,3 +51,9 @@ For OpenAI-compatible GPT-5 models (model names beginning with `gpt-5` or `opena
 In `/relay`, uncheck **Limit output tokens**, then **Save & activate** to omit the output-token parameter for that provider profile. This omits `max_tokens`, GPT-5's `max_completion_tokens`, or Gemini's `maxOutputTokens`, according to the protocol. The provider's own defaults and hard limits still apply. Re-enabling the switch restores the remembered Maximum output tokens value.
 
 The setting is saved/exported/imported as `tokenLimitEnabled: false`. Existing configurations without this field keep their previous enabled limit. Restart the relay after updating the backend, then refresh the provider settings page to use the new switch.
+
+## Workspace coding agent
+
+Use **Workspace agent** in AI chat for iterative code inspection, file editing, managed scripts and real terminal execution. See the [runtime setup and workflow](../shared-agent/README.md) for startup flags, permissions, session recovery and verification.
+
+Coding-agent commands are enabled by default for installed Python, Node.js, npm and Git, with the suite repository as workspace. Override with `--agent-workspace` and repeated `--agent-allow-command` flags; disable commands with `--agent-no-commands`, or the whole runtime with `--disable-agent`. Commands run with the server process’s OS permissions.

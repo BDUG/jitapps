@@ -80,3 +80,9 @@ Use **Incoming branch line** to set the selected topic's connection to its paren
 JSON, local saves and AI proposals retain image and line settings. SVG, draw.io and PowerPoint exports embed images and retain connection styling; images and labels are separate editable objects inside the exported topic outline. Existing exporter shape limits still apply, so image topics count as three shapes and relationship labels add shapes; use a branch/visible scope for large PPTX maps. Older maps default to solid branch lines using topic colors and dashed purple relationships.
 
 Run `node mindiX/images-lines-browser-test.cjs` against port 8000 for image upload/removal/Undo, line styling, reload persistence and inspection of exported SVG/draw.io/PPTX image and line data.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

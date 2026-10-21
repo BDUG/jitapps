@@ -165,3 +165,13 @@ History retains up to **80 user/assistant messages** (40 complete turns). When a
 Example: import [iterative-ai-chat.json](examples/iterative-ai-chat.json), configure your AI relay, then Run workflow. It drafts and refines a plan for up to three rounds, optionally finishes early on `data.done: true`, and saves the final reply/history to `results/iterative-plan.json`. Each round makes a real provider request when run. The output file is create-only by default.
 
 Additional checks: `node automatextiX/ai-rounds-test.cjs` and `node automatextiX/ai-rounds-browser-test.cjs` (server on port 8000). These verify history delivery, item isolation, follow-up templates, bounded rounds, early completion, cross-node continuation, cancellation, run limits, inspector persistence and compatibility with older single-round workflows using mocked AI responses.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.
+
+## Paged AI steps
+
+AI workflow calls use the shared [paging transport](../shared-ai/PAGING.md) in the browser. Source conversations can be read in pages and long responses are reassembled before typed results pass downstream. The AI-call transport's former 500 KB request/response guard is removed; workflow item, history, file and web-response limits still apply to their own data types. AI timeouts apply per provider call during paging, allowing batch pauses and longer overall operations. Configure **AI paging** in the suite toolbar; no incomplete output is passed to the next step.

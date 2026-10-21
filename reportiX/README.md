@@ -94,3 +94,13 @@ Tests cover public-target restrictions, extraction, search-feed parsing, Google 
 Use AI chat to discuss findings and source evidence, revise the narrative, improve tables or propose supported visuals. It complements the existing compile-report action. Edits are restricted to a report using the existing source snapshot, require valid citations and are reviewed before application. Chat does not crawl additional pages.
 
 See the [shared AI chat guide](../shared-ai/README.md) for relay setup, context selection, attachments, review, Undo, request/schema downloads and troubleshooting.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.
+
+## Paged AI input and output
+
+Both conversational chat and the dedicated report compiler use the [shared paging transport](../shared-ai/PAGING.md). Complete source/request messages are paged without silent truncation, and output fragments are reassembled before report parsing, citation checks and existing document validation. The compiler's old 200,000-character raw-response guard is removed; its supported report structure/size and source limits still apply. Configure **AI paging** in the suite toolbar.

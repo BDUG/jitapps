@@ -1,0 +1,10 @@
+/* Preserve native documents rather than treating every AI proposal as a backup. */
+(function(){'use strict';const A=window.SuiteAgentAdapter,C=SuiteWorkspaceCore,path=location.pathname;
+let adapter;if(path.includes('/codeiX/'))adapter={name:'codeiX',schema:{description:'Native CodeixProject document: {version,name,files:[{path,content}]}.'},snapshot:()=>C.copy(project),validate:v=>CodeixProject.validate(v),restore:v=>{window.CodeixDisconnectWorkspace?.();checkpoint();project=v;active=project.files[0]?.path||null;tabs=active?[active]:[];save();render();}};
+else if(!A)return;
+else if(A.name==='vidiX')adapter={name:A.name,schema:{description:'Native vidiX backup: {project,assets}; includes embedded media.'},snapshot:()=>C.copy(snapshot()),validate:readBundle,restore:v=>{checkpoint();restore(v);}};
+else if(A.name==='reportiX')adapter={name:A.name,schema:{description:'Complete reportiX research: query, brief, source library, selected IDs, report, evidence, research log and settings.'},snapshot:()=>{form();return C.copy(state);},validate:validateState,restore:v=>{state=v;inputs();save();renderSources();renderLog();renderReport();}};
+else adapter={name:A.name,schema:A.schema,snapshot:()=>C.copy(A.snapshot()),validate:async(v,before)=>{if(A.name==='architex'&&v.ruleLibrary?.rules){for(const rule of v.ruleLibrary.rules){const old=before.ruleLibrary.rules.find(r=>r.id===rule.id&&r.source===rule.source&&r.name===rule.name);if(!old?.enabled)rule.enabled=false;}}return A.validate(v,before);},beforeRestore:A.beforeApply,restore:A.restore};
+const busyCheck=()=>A?.isBusy?.()||(typeof busy!=='undefined'&&!!busy)||(typeof gesture!=='undefined'&&!!gesture)||(typeof controller!=='undefined'&&!!controller)||(typeof preparing!=='undefined'&&!!preparing)||!!document.querySelector('#sai-send:disabled,#send:disabled');adapter.isBusy=busyCheck;
+window.SuiteWorkspaceAdapter=adapter;
+})();

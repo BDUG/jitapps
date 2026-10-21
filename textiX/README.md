@@ -52,3 +52,9 @@ node textiX/browser-test.cjs
 ```
 
 The DOCX test creates an independent Word fixture, validates exported content using `python-docx`, and checks local/virtual disk round trips, images, links, lists, page breaks, Undo, and atomic invalid import rejection.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

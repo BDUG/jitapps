@@ -30,6 +30,19 @@ class UnifiedServerTest(unittest.TestCase):
                 self.assertEqual(headers['Access-Control-Allow-Origin'], 'https://trusted.example')
                 self.assertEqual(json.loads(get('/api/research/health')[0])['service'], 'reportix')
                 self.assertFalse(json.loads(get('/api/workflow/health', {'X-Architex-Request':'1'})[0])['commandsEnabled'])
+                agent = json.loads(get('/api/agent/health', {'X-Architex-Request':'1'})[0])
+                self.assertTrue(agent['enabled'])
+                self.assertEqual(agent['workspace'], str(ROOT))
+                self.assertIn(pathlib.Path(sys.executable).name, agent['commands'])
+                with self.assertRaises(urllib.error.HTTPError) as denied:
+                    get('/api/agent/health')
+                self.assertEqual(denied.exception.code, 403)
+                private = folder/'.suite-agent'/'sessions'
+                private.mkdir(parents=True)
+                (private/'secret.json').write_text('{"secret":"private-agent-log"}')
+                with self.assertRaises(urllib.error.HTTPError) as hidden:
+                    get('/'+str((private/'secret.json').relative_to(ROOT)))
+                self.assertEqual(hidden.exception.code, 404)
                 self.assertIn('profiles', json.loads(get('/api/admin/config', {'X-Architex-Admin':'1'})[0]))
                 self.assertIn('configured', json.loads(get('/api/research/settings', {'X-Architex-Request':'1'})[0]))
                 for tool in ['architex','graphiX','textiX','sheetiX','codeiX','automatextiX','reportiX','appiX','presentiX','sketchiX','mindiX','projectiX']:

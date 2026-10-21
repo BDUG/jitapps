@@ -272,3 +272,9 @@ Run `node architex/import-detection-browser-test.cjs` to verify scope detection,
 The selected model scope is captured before reading an import file or RST folder, so changing the selector during loading cannot reinterpret the operation. Architex client assets carry a shared version tag to avoid combining cached legacy scope logic with a newer import dialog. Run `node architex/grouped-both-import-browser-test.cjs` for the exact grouped Markdown example in Both models mode, including Undo and asynchronous-scope regression checks.
 
 Run `node architex/typed-both-import-browser-test.cjs` to reproduce the cause-effect-instances.mmd example with Both models selected against empty and partially defined workspaces, including generated ports, reciprocal connection policies and Undo.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

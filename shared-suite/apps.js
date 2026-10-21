@@ -1,5 +1,6 @@
 /* One registry for the desktop, app identity and virtual-disk import targets. */
 window.SuiteApps=[
+ {id:'vidiX',name:'vidiX',category:'Video & motion',description:'Edit video clips, animate layers and export GIF, SVG and video.',color:'#ad6f9c',imports:[['file','vidiX project JSON'],['mediaFiles','Video, GIF, SVG and image assets']]},
   {
     "id": "architex",
     "name": "Architex",

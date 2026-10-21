@@ -58,3 +58,9 @@ node presentiX/browser-test.cjs
 The browser test needs the suite server on port 8000, Playwright, `/usr/bin/chromium` and Python's `python-pptx` package (development verification only). It covers editing/dragging, history, images, ordering, presentation navigation, persistence, real PPTX round trips, notes, independent import fixtures, independent reading of exports, atomic invalid import rejection, and mocked AI review/apply/Undo. It does not establish pixel-perfect PowerPoint rendering or live provider availability.
 
 SVG images from graphiX or other editors can be inserted from local disk or the shared virtual disk. They are converted to embedded PNG images (up to 2048 pixels per side) to preserve their appearance in JSON backups and PowerPoint exports. SVG scripts and external resources are disabled during conversion.
+
+## Workspace extensions
+
+Open **Workspace** beside the virtual disk controls, or press **Ctrl+K / Cmd+K**, for searchable commands, content search and reviewed bulk replacement, named recovery points, portable workspace backups, three tool-specific AI workflow drafts, document validation/insights, and coding-agent handoff ZIPs. Restores preserve a recovery point first and reject stale or invalid changes. Files can move through either local or virtual disk.
+
+See the [workspace tools guide](../shared-suite/WORKSPACE.md) for this app’s native backup behavior, raw source/formula search, inspection measurements and interoperability limits. Workflow drafts never send an AI request automatically.

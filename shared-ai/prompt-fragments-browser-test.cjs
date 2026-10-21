@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),{chromium}=require('playwright');
 (async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});try{
- const routes=['architex/','graphiX/','textiX/','sheetiX/','codeiX/','appiX/','automatextiX/','reportiX/','presentiX/','sketchiX/','sketchiX/sketch.html','sketchiX/shape.html','mindiX/','projectiX/'];
+ const routes=['vidiX/','architex/','graphiX/','textiX/','sheetiX/','codeiX/','appiX/','automatextiX/','reportiX/','presentiX/','sketchiX/','sketchiX/sketch.html','sketchiX/shape.html','mindiX/','projectiX/'];
  for(const path of routes){const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];let requests=0;page.on('pageerror',error=>errors.push(error.message));await page.route('**/api/chat',route=>{requests++;return route.abort();});
   await page.goto('http://localhost:8000/'+path);const code=path==='codeiX/';if(!code)await page.locator('#sai-launch').click();const input=page.locator(code?'#prompt':'#sai-prompt');
   await page.locator('.suite-prompts summary').click();assert.ok(await page.locator('.suite-prompt-list button').count()>=6,path+' domain and shared fragments');

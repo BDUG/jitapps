@@ -90,3 +90,11 @@ Question interactions retain selected options and custom drafts when messages re
 Questions may declare multiple:true for multi-select choices plus custom detail, and optional:true for an explicit **Skip question** action. Answers are associated with the source request ID and question ID, so repeated IDs in later turns remain distinct. Requests carry structured answers and question status alongside the conversation. Draft selections are never treated as submitted answers. New conversation clears all question state.
 
 Run `node shared-ai/question-interactions-browser-test.cjs` to check deduplication, multi-select/custom answers, network retries, preserved drafts, revisions, repeated question IDs, optional skips and reset.
+
+## Large conversations and response paging
+
+Use **AI paging** in the suite toolbar for Auto, Always page or Off, source/output page sizes and automatic pause intervals. Input pages preserve the original conversation and can be reread; output fragments are assembled before the existing validation and review flow. Progress supports retry, continuation, cancellation and partial/session downloads. Long chat answers also have display page controls. See the [paging guide](PAGING.md) for the protocol, provider context limits, settings, workflow/report integration and verification.
+
+## Workspace coding agent
+
+Use **Workspace agent** in AI chat for iterative code inspection, file editing, managed scripts and real terminal execution. See the [runtime setup and workflow](../shared-agent/README.md) for startup flags, permissions, session recovery and verification.

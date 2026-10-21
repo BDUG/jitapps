@@ -13,6 +13,7 @@ const {chromium}=require('playwright'),fs=require('node:fs/promises'),path=requi
   await page.goto(base+'/',{waitUntil:'networkidle'});
   const apps=await page.evaluate(()=>SuiteApps.map(({id,name})=>({id,name})));
   for(const {id,name,url}of [{id:'desktop',name:'Desktop',url:'/'},...apps.map(app=>({...app,url:'/'+app.id+'/'}))]){
+   if(process.env.ONLY&&!process.env.ONLY.split(',').includes(id))continue;
    errors.length=0;await page.goto(base+url,{waitUntil:'networkidle'});
    await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.images].map(img=>img.decode().catch(()=>{})));});
    await page.screenshot({path:path.join(output,id+'.png'),fullPage:true,animations:'disabled'});
