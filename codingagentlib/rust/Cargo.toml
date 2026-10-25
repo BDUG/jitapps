@@ -1,0 +1,17 @@
+[package]
+name = "codingagentlib"
+version = "0.2.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/BDUG/singlepageapps"
+readme = "README.md"
+description = "Native Rust headless coding agent with guarded workspace tools and model callbacks"
+
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
+fs2 = "0.4"
+zip = { version = "2", default-features = false }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

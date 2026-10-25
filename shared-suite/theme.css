@@ -1,0 +1,97 @@
+@font-face{font-family:Inter;font-style:normal;font-weight:100 900;font-display:swap;src:url("../assets/fonts/Inter-Latin.woff2") format("woff2")}
+/* TLAL OS interface tokens. User documents, previews and canvas artwork retain their colors. */
+:root{--tlal-maroon:#8b1e3f;--tlal-orange:#d97a16;--tlal-blue:#3f6f98;--tlal-graphite:#343b43;--tlal-secondary:#626a73;--tlal-muted:#8b9299;--tlal-border:#d9dde1;--tlal-surface:#f5f6f7;--tlal-background:#fafafa;--tlal-white:#fff;--tlal-space-1:4px;--tlal-space-2:8px;--tlal-space-3:12px;--tlal-space-4:16px;--tlal-space-6:24px;--tlal-space-8:32px;--tlal-space-12:48px;--tlal-space-16:64px;--tlal-space-24:96px;--tlal-font:Inter,"Helvetica Neue",Arial,sans-serif;--line:var(--tlal-border);--purple:var(--tlal-maroon);--accent:var(--tlal-maroon);--muted:var(--tlal-secondary);color-scheme:light;font-family:Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif;color:var(--tlal-graphite);background:var(--tlal-background);font-variant-numeric:tabular-nums}
+body{font-family:var(--tlal-font);color:var(--tlal-graphite);background:var(--tlal-background);line-height:1.6}
+body :is(button,input,select,textarea){font-family:Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif}
+body button{border-color:var(--tlal-border);border-radius:8px;line-height:1.35;transition:background-color .12s,border-color .12s}
+body button:not(:disabled):hover{border-color:var(--tlal-blue)}
+body :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--tlal-blue);outline-offset:3px}
+body :is(input,select,textarea){accent-color:var(--tlal-maroon)}
+body :is(input,select,textarea)::placeholder{color:var(--tlal-secondary);opacity:1}
+body :is(header,.toolbar,.panel-title,.panel-head,.tabs,.properties,.library,.inspector,.sidebar,.statusbar){border-color:var(--tlal-border);color:var(--tlal-graphite)}
+body :is(header,.toolbar,.panel-title,.panel-head,.tabs){background:var(--tlal-white)}
+body :is(.brand,.logo,.breadcrumb,.panel-name,.section-label){color:var(--tlal-graphite)}
+body :is(.eyebrow,.panel-name,.section-label,.desktop-eyebrow){letter-spacing:.06em;font-weight:600}
+body :is(.primary,.dark,button.primary,.sai-primary,.ag-primary,.sw-primary,.sd-primary){background:var(--tlal-maroon)!important;border-color:var(--tlal-maroon)!important;color:white!important;box-shadow:none}
+body :is(.primary,.dark,.sai-primary,.ag-primary,.sw-primary,.sd-primary):not(:disabled):hover{background:#701832!important;border-color:#701832!important}
+body :is(button.active,button[aria-selected=true],.tabs button.active,.rail-active){background:#f7eef1;border-color:#dcb5c1;color:var(--tlal-maroon)}
+body :is(.danger,.ag-error,.sai-error,.sd-error){color:var(--tlal-maroon)}
+body :is(dialog,.sai-panel,#suite-agent,#ag-library-dialog){border-color:var(--tlal-border);color:var(--tlal-graphite);background:var(--tlal-white);border-radius:12px;box-shadow:0 16px 48px #343b4320}
+body dialog::backdrop{background:#343b4370;backdrop-filter:blur(2px)}
+body dialog :is(h1,h2,h3){color:var(--tlal-graphite);font-weight:600;letter-spacing:-.02em}
+body dialog :is(input,select,textarea,button){border-color:var(--tlal-border);color:var(--tlal-graphite);border-radius:8px}
+body dialog :is(input:not([type=checkbox]):not([type=radio]):not([type=color]),select,textarea){background:white}
+body :is(#suite-tools,.suite-export-options select){color:var(--tlal-graphite);border-color:var(--tlal-border);background:white}
+body #suite-tools{gap:4px;padding:4px;box-shadow:0 4px 16px #343b4314;border-radius:12px;font-family:Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif}
+body #suite-tools :is(button,a):hover{background:var(--tlal-surface);color:var(--tlal-maroon)}
+body :is(#suite-disk-dialog,#suite-load-source,#suite-workspace,#ag-library-dialog,.sai-dialog){padding:24px;font-family:Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif;line-height:1.6}
+body :is(#suite-disk-dialog,#suite-workspace,#ag-library-dialog,.sai-dialog) :is(p,.sw-subtitle,.sd-note,.ag-note){color:var(--tlal-secondary)}
+body :is(.sd-eyebrow,.sw-meta,.sd-detail,#sd-format-hint){color:var(--tlal-secondary)}
+body :is(#sd-import-controls,.sw-item,.ag-details,.ag-event,.sai-context,.sai-raw){background:var(--tlal-surface);border-color:var(--tlal-border);border-radius:8px}
+body :is(.sw-tabs,.ag-library-tabs,.suite-agent-tabs){gap:4px;padding:8px;border-color:var(--tlal-border);background:var(--tlal-surface)}
+body :is(.sw-tabs,.ag-library-tabs,.suite-agent-tabs) button{color:var(--tlal-secondary);background:transparent;border-color:transparent;min-height:32px;padding:8px 12px}
+body :is(.sw-tabs,.ag-library-tabs,.suite-agent-tabs) button[aria-selected=true]{color:var(--tlal-maroon);background:white;border-color:var(--tlal-border)}
+body .sai-launch{background:var(--tlal-maroon)!important;border-color:var(--tlal-maroon)!important;color:white!important;border-radius:24px!important;box-shadow:0 4px 16px #343b4318;padding:12px 16px!important;font-family:Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif!important}
+body :is(.sai-head,.ag-head,.sw-head){background:white;border-color:var(--tlal-border);color:var(--tlal-graphite);gap:8px}
+body :is(.sai-head,.ag-head) :is(b,h2){color:var(--tlal-graphite)}
+body :is(.sai-message,.sai-turn,.sai-card){border-color:var(--tlal-border);color:var(--tlal-graphite);border-radius:8px;background:var(--tlal-surface)}
+body :is(.sai-message.user,.sai-turn.user){background:#f7eef1}
+body :is(.sai-card-question,.sai-card-proposal,.sai-card-intent){border-left:3px solid var(--tlal-blue);background:#f1f5f8}
+body :is(.sai-card-warning,.sai-card-error){border-left:3px solid var(--tlal-orange);background:#fcf5ed}
+body :is(.sai-card h3,.sai-card h4,.sai-turn-heading){color:var(--tlal-blue)}
+body :is(#ag-trace,.pg-panel){background:var(--tlal-surface);border-color:var(--tlal-border);color:var(--tlal-graphite);box-shadow:none}
+body #ag-trace[data-state=running]{border-left-color:var(--tlal-orange)}
+body :is(progress,.ag-task-meter){accent-color:var(--tlal-blue)}
+body :is(.ag-event strong,.ag-library-tabs h3){color:var(--tlal-graphite)}
+body :is(#ag-access-summary,#ag-cycle,#ag-brief-summary,.ag-note){color:var(--tlal-secondary)}
+body #sc-action-query{flex:1;min-width:160px;padding:8px 12px}body #sc-action-count{font-size:12px;color:var(--tlal-secondary)}
+/* Desktop: calm, aligned modules; identity is typographic until master artwork is provided. */
+body .desktop-header{padding-top:24px;padding-bottom:24px;border-color:var(--tlal-border)}
+body .desktop-brand{font-weight:700;letter-spacing:-.03em;color:var(--tlal-graphite);font-size:24px;min-width:120px}
+body .desktop-header-links{color:var(--tlal-blue);font-weight:500}
+body .desktop-main{padding-top:48px}.desktop-main h1{font-weight:650;letter-spacing:-.04em;color:var(--tlal-graphite);line-height:1.15}.desktop-main h2{font-weight:600;color:var(--tlal-graphite)}
+body .desktop-eyebrow{color:var(--tlal-maroon);font-size:11px;letter-spacing:.06em}
+body .desktop-subtitle{color:var(--tlal-secondary);line-height:1.6;font-size:16px}
+body .desktop-disk-card{background:var(--tlal-white);border-color:var(--tlal-border);box-shadow:none;border-radius:12px;padding:32px;color:var(--tlal-graphite)}
+body .desktop-drive{background:var(--tlal-surface);color:var(--tlal-blue);border-radius:50%}
+body :is(.desktop-disk-card small,#desktop-storage){color:var(--tlal-secondary)}
+body #desktop-grid{gap:16px}body .desktop-app{border-radius:12px;border-color:var(--tlal-border);padding:24px;min-height:208px;box-shadow:none}
+body .desktop-app:hover{transform:none;box-shadow:none;border-color:var(--tlal-blue);background:#f9fbfc}
+body .desktop-app :is(h3){color:var(--tlal-graphite);font-size:18px}body .desktop-app :is(p,.desktop-category){color:var(--tlal-secondary);font-size:12px;line-height:1.6}
+body #desktop-search{border-color:var(--tlal-border);color:var(--tlal-graphite);border-radius:8px;padding:12px 16px}
+body .desktop-main footer{color:var(--tlal-secondary);letter-spacing:.04em;border-color:var(--tlal-border)}body .desktop-main footer span{color:var(--tlal-secondary)}
+/* Keep compact editor geometry; use spacing to group controls rather than enlarging every button. */
+body .project-heading :is(h1,h1 span){color:var(--tlal-graphite)}body .project-heading h1{font-weight:600}
+body .project-heading p{color:var(--tlal-secondary)}body .rail{background:var(--tlal-surface);border-color:var(--tlal-border)}
+body .modeling-setting{gap:8px;padding:8px;color:var(--tlal-secondary)}body .modeling-setting select{color:var(--tlal-graphite);border-color:var(--tlal-border)}
+@media(max-width:600px){body :is(#suite-disk-dialog,#suite-load-source,#suite-workspace,#ag-library-dialog,.sai-dialog){padding:16px}body .desktop-main{padding:24px 16px 80px}body .desktop-app{padding:16px;min-height:200px}body .desktop-disk-card{padding:24px}body #suite-tools{max-width:calc(100vw - 16px);flex-wrap:wrap}.desktop-main h1{font-size:36px}}
+@media(prefers-reduced-motion:reduce){body :is(button,.desktop-app,.sai-panel,dialog){transition:none;scroll-behavior:auto}}
+body :is(header,.toolbar,.panel-title,.panel-head,.tabs,.sai-panel,#suite-agent,#ag-library-dialog,.pg-panel,#suite-workspace,#suite-disk-dialog){font-family:Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif}
+body :is(.brand span,.logo span){color:var(--tlal-maroon)}
+body :is(.inspect-type,.hint,.subtitle,.status,.stats,.canvas-label,.canvas-subtitle,.ag-note,.sai-empty,.chat-empty,.sw-subtitle){color:var(--tlal-secondary)}
+body button:not(:disabled):not(.primary):not(.dark):not(.sai-primary):not(.ag-primary):not(.sw-primary):not(.sd-primary):hover{background:var(--tlal-surface)}
+/* Selected controls must also override legacy ID-based rules. */
+body [role=tab][aria-selected=true]{background:white!important;border-color:var(--tlal-border)!important;color:var(--tlal-maroon)!important;border-bottom:2px solid var(--tlal-maroon)!important}
+body :is(#tree button.active,#tabs>div.active){background:#f7eef1;color:var(--tlal-maroon);border-color:var(--tlal-maroon)}
+body :is(#tabs,#gutter,.status,.context-bar,.call-output,.agent-intro,.suite-agent-window-controls){background:var(--tlal-surface);color:var(--tlal-secondary)}
+body .agent :is(h2,h3,.eyebrow){color:var(--tlal-graphite)}
+body .token-keyword{color:var(--tlal-maroon)}body .token-number{color:#9b5210}body .token-string{color:var(--tlal-blue)}
+body [role=tab]{border-color:var(--tlal-border)}
+body :is(.suite-conversation-tools,.ag-conversation-tools){border-color:var(--tlal-border);background:var(--tlal-surface);color:var(--tlal-graphite)}
+body :is(.header-foldbar,.rail-bottom){background:var(--tlal-surface);border-color:var(--tlal-border);color:var(--tlal-graphite)}
+body :is(.eyebrow,.header-foldbar button){color:var(--tlal-maroon)}
+body :is(.component-item.selected,.component-item:hover){background:var(--tlal-surface);border-color:var(--tlal-border)}
+body :is(.library-caption,.library-footer p,.field,.inspector small,.tabs-right,#canvasSubtitle){color:var(--tlal-secondary)}
+body :is(#suite-workspace,#suite-disk-dialog,#ag-library-dialog,.sai-dialog) input[type=checkbox]{accent-color:var(--tlal-maroon)}
+body :is(header,.explorer-bottom,.sai-dialog,#suite-workspace,#suite-tools) a:not(.brand):not(.logo):not(.desktop-brand){color:var(--tlal-blue)}
+body :is(#suite-workspace,#ag-library-dialog,#suite-disk-dialog,.sai-panel) :focus-visible{outline:2px solid var(--tlal-blue);outline-offset:3px}
+
+/* Application chrome only: editable documents and media retain their typography. */
+body :is(.brand,.logo){font-weight:700}
+body :is(header,.toolbar,.sai-head,.ag-head,.sw-head) :is(button,label,select){font-weight:500;line-height:1.35}
+body :is(.brand small,.eyebrow,.desktop-eyebrow,.panel-name,.section-label){text-transform:none;letter-spacing:.04em}
+body :is(.sai-form,.sai-context,.ag-head,.sw-head,.sd-head){gap:8px}
+body :is(.sai-messages,.sai-files,.sw-panel,.ag-panel){font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){body :is(.sai-launch,.pg-panel,.ag-event,progress){animation:none!important;transition:none!important}}
+
+body :is(header,aside,.panel-title,.panel-head,.sai-panel,#suite-workspace,#suite-agent,#suite-skills) :is(h1,h2,h3){font-weight:600;line-height:1.25}

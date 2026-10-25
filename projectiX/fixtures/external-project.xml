@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-authored MSPDI input, independent of the projectiX exporter. -->
+<Project xmlns="http://schemas.microsoft.com/project">
+  <Name>Independent project</Name><StartDate>2026-10-19T08:00:00</StartDate><MinutesPerDay>480</MinutesPerDay>
+  <Calendars><Calendar><UID>1</UID><Name>External calendar</Name><IsBaseCalendar>1</IsBaseCalendar></Calendar></Calendars>
+  <Tasks>
+    <Task><UID>1</UID><Name>Independent phase</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Duration>PT40H</Duration></Task>
+    <Task><UID>2</UID><Name>Independent discovery</Name><OutlineLevel>2</OutlineLevel><Summary>0</Summary><Duration>PT16H</Duration><Start>2026-10-19T08:00:00</Start><Notes>Independent source notes</Notes></Task>
+    <Task><UID>3</UID><Name>Independent delivery</Name><OutlineLevel>2</OutlineLevel><Summary>0</Summary><Duration>PT24H</Duration><Start>2026-10-22T08:00:00</Start><PredecessorLink><PredecessorUID>2</PredecessorUID><Type>1</Type><LinkLag>4800</LinkLag></PredecessorLink></Task>
+  </Tasks>
+  <Resources><Resource><UID>1</UID><Name>Independent owner</Name></Resource></Resources>
+  <Assignments><Assignment><TaskUID>2</TaskUID><ResourceUID>1</ResourceUID></Assignment></Assignments>
+</Project>

@@ -1,0 +1,20 @@
+{
+  "format": "architex-relay-providers",
+  "version": 1,
+  "activeProfileId": "edenai",
+  "profiles": [
+    {
+      "id": "edenai",
+      "provider": "edenai",
+      "name": "Eden AI example",
+      "protocol": "openai",
+      "endpoint": "https://api.edenai.run/v3/llm/chat/completions",
+      "model": "openai/gpt-4o-mini",
+      "apiKey": "",
+      "upstreamProvider": "openai",
+      "maxTokens": 4096,
+      "temperature": 0.2
+    }
+  ],
+  "allowedOrigins": []
+}

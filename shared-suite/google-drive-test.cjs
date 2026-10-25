@@ -1,0 +1,32 @@
+const assert=require('node:assert/strict'),{Client,FOLDER,SCOPES,parseReference,conversion,filename}=require('./google-drive.js');
+(async()=>{assert.equal(SCOPES.files,'https://www.googleapis.com/auth/drive.file');assert.equal(SCOPES.all,'https://www.googleapis.com/auth/drive');for(const url of ['model','https://drive.google.com/file/d/model/view','https://drive.google.com/drive/u/0/folders/model','https://docs.google.com/document/d/model/edit','https://drive.google.com/open?id=model'])assert.equal(parseReference(url),'model');for(const url of ['https://evil.example/file/d/model','https://drive.google.com.evil.example/folders/model','https://key:secret@drive.google.com/file/d/model','javascript:alert(1)','https://drive.google.com/file/d/..%2Fsecret/view'])assert.throws(()=>parseReference(url));let token='temporary',invalidated=0,calls=[],queue=[];const client=new Client({getToken:()=>token,invalidate:()=>{token='';invalidated++;},fetch:async(url,options)=>{calls.push({url,options});const item=queue.shift();if(item instanceof Error)throw item;return item;}}),json=(value,headers={})=>new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json',...headers}});
+queue.push(json({files:[],nextPageToken:'second'}));assert.equal((await client.list('root','first')).nextPageToken,'second');assert.match(calls[0].url,/pageToken=first/);assert.equal(calls[0].options.headers.Authorization,'Bearer temporary');
+await assert.rejects(()=>client.list("root' or trashed=true"),/Invalid/);assert.equal(calls.length,1);
+queue.push(new Response(new Uint8Array([0,1,255]),{headers:{'Content-Type':'image/png'}}));const binary=await client.download({id:'image',name:'image.png',mimeType:'image/png'});assert.deepEqual([...new Uint8Array(await binary.blob.arrayBuffer())],[0,1,255]);assert.match(calls.at(-1).url,/alt=media/);
+queue.push(new Response('converted'));const doc=await client.download({id:'document',name:'Notes',mimeType:'application/vnd.google-apps.document'});assert.equal(doc.name,'Notes.docx');assert.match(calls.at(-1).url,/\/export\?/);assert.match(doc.type,/wordprocessingml/);assert.throws(()=>conversion({mimeType:'application/vnd.google-apps.form'}),/cannot be imported/);assert.equal(filename('a/b\\c'),'a_b_c');
+for(const [kind,ext] of [['document','docx'],['spreadsheet','xlsx'],['presentation','pptx']]){
+ queue.push(new Response('office package'));
+ const downloaded=await client.download({id:kind,name:'Example',mimeType:'application/vnd.google-apps.'+kind});
+ assert.equal(downloaded.name,'Example.'+ext);
+ queue.push(json({id:'native-'+kind,mimeType:'application/vnd.google-apps.'+kind}));
+ await client.save({name:'Example.'+ext,blob:new Blob(['office package']),nativeType:kind});
+ const request=calls.at(-1),body=await request.options.body.text();
+ assert.equal(request.options.method,'POST');assert.ok(body.includes('"mimeType":"application/vnd.google-apps.'+kind+'"'));assert.ok(body.includes('"name":"Example"'));assert.ok(body.includes(downloaded.type));
+}
+await assert.rejects(()=>client.save({name:'bad.docx',blob:new Blob(['x']),nativeType:'spreadsheet'}),/matching DOCX/);
+const nativeReplace={id:'native',version:'1',mimeType:'application/vnd.google-apps.document'};
+await assert.rejects(()=>client.save({name:'raw.docx',blob:new Blob(['x']),replace:nativeReplace}),/matching native/);
+queue.push(json({id:'native',version:'1'},{ETag:'"native-v1"'}),json({id:'native'}));
+await client.save({name:'Updated.docx',blob:new Blob(['x']),nativeType:'document',replace:nativeReplace});
+assert.equal(calls.at(-1).options.method,'PATCH');assert.equal(calls.at(-1).options.headers['If-Match'],'"native-v1"');
+queue.push(json({id:'native',version:'1'}));await assert.rejects(()=>client.save({name:'Updated.docx',blob:new Blob(['x']),nativeType:'document',replace:nativeReplace}),/conditional update token/);
+queue.push(json({id:'created',name:'test.bin'}));await client.save({name:'test.bin',blob:new Blob([new Uint8Array([0,255])],{type:'application/octet-stream'}),parent:'folder'});const create=calls.at(-1);assert.equal(create.options.method,'POST');const payload=new Uint8Array(await create.options.body.arrayBuffer());assert.ok(payload.some((n,i)=>n===0&&payload[i+1]===255));assert.match(await create.options.body.text(),/"parents":\["folder"\]/);assert.ok(!create.options.headers['If-Match']);
+queue.push(json({id:'file',version:'2'},{ETag:'"v2"'}),json({id:'file',name:'changed'}));await client.save({name:'changed',blob:new Blob(['new']),replace:{id:'file',version:'2',mimeType:'text/plain'}});assert.equal(calls.at(-1).options.method,'PATCH');assert.equal(calls.at(-1).options.headers['If-Match'],'"v2"');assert.doesNotMatch(await calls.at(-1).options.body.text(),/parents/);
+queue.push(json({id:'file',version:'3'}));const count=calls.length;await assert.rejects(()=>client.save({name:'changed',blob:new Blob(['new']),replace:{id:'file',version:'2'}}),/changed/);assert.equal(calls.length,count+1);
+await assert.rejects(()=>client.tree('root','../escape'),/Unsafe folder path/);
+queue.push(json({files:[{id:'folder-a',name:'child',mimeType:FOLDER}],nextPageToken:'page2'}),json({files:[{id:'nested',name:'a.txt',mimeType:'text/plain'}]}),new Response('nested'),json({files:[{id:'top',name:'b.txt',mimeType:'text/plain'}]}),new Response('top'));const tree=await client.tree('root','Root');assert.deepEqual(tree.map(f=>f.relativePath),['Root/child/a.txt','Root/b.txt']);
+queue.push(json({files:[{id:'a',name:'same',mimeType:'text/plain'},{id:'b',name:'same',mimeType:'text/plain'}]}),new Response('a'));await assert.rejects(()=>client.tree('root','Root'),/Duplicate/);
+queue.push(new Response(JSON.stringify({error:{message:'Denied'}}),{status:403}));await assert.rejects(()=>client.list(),/403: Denied/);queue.push(new DOMException('cancel','AbortError'));await assert.rejects(()=>client.list(),e=>e.name==='AbortError');queue.push(new Error('offline'));await assert.rejects(()=>client.list(),/could not be reached/);
+queue.push(new Response('',{status:401}));await assert.rejects(()=>client.list(),/expired/);assert.equal(invalidated,1);await assert.rejects(()=>client.list(),/Connect Google Drive/);
+console.log('PASS: Drive pagination, safe IDs, binary/native downloads, multipart create, conditional replacement, stale rejection, recursive folders, duplicate paths, auth expiry, errors and cancellation.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,0 +1,1 @@
+{"name":"tlal-agent-code-navigation","private":true,"version":"1.0.0","description":"Trusted TypeScript language service for coding-agent navigation","dependencies":{"typescript":"5.9.3"}}

@@ -1,0 +1,2 @@
+# Optional official verifier for Google Identity Services sign-in.
+google-auth[requests]>=2.38,<3

@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),P=require('./project.js');
+const project={version:1,name:'Project',files:[{path:'public.js',content:'public'},{path:'secret.env',content:'private'}],aiExcluded:['secret.env']};
+assert.deepEqual(P.validate(project).aiExcluded,['secret.env']);assert.throws(()=>P.validate({...project,aiExcluded:'secret.env'}),/list of file paths/);assert.throws(()=>P.validate({...project,aiExcluded:['../escape']}),/relative file path/);
+const snapshot=P.aiSnapshot(project);assert.equal(snapshot.files.length,1);assert.ok(!JSON.stringify(snapshot).includes('secret'));assert.ok(!JSON.stringify(snapshot).includes('private'));
+assert.deepEqual(P.aiMerge(project,{...snapshot,files:[]}).files,[project.files[1]]);
+assert.throws(()=>P.aiMerge(project,{...snapshot,files:[{path:'secret.env',content:'changed'}]}),/excluded/);
+assert.throws(()=>P.aiChanges(project,[{path:'secret.env',action:'delete'}]),/excluded/);
+assert.throws(()=>P.aiChanges(project,[{path:'secret.env',action:'write',content:'changed'}]),/excluded/);
+const next=P.candidate(project,[{path:'public.js',action:'write',content:'updated'}]);assert.deepEqual(next.aiExcluded,['secret.env']);
+assert.ok(!P.aiMerge({...project,aiExcluded:[]},{...snapshot,aiExcluded:['public.js']}).aiExcluded);
+console.log('PASS AI context exclusions, persistence, protected edits and excluded-file preservation.');

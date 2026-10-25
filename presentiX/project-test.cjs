@@ -1,0 +1,5 @@
+const assert=require('node:assert/strict'),P=require('./project.js');
+const deck=P.starter();assert.equal(deck.slides.length,3);assert.deepEqual(P.validate(deck),deck);const ids=deck.slides.flatMap(s=>[s.id,...s.elements.map(e=>e.id)]);assert.equal(new Set(ids).size,ids.length);
+for(const bad of [{...deck,slides:[]},{...deck,name:''},{...deck,width:NaN},{...deck,slides:[{...deck.slides[0],elements:[{...deck.slides[0].elements[0],type:'script'}]}]},{...deck,slides:[{...deck.slides[0],elements:[P.element('image',{src:'https://evil.example/image.svg'})]}]},{...deck,slides:[deck.slides[0],deck.slides[0]]}])assert.throws(()=>P.validate(bad));
+assert.equal(P.validate({...deck,slides:[{...deck.slides[0],elements:[P.element('text',{text:'<script>alert(1)</script>'})]}]}).slides[0].elements[0].text,'<script>alert(1)</script>');assert.equal(deck.slides[0].elements[0].fontSize,48);
+console.log('PASS: deck/schema normalization, unique IDs, starter, unsafe element/image rejection and size/dimension validation.');

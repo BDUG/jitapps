@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://architex.local/schemas/instances.schema.json",
+  "title": "Instance model exchange",
+  "allOf": [
+    {
+      "$ref": "https://architex.local/schemas/workspace.schema.json"
+    },
+    {
+      "type": "object",
+      "required": [
+        "modelType",
+        "portModelVersion"
+      ],
+      "properties": {
+        "modelType": {
+          "const": "instances"
+        },
+        "portModelVersion": {
+          "const": 2
+        }
+      }
+    }
+  ]
+}

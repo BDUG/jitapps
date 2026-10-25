@@ -1,0 +1,15 @@
+{
+  "name": "tlal-os-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional Tauri 2 desktop shell for the entire TLAL OS app suite",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "prepare:desktop": "node scripts/prepare.cjs",
+    "check": "node scripts/check.cjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

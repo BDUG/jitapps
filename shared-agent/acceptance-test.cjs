@@ -1,0 +1,5 @@
+const assert=require('node:assert/strict'),A=require('./acceptance.js'),L=require('./loop.js'),fixtures=require('./acceptance-fixtures.json');
+for(const f of fixtures){const before=JSON.stringify(f);assert.deepEqual(A.evaluate(f.rules,f.events).results.map(r=>r.status),f.expected,f.name);assert.equal(JSON.stringify(f),before);}
+for(const bad of [{},[{id:'a',title:'A',tool:'read_file',checks:[]}],[{id:'a',title:'A',tool:'read_file',checks:[{path:'/x',op:'exists',value:false}],afterEdits:null}]])assert.throws(()=>A.validate(bad));
+const pending={acceptanceRules:fixtures[0].rules,events:[],tools:[],permissions:{}};assert.match(L.completionIssue(pending,{status:'done',outcome:'complete'}),/acceptance rules/);assert.equal(L.completionIssue(pending,{status:'done',outcome:'partial'}),null);assert.equal(L.completionIssue({...pending,events:fixtures[2].events},{status:'done',outcome:'complete'}),null);
+console.log('PASS: shared acceptance fixtures, specific argument matching, latest-result failures, stale/reverified results, pointer types, immutable inputs, completion gate and partial outcomes.');

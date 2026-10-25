@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "name": "Draft, review and refine with AI",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "name": "start",
+      "x": 50,
+      "y": 150,
+      "config": {
+        "data": "{\"topic\":\"a small community garden\"}"
+      }
+    },
+    {
+      "id": "refine",
+      "type": "ai",
+      "name": "refine",
+      "x": 360,
+      "y": 150,
+      "config": {
+        "system": "You are a thoughtful planning assistant. Reply as JSON with answer (a concise plan) and done (a boolean).",
+        "prompt": "Draft a plan for {{ item.topic }}. Set done to false so the next round can review it.",
+        "rounds": 3,
+        "followUpPrompt": "Review your earlier plan for gaps and improve it. Return JSON with answer and done. Set done to true only when it is ready.",
+        "history": "[]",
+        "stopWhen": "data.done",
+        "stopValue": "true",
+        "timeout": 30000,
+        "resultKey": "ai",
+        "keepInput": true
+      }
+    },
+    {
+      "id": "save",
+      "type": "writeFile",
+      "name": "save",
+      "x": 670,
+      "y": 150,
+      "config": {
+        "path": "results/iterative-plan.json",
+        "content": "{{ item.ai }}",
+        "encoding": "json",
+        "mimeType": "",
+        "overwrite": false,
+        "expectedRevision": "",
+        "resultKey": "savedFile",
+        "keepInput": true
+      }
+    },
+    {
+      "id": "done",
+      "type": "log",
+      "name": "done",
+      "x": 980,
+      "y": 150,
+      "config": {
+        "message": "Finished after {{ item.ai.roundsCompleted }} rounds: {{ item.savedFile.path }}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "source": "start",
+      "target": "refine",
+      "port": "out"
+    },
+    {
+      "id": "e1",
+      "source": "refine",
+      "target": "save",
+      "port": "out"
+    },
+    {
+      "id": "e2",
+      "source": "save",
+      "target": "done",
+      "port": "out"
+    }
+  ]
+}

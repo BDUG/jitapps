@@ -1,0 +1,6 @@
+"""Compatibility import; implementation lives in server/relay_config.py."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from server import relay_config as _implementation
+sys.modules[__name__] = _implementation

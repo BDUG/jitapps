@@ -1,0 +1,1101 @@
+{
+  "startedAt": "2026-10-24T13:26:07.267Z",
+  "finishedAt": "2026-10-24T13:30:59.959Z",
+  "mode": "unit-and-browser",
+  "baseURL": "http://127.0.0.1:8024",
+  "passed": true,
+  "checks": 108,
+  "failed": 0,
+  "limitations": [
+    "Does not establish feature parity or complete format fidelity.",
+    "Does not test live AI providers, external cloud deployments or production performance.",
+    "Browser checks cover the listed workflows; they are not a full accessibility audit."
+  ],
+  "results": [
+    {
+      "file": "codeiX/tauri-export-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 38,
+      "output": "PASS: Tauri v2 scaffold, static/nested/build assets, immutable sources, collision isolation, launch config, capability/icon files, empty-project launcher and invalid-option guards.\n"
+    },
+    {
+      "file": "shared-agent/brief-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 33,
+      "output": "PASS: evidence ledger, stale verification, failure diagnosis, exact output cursors, tool availability, latest instructions and immutable history.\n"
+    },
+    {
+      "file": "shared-agent/trace-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 47,
+      "output": "PASS: live operation boundaries, failed tools, cancellation, argument privacy and observer isolation.\n"
+    },
+    {
+      "file": "shared-agent/response-parse-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 100,
+      "output": "PASS: paged completion and direct agent review use the same single-object parser.\nPASS: trailing prose and fenced replies, escaped string preservation, ambiguous/multiple/truncated JSON rejection and automatic correction without choosing an extra action.\n"
+    },
+    {
+      "file": "shared-ai/paging-takeover-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 84,
+      "output": "PASS: direct-first compressed requests, manual/automatic partial takeover, cancellation precedence and agent replanning without executing partial actions.\n"
+    },
+    {
+      "file": "shared-ai/paging-normalize-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 74,
+      "output": "PASS: bare/encoded envelopes, string-aware trailing-comma normalization, exact string content, accepted-page pause accounting, strict identifiers and rejected truncation.\n"
+    },
+    {
+      "file": "shared-ai/paging-final-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 72,
+      "output": "PASS: assembled JSON validation, last-fragment correction, one bounded output restart without rereading inputs, rejected output archive, explicit text opt-out and object contracts.\n"
+    },
+    {
+      "file": "shared-ai/paging-resilience-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2341,
+      "output": "PASS: bounded network/429/proxy retries, unchanged page indexes, auth and long Retry-After handling, alternating-read loop repair, empty completion repair and abortable backoff.\n"
+    },
+    {
+      "file": "shared-ai/paging-repair-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 74,
+      "output": "PASS: fenced JSON, same-page automatic repair, preserved accepted output, bounded bad-source retries, manual retry reset, recovery metadata and cancellation.\n"
+    },
+    {
+      "file": "shared-agent/acceptance-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 39,
+      "output": "PASS: shared acceptance fixtures, specific argument matching, latest-result failures, stale/reverified results, pointer types, immutable inputs, completion gate and partial outcomes.\n"
+    },
+    {
+      "file": "shared-agent/workflows-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 38,
+      "output": "PASS: preset validation, pending-question lifecycle, immutable handoff, actual command outcomes, exact failure text and exclusion of raw source/logs.\nPASS: handoff import validation, idempotent normalization, draft-only continuation and task comparison without modifying live observations.\n"
+    },
+    {
+      "file": "architex/ai-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 52,
+      "output": "PASS: relay-only client boundary, rule-library safety, proposals/reference checks, disabled generated scripts, immutable candidates, agent-guide parity.\n"
+    },
+    {
+      "file": "architex/chat-format-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 35,
+      "output": "PASS: headings, inline formatting, lists, tables, code fences, incomplete fences, raw proposal folding, safe links and escaped HTML/attributes.\n"
+    },
+    {
+      "file": "architex/exposure-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 38,
+      "output": "PASS: default exposure, derived interface provenance, opt-out and parent-instance definition integrity.\n"
+    },
+    {
+      "file": "architex/hierarchy-layout-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 34,
+      "output": "PASS: left-to-right dependency ranking, subgroup-induced dependencies, nested subgroups inside parents, variable heights, disconnected families, cycle feedback columns, repeatability, empty graph and hierarchy-cycle rejection.\n"
+    },
+    {
+      "file": "architex/layout-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 379,
+      "output": "PASS: 16 variable-height blocks, 33 cyclic/self edges, both modes: zero node overlap, orthogonal routing, zero node-interior crossings.\n"
+    },
+    {
+      "file": "architex/mermaid-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 82,
+      "output": "PASS: Mermaid scoped round trips, native cyclic chains, typed instances/ports, escaped labels, empty exports and unsupported/unsafe syntax rejection.\nPASS: nested subgroups, colors/classes, labels, shapes, fan-out, bidirectional/reverse links, Markdown/front matter, instance normalization notes and line diagnostics.\nPASS: Both models generation, complete-workspace replacement, invalid/scoped workspace rejection, and scoped Mermaid expansion.\nPASS: unmapped native instance imports infer connected types while retaining active definitions, with repeat-import stability.\nPASS: typed Both-model example with empty/partial metamodel, new directional ports, retained definitions and stable reimport.\n"
+    },
+    {
+      "file": "architex/port-model-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 45,
+      "output": "PASS: independent data points, no live inheritance, definition/type policies, repairable legacy connections, name constraint, red highlights, duplicate/reference checks, legacy migration, query API and all-schema catalogue parity.\n"
+    },
+    {
+      "file": "architex/rst-scope-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 88,
+      "output": "PASS: strict scopes, metamodel compatibility/clear, both RST ZIP round-trips, repeatable exports, nested docs/assets/subgroups, cross-file cycles, code examples ignored, duplicate/dangling/include/path errors, native instance type mapping.\n"
+    },
+    {
+      "file": "architex/validation-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 34,
+      "output": "PASS: scripting queries, immutable snapshots, default script parity, rule attribution, severity, return values, exceptions, async rejection.\n"
+    },
+    {
+      "file": "appiX/designer-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 40,
+      "output": "PASS: designer IDs/hierarchy/actions/style guards, generated runtime syntax, authoritative designer source regeneration, complete project round trip and AI schema.\nPASS: legacy Home screen migration, screen references, cross-screen parent rejection and grid constraints.\nPASS: responsive schema/override persistence and unsafe style rejection.\n"
+    },
+    {
+      "file": "appiX/project-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 33,
+      "output": "PASS: four starter projects, executable starter syntax, markup escaping, script-boundary escaping and project limits.\n"
+    },
+    {
+      "file": "automatextiX/ai-rounds-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 96,
+      "output": "PASS: multi-item round isolation, follow-up templates, early finish, cross-node history, cancellation/partial replies, legacy defaults, config guards and bounded history.\n"
+    },
+    {
+      "file": "automatextiX/call-steps-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 74,
+      "output": "PASS: AI \u2192 command \u2192 web \u2192 log argument/result chaining, typed templates, authorization, nonzero exits, output retention, cancellation and config guards.\n"
+    },
+    {
+      "file": "automatextiX/engine-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 81,
+      "output": "PASS: demo branching/merge, immutable data, template types and path safety, cycle/duplicate rejection, skipped branches, cancellation, HTTP request construction, response parsing and failures.\n"
+    },
+    {
+      "file": "automatextiX/workspace-files-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 81,
+      "output": "PASS: workspace read \u2192 AI \u2192 write, typed JSON, same-file revisions, binary round-trip, listing, UTF-8/path/size guards, create-only conflicts, partial receipts and cancellation.\n"
+    },
+    {
+      "file": "codeiX/project-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 33,
+      "output": "PASS: project/path/size validation, atomic candidates, snapshot identifiers, duplicate edits, missing deletes, prose answers, malformed JSON and review diffs.\n"
+    },
+    {
+      "file": "mindiX/model-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 44,
+      "output": "PASS: tree/schema validation, cycles/orphans/unsafe links, collapse, non-overlap layouts, branch scopes and diagram conversion.\nPASS: task dates, relationship integrity and scoped relationship exports.\nPASS: embedded images, styled branch/relationship exports, persistence and invalid image/style rejection.\n"
+    },
+    {
+      "file": "presentiX/project-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 39,
+      "output": "PASS: deck/schema normalization, unique IDs, starter, unsafe element/image rejection and size/dimension validation.\n"
+    },
+    {
+      "file": "projectiX/model-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 40,
+      "output": "PASS: working calendar, FS/SS/FF/SF and lag, milestone boundary dates, summary rollups, critical slack, validation/cycles and horizon bounds.\n"
+    },
+    {
+      "file": "reportiX/report-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 48,
+      "output": "PASS: source validation, report structure, citation membership, mandatory attribution, safe rendering, bar/line visuals, Markdown and invalid numeric data.\n"
+    },
+    {
+      "file": "sheetiX/formulas-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 34,
+      "output": "PASS: arithmetic precedence, functions, lazy IF, ranges, cross-sheet references, text, quoted values, errors, cycles and address conversion.\n"
+    },
+    {
+      "file": "sketchiX/artwork-model-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 33,
+      "output": "PASS: sketch/shape document separation, control-point validation, limits and safe SVG serialization.\n"
+    },
+    {
+      "file": "sketchiX/model-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 34,
+      "output": "PASS: diagram validation, reference integrity, bounds, image restrictions, routing and self connections.\n"
+    },
+    {
+      "file": "sketchiX/uml-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 39,
+      "output": "PASS: 11 UML types, defaults, compartment rendering, SVG escaping, AI schema and connection routing.\n"
+    },
+    {
+      "file": "vidiX/model-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 34,
+      "output": "PASS: timeline normalization, interpolation, fades, bounds, unique IDs, media references and video trim/speed integrity.\nPASS: vector frame validation, ordering/hold sampling, missing/duplicate/out-of-range drawings, layer visibility and locks.\n"
+    },
+    {
+      "file": "vidiX/editing-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 33,
+      "output": "PASS: nonmutating split/trim, sampled motion and fade preservation, video speed/trim continuity, vector drawing rebasing and locked/boundary rejection.\n"
+    },
+    {
+      "file": "shared-ai/paging-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 62,
+      "output": "PASS: lossless Unicode input paging, source rereads, exact output assembly, batch pauses, direct compatibility, output-limit recovery, partial retention and cancellation.\n"
+    },
+    {
+      "file": "shared-ai/paging-workflow-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 1097,
+      "output": "PASS: workflow AI pages retain full input, reassemble typed output and pass it downstream; per-page timeout allows longer total operations.\n"
+    },
+    {
+      "file": "shared-agent/loop-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 39,
+      "output": "PASS: iterative plan/action/observation/verification, step-budget continuation, question pause, identifier/tool validation, public-plan filtering and cancellation.\n"
+    },
+    {
+      "file": "shared-agent/react-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 36,
+      "output": "PASS: observation-based adaptation, exit/timeout/conflict classification, completion repair then verification, manual edit freshness, alternating-cycle pause, actual progress and reflection provenance.\n"
+    },
+    {
+      "file": "shared-agent/resume-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 38,
+      "output": "PASS: durable planning cursor, persisted/deduplicated corrections on resume, superseded malformed reply discard, steering during retrieval, all failed corrections retained and cancellation before provider request.\n"
+    },
+    {
+      "file": "shared-agent/checks-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 37,
+      "output": "PASS: declarative check validation before tools, expectation-failure adaptation, completion guard, partial outcome and valid checked action execution.\n"
+    },
+    {
+      "file": "shared-agent/context-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 573,
+      "output": "PASS: >90% historical context reduction, immutable originals, pinned instructions/schema/tasks/verification, full latest retrieved evidence, exact snapshot refs, soft-target disclosure and Off mode.\n"
+    },
+    {
+      "file": "shared-agent/progress-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 37,
+      "output": "PASS: no-progress pause without replay, follow-up reset, task validation/resumption, partial outcomes and observed command evidence.\n"
+    },
+    {
+      "file": "shared-agent/steering-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 35,
+      "output": "PASS live instruction supersession, revision handover, no-replay response recovery, cancellation and retained protocol-repair feedback.\n"
+    },
+    {
+      "file": "appiX/rust-export-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 33,
+      "output": "PASS Rust package generation: Cargo metadata, embedded SPA routes, no dependency downloads and explicit browser/Rust boundary.\n"
+    },
+    {
+      "file": "vidiX/designs-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 44,
+      "output": "PASS: six editable templates at three sizes, vertical project validation, independent IDs, append bounds and locked/native motion presets.\n"
+    },
+    {
+      "file": "shared-suite/workspace-core-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 31,
+      "output": "PASS: literal/case-aware search, reviewed replacement inputs, immutable data, protected IDs/assets/evidence/scripts/formulas, diff and envelope isolation.\n"
+    },
+    {
+      "file": "shared-suite/capabilities-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 40,
+      "output": "PASS: nonmutating tool edits, idempotent workflow/slide/navigation actions, formula preservation, weighted progress, lock guards and safe CSV/Markdown escaping.\nPASS: paginated sheetiX workbook inventories, header styles, formula-safe literals and explicit size rejection.\n"
+    },
+    {
+      "file": "shared-suite/editing-actions-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 43,
+      "output": "PASS native editing operations: dependency layout/cycle guards, literal formats, estimate bounds, sequence locks/timing, sibling order, citation selection, labels, grid, typography and project settings.\nPASS: additional suite actions preserve formulas, bindings, explicit styles, resource names and timing bounds.\n"
+    },
+    {
+      "file": "shared-suite/bulk-edit-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 30,
+      "output": "PASS bulk edits: immutable proposals, protected fields and locks, strict types, duplicate/path rejection, actual native stroke width.\n"
+    },
+    {
+      "file": "shared-suite/bulk-transfer-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 39,
+      "output": "PASS: typed CSV roundtrip, quoted multiline TSV, formula-safe JSON values, SHA-256 revision/tool guards, atomic batch conversion and protected fields.\n"
+    },
+    {
+      "file": "shared-suite/productivity-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 38,
+      "output": "PASS: nonmutating native productivity actions across architecture, apps, workflows, reports, slides, diagrams, maps, schedules, video, artwork and code.\n"
+    },
+    {
+      "file": "shared-suite/variants-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 41,
+      "output": "PASS: immutable graph/screen/branch/phase/slide/sequence copies, new IDs/internal links, shared external refs/state, inactive workflow copies, follow-up brief and transpose formulas/styles.\n"
+    },
+    {
+      "file": "sheetiX/fill-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 28,
+      "output": "PASS fill: relative/absolute/range/cross-sheet references, quoted strings, styles, overwrite semantics, atomic bounds checks and native rectangular fill.\n"
+    },
+    {
+      "file": "codeiX/tauri-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 1926,
+      "output": "PASS: Tauri ZIP UI, configuration errors, real ZIP contents/icons, source preservation, stale export protection, build mode, virtual disk and mobile dialog.\n"
+    },
+    {
+      "file": "shared-suite/skills-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 4483,
+      "output": "PASS: source filters, bulk selection, retrieval preview, staged history restore, app-set copy, exact reader back/next, full downloads, app isolation, save/reset/export, mobile and origin protection.\n"
+    },
+    {
+      "file": "shared-agent/takeover-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 5491,
+      "output": "PASS: pre-run choice/cancel, persisted review policy, no edits before approval, accept/reject, stale-edit protection, stop during review and direct takeover.\n"
+    },
+    {
+      "file": "shared-suite/theme-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 12516,
+      "output": "PASS desktop TLAL tokens, typography, control states and mobile load\nPASS architex/ TLAL tokens, typography, control states and mobile load\nPASS graphiX/ TLAL tokens, typography, control states and mobile load\nPASS textiX/ TLAL tokens, typography, control states and mobile load\nPASS sheetiX/ TLAL tokens, typography, control states and mobile load\nPASS codeiX/ TLAL tokens, typography, control states and mobile load\nPASS appiX/ TLAL tokens, typography, control states and mobile load\nPASS automatextiX/ TLAL tokens, typography, control states and mobile load\nPASS reportiX/ TLAL tokens, typography, control states and mobile load\nPASS presentiX/ TLAL tokens, typography, control states and mobile load\nPASS sketchiX/ TLAL tokens, typography, control states and mobile load\nPASS mindiX/ TLAL tokens, typography, control states and mobile load\nPASS projectiX/ TLAL tokens, typography, control states and mobile load\nPASS vidiX/ TLAL tokens, typography, control states and mobile load\nPASS sketchiX/sketch.html TLAL tokens, typography, control states and mobile load\nPASS sketchiX/shape.html TLAL tokens, typography, control states and mobile load\nPASS architex/relay.html TLAL tokens, typography, control states and mobile load\n"
+    },
+    {
+      "file": "architex/direct-diagram-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2909,
+      "output": "PASS: direct components, mouse connections, cleanup, separate persistence/reload, typed workspace preservation, diagram exchange, AI edits and mobile configuration.\n"
+    },
+    {
+      "file": "vidiX/creation-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2798,
+      "output": "PASS: blank New project/Undo/Redo/reload, New frame from empty/native layers, repeated insertion without artwork loss, end extension, visible new layers at playhead and persistence.\n"
+    },
+    {
+      "file": "vidiX/ux-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 1849,
+      "output": "PASS: preview selection/drag/resize with atomic undo, restored playhead, keyboard stepping/split, lock guards, timeline trimming, opacity preservation, persistence and export-clean overlays.\n"
+    },
+    {
+      "file": "shared-suite/button-controls-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 42509,
+      "output": "PASS architex/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS graphiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS textiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sheetiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS codeiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS appiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS automatextiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS reportiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS presentiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sketchiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS mindiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS projectiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS vidiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sketchiX/sketch.html shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sketchiX/shape.html shared navigation, workspace tabs, disk and agent-tools buttons\n"
+    },
+    {
+      "file": "shared-suite/extensions-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 5978,
+      "output": "PASS architex extension validated, restored and registered\nPASS graphiX extension validated, restored and registered\nPASS textiX extension validated, restored and registered\nPASS sheetiX extension validated, restored and registered\nPASS codeiX extension validated, restored and registered\nPASS appiX extension validated, restored and registered\nPASS automatextiX extension validated, restored and registered\nPASS reportiX extension validated, restored and registered\nPASS presentiX extension validated, restored and registered\nPASS sketchiX extension validated, restored and registered\nPASS mindiX extension validated, restored and registered\nPASS projectiX extension validated, restored and registered\nPASS vidiX extension validated, restored and registered\n"
+    },
+    {
+      "file": "architex/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 3006,
+      "output": "PASS: both graph views, 10 file round-trips, property edits, instantiation, defaults, local persistence, add block/port, graphical reconnection, atomic invalid import, native draw.io import, external geometry/name edits, desktop/mobile rendering, no page errors.\n"
+    },
+    {
+      "file": "textiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2529,
+      "output": "PASS: rich text formatting, history, outline, tables, safe links, replace all, persistence, three exports, sanitized HTML import, Markdown import, print and mobile layouts, no browser errors.\n"
+    },
+    {
+      "file": "sheetiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 5984,
+      "output": "PASS: cell editing, formulas, range formatting, undo/redo, clipboard blocks, sheets, persistence, JSON/XLSX/CSV exports, Excel round-trip, quoted CSV, formula escaping, atomic invalid import and responsive layout.\n"
+    },
+    {
+      "file": "codeiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2831,
+      "output": "PASS: project editing, syntax overlay, local persistence, files, history, search, ZIP round-trip, sandbox preview, relay health, structured agent calls, reviewed atomic changes, Undo, stale proposal protection and unsafe import rejection.\n"
+    },
+    {
+      "file": "appiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2773,
+      "output": "PASS: starter interactions, isolated preview, diagnostics, source/history/persistence, calculator, single-file export, structured AI review/apply, explicit preview execution and invalid import rejection.\n"
+    },
+    {
+      "file": "automatextiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2226,
+      "output": "PASS: visual graph, default execution, step editing, branch skips, Undo/persistence, port connections, cleanup, cancellation, workflow/schema downloads, round-trip, cycle rejection and responsive layout.\n"
+    },
+    {
+      "file": "reportiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2139,
+      "output": "PASS: source review and selection, structured AI handover, cited text/tables/visuals, persistence, three exports, report import, rejected unknown citations, atomic invalid import, relay health, print and mobile layout. Research and AI responses are controlled fixtures.\n"
+    },
+    {
+      "file": "presentiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2581,
+      "output": "PASS: python-pptx opens exported deck, editable text, notes and slide relationships.\nPASS: slide editing, drag, history, images, ordering, presentation, persistence, independent PPTX import/export validation, notes, atomic invalid import and reviewed AI edits/Undo.\n"
+    },
+    {
+      "file": "sketchiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2164,
+      "output": "PASS: palette, labels, move/resize, mouse connections, history, layout, persistence, file controls, atomic import, AI review/apply/Undo and mobile canvas.\n"
+    },
+    {
+      "file": "mindiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 3862,
+      "output": "PASS: python-pptx opens editable mind-map topics and native branch connectors.\nPASS: topic/branch editing, notes/tasks, reparent/Undo, collapse, keyboard, layouts, search, drag, persistence, three exports, independent PPTX, invalid import isolation and AI review/apply/Undo.\n"
+    },
+    {
+      "file": "projectiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 3748,
+      "output": "PASS: table/Gantt, task/dependency editing, bar movement/resizing, history, phases, search/persistence, five exports, Project XML round trip and independent import, MPP rejection, AI review/apply/Undo and mobile dialog.\n"
+    },
+    {
+      "file": "vidiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 5490,
+      "output": "PASS: timeline editing/history/persistence, real GIF/SVG/PNG/WebM export, media reimport, project local/virtual round trip, atomic rejection, AI review/apply/Undo and mobile layout.\n"
+    },
+    {
+      "file": "shared-agent/paging-recovery-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 5529,
+      "output": "PASS: inline partial takeover, automatic unsupported-protocol recovery, fresh direct replanning, durable feedback, direct-first Auto and zero partial command execution.\n"
+    },
+    {
+      "file": "shared-ai/paging-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 9822,
+      "output": "PASS textiX: paged inputs, rereads, ordered output, temporary failure retry, batch continuation, display pagination and reviewed edits.\nPASS codeiX: paged inputs, rereads, ordered output, temporary failure retry, batch continuation, display pagination and reviewed edits.\nPASS: Stop unblocks failed-page retries, preserves partial output, restores draft and never exposes partial proposals.\n"
+    },
+    {
+      "file": "shared-agent/tool-workflows-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 5296,
+      "output": "PASS: workflow manager save, export/import staging, nonexecuting reuse draft, cross-app/session persistence disabling, revision comparison/restore, cloning and nonexecuting preflight.\n"
+    },
+    {
+      "file": "shared-agent/review-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 6791,
+      "output": "PASS: cross-app workspace inspection, full before/after paging, patch/empty-file export, deleted/binary cases, baseline disclosure, stale-read rejection, mobile layout and no review mutations.\n"
+    },
+    {
+      "file": "shared-agent/acceptance-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 4787,
+      "output": "PASS: real runtime acceptance enforcement, wrong-target rejection, stale-after-edit detection, automatic completion repair, re-verification, immutable resumed criteria and server/ZIP reports.\n"
+    },
+    {
+      "file": "shared-agent/workflows-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 6513,
+      "output": "PASS: draft-only built-in/custom presets, persistence, virtual-disk import, explicit question answers, current-session JSON/Markdown handoff, actual failure/pass evidence, local/virtual handoff import, draft continuation and comparison without foreign-session loading or execution.\n"
+    },
+    {
+      "file": "shared-ai/conversation-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2353,
+      "output": "PASS: compatible conversation import/export, role checks, local/virtual disk, draft-preserving Undo, safe imported history, new-turn protection, native follow-up drafts and codeiX continuation without applying archived edits.\n"
+    },
+    {
+      "file": "shared-ai/proposal-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2867,
+      "output": "PASS: changed-field comparison, candidate download, dismiss/restore/refine without mutation, native cancellation, apply and Undo.\n"
+    },
+    {
+      "file": "shared-agent/ux-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2230,
+      "output": "PASS: full-message and question search, transcript export, keyboard send, copy action, reversible task focus and activity filters.\n"
+    },
+    {
+      "file": "shared-ai/results-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 1751,
+      "output": "PASS: automatic malformed JSON and invalid native proposal repairs, original identifiers/schemas, reviewed application and bounded mismatch retries without mutation.\n"
+    },
+    {
+      "file": "shared-agent/project-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 5722,
+      "output": "PASS: ZIP export while paused, clear stale-server errors, current browser project/files in ZIP, direct codeiX edits with stale-user protection, no replay after lost application response, Undo, explicit workspace file application and native appiX apply.\n"
+    },
+    {
+      "file": "shared-agent/context-paging-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 4417,
+      "output": "PASS: chunked original context archive, aggressive compact request, original-context retrieval, independent request/result paging with source rereads, exact large Unicode file only after assembly, downloads and cancellation retaining partial output without a write.\n"
+    },
+    {
+      "file": "shared-agent/window-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2284,
+      "output": "PASS: mouse/keyboard resizing, shared Chat/Coding geometry, reload persistence, expand/restore/reset, codeiX grid resize and float/dock with mobile viewport clamping.\n"
+    },
+    {
+      "file": "shared-agent/checks-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 1909,
+      "output": "PASS: real failed expectation despite tool success, blocked premature completion, corrected checked read, dropped-response reconciliation retaining checks without replay and visible check evidence.\n"
+    },
+    {
+      "file": "shared-agent/resume-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2639,
+      "output": "PASS: malformed-response correction persists, provider outage stops once, page reload retains feedback/cursor, resume allocates new steps and exactly one source read executes.\n"
+    },
+    {
+      "file": "shared-agent/react-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2139,
+      "output": "PASS: real ReAct edit, rejected premature completion, command failure adaptation with public evidence, corrected verification, visible cycle feedback and one final completion.\n"
+    },
+    {
+      "file": "shared-agent/skills-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 4306,
+      "output": "PASS: real two-run agent skill learning, automatic discovery, explicit reuse, verified revision update, UI history/disable/Markdown export and exact revision ZIP handoff.\n"
+    },
+    {
+      "file": "shared-agent/steering-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2161,
+      "output": "PASS real live steering supersedes stale plan; dropped file-write response reconciles once; actual verification command succeeds without replay.\n"
+    },
+    {
+      "file": "shared-suite/variants-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 4093,
+      "output": "PASS graphiX: copied IDs/references survive native apply; originals preserved\nPASS textiX: copied IDs/references survive native apply; originals preserved\nPASS architex: copied IDs/references survive native apply; originals preserved\nPASS appiX: copied IDs/references survive native apply; originals preserved\nPASS automatextiX: copied IDs/references survive native apply; originals preserved\nPASS projectiX: copied IDs/references survive native apply; originals preserved\nPASS mindiX: copied IDs/references survive native apply; originals preserved\nPASS vidiX: copied IDs/references survive native apply; originals preserved\n"
+    },
+    {
+      "file": "shared-suite/productivity-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2800,
+      "output": "PASS graphiX: nontrivial operation survives native validation/application with references preserved\nPASS textiX: nontrivial operation survives native validation/application with references preserved\nPASS architex: nontrivial operation survives native validation/application with references preserved\nPASS appiX: nontrivial operation survives native validation/application with references preserved\nPASS automatextiX: nontrivial operation survives native validation/application with references preserved\n"
+    },
+    {
+      "file": "sheetiX/fill-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2593,
+      "output": "PASS native fill buttons: range selection, shifted formulas, calculation/styles, undo/redo and reload persistence.\n"
+    },
+    {
+      "file": "shared-agent/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 21302,
+      "output": "PASS: real 8-step coding loop, source inspection, managed script failure/fix/rerun, disk edits, step pauses, terminal command, codeiX review sync, session reload, origin guards and mobile UI.\n"
+    },
+    {
+      "file": "vidiX/designs-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2940,
+      "output": "PASS: reviewed scene insertion, native undo, vertical branded designs, motion presets, project roundtrip and reload persistence.\n"
+    },
+    {
+      "file": "shared-suite/recovery-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 13828,
+      "output": "PASS architex: native checkpoints, deduplication, history filtering\nPASS graphiX: native checkpoints, deduplication, history filtering\nPASS textiX: native checkpoints, deduplication, history filtering\nPASS sheetiX: native checkpoints, deduplication, history filtering\nPASS codeiX: native checkpoints, deduplication, history filtering\nPASS appiX: native checkpoints, deduplication, history filtering\nPASS automatextiX: native checkpoints, deduplication, history filtering\nPASS reportiX: native checkpoints, deduplication, history filtering\nPASS presentiX: native checkpoints, deduplication, history filtering\nPASS sketchiX: native checkpoints, deduplication, history filtering\nPASS mindiX: native checkpoints, deduplication, history filtering\nPASS projectiX: native checkpoints, deduplication, history filtering\nPASS vidiX: native checkpoints, deduplication, history filtering\nPASS sketchiX/sketch.html: native checkpoints, deduplication, history filtering\nPASS sketchiX/shape.html: native checkpoints, deduplication, history filtering\nPASS bounded rotation, named retention/rename, read-only comparison/export, reviewed restore with safety copy and persisted pause, busy guards, visible storage failure and independent named/automatic capacity.\n"
+    },
+    {
+      "file": "shared-suite/capabilities-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 18143,
+      "output": "PASS architex: category, ports, dependency-labels, port-descriptions, instance-defaults, copy-instances, native validation, inventory CSV, reviewed recovery and AI draft\nPASS graphiX: description, group, responsive-svg, round-strokes, replace-swatch, copy-artboard, native validation, inventory CSV, reviewed recovery and AI draft\nPASS textiX: contents, headers, heading-outline, print-headings, link-references, copy-section, native validation, inventory CSV, reviewed recovery and AI draft\nPASS sheetiX: headers, trim, numeric-format, align-literals, fill-column, transpose-range, native validation, inventory CSV, reviewed recovery and AI draft\nPASS codeiX: newlines, manifest, editorconfig, normalize-eol, task-index, copy-project-tree, native validation, inventory CSV, reviewed recovery and AI draft\nPASS appiX: navigation, feedback, control-labels, button-spacing, initialize-bindings, copy-screen, native validation, inventory CSV, reviewed recovery and AI draft\nPASS automatextiX: logs, safe-writes, dependency-layout, name-steps, web-pacing, copy-workflow-branch, native validation, inventory CSV, reviewed recovery and AI draft\nPASS reportiX: select-sources, urls, cited-sources, select-cited-urls, unique-citations, follow-up-brief, native validation, inventory CSV, reviewed recovery and AI draft\nPASS presentiX: numbers, notes, text-scale, title-style, fit-slide-content, copy-slide, native validation, inventory CSV, reviewed recovery and AI draft\nPASS sketchiX: routes, labels, snap-grid, diagram-font, vertical-spacing, copy-diagram, native validation, inventory CSV, reviewed recovery and AI draft\nPASS mindiX: colors, collapse, sort-branches, expand-topics, inherit-owners, copy-topic-branch, native validation, inventory CSV, reviewed recovery and AI draft\nPASS projectiX: rollup, resource, duration-scale, trim-resources, finish-milestone, copy-project-phase, native validation, inventory CSV, reviewed recovery and AI draft\nPASS vidiX: fade, still, sequence-clips, close-timeline, composition-size, repeat-sequence, native validation, inventory CSV, reviewed recovery and AI draft\nPASS sketchiX/sketch.html: stroke, artwork-opacity, text-color, mirror-artwork, copy-artwork, native validation, inventory CSV, reviewed recovery and AI draft\nPASS sketchiX/shape.html: stroke, artwork-opacity, text-color, mirror-artwork, copy-artwork, native validation, inventory CSV, reviewed recovery and AI draft\nPASS: actual architecture inventory workbook export/import into sheetiX.\nPASS: safe heading anchors survive textiX sanitization; host ID collisions and unresolved anchors are removed.\n"
+    },
+    {
+      "file": "shared-suite/bulk-edit-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 11421,
+      "output": "PASS architex bulk editor/native review\nPASS graphiX bulk editor/native review\nPASS textiX bulk editor/native review\nPASS sheetiX bulk editor/native review\nPASS codeiX bulk editor/native review\nPASS appiX bulk editor/native review\nPASS automatextiX bulk editor/native review\nPASS reportiX bulk editor/native review\nPASS presentiX bulk editor/native review\nPASS sketchiX bulk editor/native review\nPASS mindiX bulk editor/native review\nPASS projectiX bulk editor/native review\nPASS vidiX bulk editor/native review\nPASS sketchiX/sketch.html bulk editor/native review\nPASS sketchiX/shape.html bulk editor/native review\n"
+    },
+    {
+      "file": "shared-suite/bulk-batch-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 3704,
+      "output": "PASS batch UI: selected prefix, CSV export/import, native apply/recovery, stale-revision rejection, spreadsheet paste and atomic invalid input.\n"
+    },
+    {
+      "file": "shared-suite/editing-actions-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 4122,
+      "output": "PASS automatextiX new action survives native application\nPASS vidiX new action survives native application\nPASS presentiX new action survives native application\nPASS sketchiX new action survives native application\nPASS projectiX new action survives native application\nPASS mindiX new action survives native application\nPASS graphiX new action survives native application\nPASS textiX new action survives native application\n"
+    },
+    {
+      "file": "appiX/refine-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 2650,
+      "output": "PASS: responsive canvas/runtime overrides, state-preserving viewport changes, subtree copying across screens, undo, inline text save/cancel, component logic and actionable binding checks.\n"
+    },
+    {
+      "file": "graphiX/browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 3083,
+      "output": "PASS: six drawing tools, properties, resize, duplication, undo/redo, local persistence, SVG/PNG downloads, sanitized SVG input, atomic malformed-source rejection and no browser errors.\n"
+    },
+    {
+      "file": "graphiX/grouping-browser-test.cjs",
+      "passed": true,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 1827,
+      "output": "PASS: multi-selection, grouping, nested groups, ungroup transforms/styles, move, shortcuts, history, persistence/export and compositing/reference protection.\n"
+    }
+  ],
+  "focusedVerification": [
+    {
+      "file": "shared-suite/action-presets-test.cjs",
+      "passed": true,
+      "note": "App-specific schema, atomic merge/update, numeric/color validation and invalid data rejection."
+    },
+    {
+      "file": "shared-suite/action-presets-browser-test.cjs",
+      "passed": true,
+      "output": "PASS architex/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS graphiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile \u00b7 reviewed native application\nPASS textiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS sheetiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS codeiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS appiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS automatextiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS reportiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS presentiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile \u00b7 reviewed native application\nPASS sketchiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS mindiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS projectiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS vidiX/ preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS sketchiX/sketch.html preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\nPASS sketchiX/shape.html preset create/edit/delete/export/import, invalid import isolation, persistence and mobile\n"
+    },
+    {
+      "file": "shared-suite/button-controls-browser-test.cjs",
+      "passed": true,
+      "output": "PASS architex/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS graphiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS textiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sheetiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS codeiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS appiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS automatextiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS reportiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS presentiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sketchiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS mindiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS projectiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS vidiX/ shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sketchiX/sketch.html shared navigation, workspace tabs, disk and agent-tools buttons\nPASS sketchiX/shape.html shared navigation, workspace tabs, disk and agent-tools buttons\n"
+    }
+  ],
+  "backendVerification": {
+    "command": "SUITE_SKILLS_OFFLINE=1 python3 -m unittest discover -s server -t . -p '*test.py'",
+    "passed": true,
+    "output": "..................................................................127.0.0.1 - - [24/Oct/2026 13:29:52] \"POST /api/chat HTTP/1.1\" 200 -\n127.0.0.1 - - [24/Oct/2026 13:29:52] \"POST /api/agent HTTP/1.1\" 200 -\n127.0.0.1 - - [24/Oct/2026 13:29:52] \"POST /api/agent HTTP/1.1\" 200 -\n127.0.0.1 - - [24/Oct/2026 13:29:52] \"POST /api/agent HTTP/1.1\" 200 -\n127.0.0.1 - - [24/Oct/2026 13:29:52] code 404, message Not Found\n127.0.0.1 - - [24/Oct/2026 13:29:52] \"GET /server/tmppkk1jngv/skills/catalog.sqlite3 HTTP/1.1\" 404 -\n....\n----------------------------------------------------------------------\nRan 70 tests in 10.462s\n\nOK\n"
+  },
+  "verificationNote": "Full 108-check gate plus focused preset and current shared-control reruns. The two new preset checks are included in future gate invocations.",
+  "editingWorkflowVerification": {
+    "editorPages": 16,
+    "browserLog": "/tmp/editing-workflows-final.log",
+    "checks": [
+      "workflow portability and persistence across all editor pages",
+      "native SVG and image workflow application",
+      "failed second step leaves live document unchanged",
+      "workflow schema validation and atomic merging",
+      "existing preset and sequence unit regression",
+      "photiX standard and generative browser regression"
+    ],
+    "status": "passed",
+    "scope": "Focused checks; full suite was not rerun for this increment."
+  },
+  "optionalDesktopVerification": {
+    "stagingTests": 3,
+    "configuration": "validated against installed @tauri-apps/cli 2.12.4 schema",
+    "frozenSidecar": "Linux executable built and tested over real HTTP: desktop, all 14 apps, relay, skills, occupied port and stdin shutdown",
+    "browser": "15 shared-control editor routes passed against frozen sidecar in Chromium",
+    "backendRegressionTests": 4,
+    "nativeShell": "Not compiled/run: Rust is unavailable in this environment. Manual Windows/macOS/Linux build workflow added."
+  },
+  "styleGuideVerification": {
+    "pages": 18,
+    "browserLog": "/tmp/tlal-style-guide-final.log",
+    "checks": [
+      "bundled Inter font loads locally",
+      "shared palette and typography",
+      "maroon primary controls and selected states",
+      "desktop wordmark and 14 launcher icons",
+      "mobile page loading",
+      "document/source fonts preserved",
+      "photiX standard and generative editing regression",
+      "desktop staging and source sidecar lifecycle"
+    ],
+    "screenshots": "desktop and all 14 apps refreshed without AI provider calls",
+    "limitation": "No master logo artwork supplied; full accessibility certification and native WebView verification are outside these checks."
+  },
+  "projectZipVerification": {
+    "editorPages": 16,
+    "browserLog": "/tmp/project-zip-complete.log",
+    "passed": [
+      "real project ZIP downloads",
+      "exact native document restore after review",
+      "recovery before applying",
+      "local and virtual-disk round trips",
+      "photiX changed-source restore",
+      "vidiX embedded asset preservation",
+      "malformed/corrupt/wrong-editor rejection",
+      "unsafe path and expansion metadata bounds",
+      "busy and stale document guards",
+      "mobile dialog width"
+    ],
+    "relatedRegression": [
+      "photiX editing and generative browser tests",
+      "desktop staging/source-sidecar checks"
+    ],
+    "scope": "Focused checks; no full suite rerun for this increment."
+  },
+  "diskZipVerification": {
+    "core": "disk-zip-test.cjs passed: versioned/ordinary ZIP, bytes, metadata, empty folders and unsafe archive rejection",
+    "browserLog": "/tmp/disk-zip-browser-final.log",
+    "browser": "Download, keep/overwrite/replace, cancelled confirmation, stale/conflict guards, simulated quota rollback, selected on-disk ZIP, cross-app visibility and mobile dialog passed",
+    "regression": [
+      "Project ZIP local/virtual-disk round trips across all 16 editors",
+      "Shared control/navigation checks across 15 editor routes",
+      "Desktop staging and source-sidecar lifecycle"
+    ],
+    "scope": "Focused checks; not a full suite rerun."
+  },
+  "commandNavigationVerification": {
+    "editorPages": 16,
+    "browserLog": "/tmp/suite-commands-complete.log",
+    "passed": [
+      "per-editor persistent pins and recents",
+      "multiword search and filtered views",
+      "keyboard result navigation",
+      "clearing recents preserves pins",
+      "project ZIP shortcut",
+      "native editing catalog discovery without applying edits",
+      "unchanged documents before and after navigation",
+      "mobile dialog width"
+    ],
+    "unit": "command-preferences-test.cjs passed",
+    "regression": [
+      "project ZIP busy/stale import guards",
+      "whole-disk ZIP backup and restore"
+    ],
+    "scope": "Focused checks; full suite not rerun."
+  }
+}

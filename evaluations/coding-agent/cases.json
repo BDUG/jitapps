@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "python-add",
+      "language": "python",
+      "goal": "Fix add in maths.py so it adds its two arguments, including negatives and floats. Preserve unrelated files and tests. Inspect current source and verify the change with a real command. Use task dependencies for inspection, implementation and verification.",
+      "files": {
+        "maths.py": "def add(a, b):\n    return a - b\n",
+        "test_public.py": "from maths import add\nassert add(2, 3) == 5\n",
+        "notes.txt": "Preserve this unrelated file.\n"
+      },
+      "mutable": [
+        "maths.py"
+      ],
+      "publicCommand": [
+        "python",
+        "test_public.py"
+      ],
+      "checks": [
+        {
+          "name": "held-out arithmetic",
+          "command": [
+            "python",
+            "-c",
+            "from maths import add; assert add(-4, 1) == -3; assert add(0, 0) == 0; assert add(1.5, 2.25) == 3.75; print(\"held-out checks passed\")"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "javascript-label",
+      "language": "javascript",
+      "goal": "Fix formatLabel in src/labels.js to trim whitespace and return uppercase text. renderTitle must keep its existing HTML template and use the corrected shared helper. Preserve unrelated files, exports and tests. Use code navigation to inspect callers and verify with a real command.",
+      "files": {
+        "src/labels.js": "exports.formatLabel = value => value.trim().toLowerCase();\n",
+        "src/page.js": "const {formatLabel} = require(\"./labels\");\nexports.renderTitle = value => `<h1>${formatLabel(value)}</h1>`;\n",
+        "test_public.cjs": "const assert = require(\"node:assert/strict\");\nassert.equal(require(\"./src/page\").renderTitle(\"  Report  \"), \"<h1>REPORT</h1>\");\n",
+        "notes.txt": "Preserve this unrelated file.\n"
+      },
+      "mutable": [
+        "src/labels.js"
+      ],
+      "publicCommand": [
+        "node",
+        "test_public.cjs"
+      ],
+      "checks": [
+        {
+          "name": "held-out caller behavior",
+          "command": [
+            "node",
+            "-e",
+            "const a=require(\"node:assert/strict\"),l=require(\"./src/labels\"),p=require(\"./src/page\");a.equal(l.formatLabel(\"  MiXeD  \"),\"MIXED\");a.equal(p.renderTitle(\"next\"),\"<h1>NEXT</h1>\");a.equal(l.formatLabel(\"\"),\"\");"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "python-validation",
+      "language": "python",
+      "goal": "Implement positive_count in values.py. Accept positive integers, or strings containing decimal digits with optional surrounding whitespace. Reject booleans, floats, zero, negatives, malformed strings and other types with ValueError. Preserve labels.py and all tests. Verify successful and rejected inputs with actual commands.",
+      "files": {
+        "values.py": "def positive_count(value):\n    return int(value)\n",
+        "labels.py": "def status_label():\n    return \"ready\"\n",
+        "test_public.py": "from values import positive_count\nassert positive_count(\" 3 \") == 3\ntry:\n    positive_count(0)\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"zero must be rejected\")\n"
+      },
+      "mutable": [
+        "values.py"
+      ],
+      "publicCommand": [
+        "python",
+        "test_public.py"
+      ],
+      "checks": [
+        {
+          "name": "held-out boundary behavior",
+          "command": [
+            "python",
+            "-c",
+            "from values import positive_count; from labels import status_label\nassert positive_count(1)==1 and positive_count(\" 12 \")==12\nfor bad in [True, False, 0, -1, 1.2, \"-2\", \"2.5\", \"abc\", None, [], \"\"]:\n try: positive_count(bad)\n except ValueError: pass\n else: raise AssertionError(repr(bad))\nassert status_label()==\"ready\""
+          ]
+        }
+      ]
+    }
+  ]
+}

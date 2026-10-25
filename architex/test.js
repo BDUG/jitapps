@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict'),A=require('./model.js');
+const m=A.clone(A.demo);assert.equal(A.validate(m),m);assert.deepEqual(A.inspect(m),[]);
+const incomplete=A.clone(m);incomplete.connections.pop();assert.equal(A.inspect(incomplete).filter(i=>i.message.endsWith('port is not connected')).length,2);assert.doesNotThrow(()=>A.validate(incomplete));
+const cyclic=A.clone(m);cyclic.dependencies.push({id:'cycle',source:'service',target:'gateway',label:'feedback'});assert.doesNotThrow(()=>A.validate(cyclic));
+const subgroupCycle=A.clone(m);subgroupCycle.components[1].parentId='worker';assert.throws(()=>A.validate(subgroupCycle),/hierarchy contains a cycle/);
+const broken=A.clone(m);broken.connections[0].target.portId='missing';assert.throws(()=>A.validate(broken),/invalid endpoint/);
+const duplicate=A.clone(m);duplicate.components[0].ports.push({...duplicate.components[0].ports[0]});assert.throws(()=>A.validate(duplicate),/duplicate port ID/);
+const wrong=A.clone(m);wrong.instances[0].parameters.timeout=30;assert.throws(()=>A.validate(wrong),/expected string/);
+const unknown=A.clone(m);unknown.extra=true;assert.throws(()=>A.validate(unknown),/unknown field/);
+assert.deepEqual(require('./workspace.schema.json'),A.schema);
+console.log('PASS: complete demo, unconnected-port diagnostics, cyclic dependencies, subgroup-cycle rejection, endpoint validation, duplicate ports, parameter types, schema parity.');
