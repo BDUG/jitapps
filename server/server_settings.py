@@ -14,7 +14,7 @@ from server import workflow_commands
 LIVE = {'allow_origin', 'agent_no_commands', 'agent_allow_command', 'allow_workflow_command', 'workflow_cwd'}
 BOOL = {'disable_agent', 'agent_no_commands', 'skills_offline'}
 LIST = {'allow_origin', 'agent_allow_command', 'allow_workflow_command'}
-FIELDS = {'bind','port','config','search_config','google_device_config','skills_db','skills_offline','workflow_cwd','agent_workspace','disable_agent','agent_no_commands','agent_navigation_dir','agent_embedding_dir'} | LIST
+FIELDS = {'bind','port','config','search_config','skills_db','skills_offline','workflow_cwd','agent_workspace','disable_agent','agent_no_commands','agent_navigation_dir','agent_embedding_dir'} | LIST
 
 def read(path):
     p = Path(path).expanduser()

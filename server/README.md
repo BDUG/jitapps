@@ -32,18 +32,17 @@ Run `python3 server/server.py --help` for the installed version. The same flags 
 | `--port INTEGER` | `8000` | Listening port. `0` asks the OS for an available port; the startup message reports it. The reportiX compatibility launcher defaults to `8010`. |
 | `--config PATH` | `$XDG_CONFIG_HOME/architex-relay/providers.json` | Private text-provider profiles. With no `XDG_CONFIG_HOME`, use `~/.config/architex-relay/providers.json`. A missing file starts with built-in provider presets; set credentials in `/relay` or create the JSON file. |
 | `--search-config PATH` | `$XDG_CONFIG_HOME/reportix/search.json` | Private Google Programmable Search credentials. Missing configuration disables Google discovery until configured; it does not stop the editors. |
-| `--google-device-config PATH` | `google-device.json` beside `--config` | Private TV/limited-input OAuth client ID and secret. Created by Google account → Device sign-in setup; independent of the public Browser/Drive client ID. |
 | `--allow-origin ORIGIN` | No additional origins | Repeat for separately hosted chat/image frontends, e.g. `https://tools.example.com`. Exact scheme, hostname and optional port only; no paths, credentials or wildcards. Combines with provider JSON `allowedOrigins`. Same-origin chat needs no entry. Does not enable remote agent, workflow, catalog, research or administration routes. |
 | `--allow-workflow-command EXECUTABLE` | None; workflow commands disabled | Repeat to allow automatextiX command steps. Executables must be discoverable on `PATH` or supplied by path. This list is separate from the coding-agent command list. |
 | `--workflow-cwd DIRECTORY` | Repository root | Existing working directory for workflow commands. Must exist even if no workflow command is enabled. |
 | `--agent-workspace DIRECTORY` | Repository root | Existing server-side workspace for coding-agent files and commands. Private run state is stored in its `.suite-agent/` directory. This is separate from the browser's codeiX/appiX project and virtual disk. |
-| `--disable-agent` | False | Disable the coding runtime and its commands. Hosting, relay, research, shared catalog and Google sign-in remain available. No workspace directory is required for a disabled runtime. |
+| `--disable-agent` | False | Disable the coding runtime and its commands. Hosting, relay, research and shared catalog remain available. No workspace directory is required for a disabled runtime. |
 | `--agent-no-commands` | False | Disable coding-agent terminal execution while keeping its other runtime capabilities available. File edits still depend on the session's permissions. Overrides any command allowlist. |
 | `--agent-allow-command EXECUTABLE` | Auto-detected Python interpreter plus installed `node`, `npm`, `git` | Repeat to **replace**, not extend, the default coding-agent executable list. Every explicitly named executable must exist. When frozen, Python candidates are installed `python3`/`python`, not the sidecar binary. Ignored when commands/the agent are disabled. |
 | `--agent-navigation-dir DIRECTORY` | `SUITE_AGENT_NAVIGATION_DIR`, otherwise bundled `server/code-navigation/` | Trusted directory containing `service.cjs` and its installed `node_modules/typescript`. Python AST navigation is built in; full JS/TS analysis needs Node and `npm ci --prefix server/code-navigation`. CLI overrides the environment value. |
 | `--agent-embedding-dir DIRECTORY` | `SUITE_AGENT_EMBEDDING_DIR`, otherwise off | Prepared local `model.onnx`, `tokenizer.json`, `manifest.json` with matching hashes. Requires `server/requirements-agent.txt`. Enables learned session-memory embeddings; startup never downloads a model. The shared skill catalog remains a separate hashed lexical vector index. Ignored when the coding runtime is disabled. |
 | `--skills-db PATH` | `skills/catalog.sqlite3` beside `--config` | Private shared skill index, app skill profiles, edits and history. Its parent is created automatically. This is separate from learned workspace-local agent skills. |
-| `--skills-offline` | False, unless `SUITE_SKILLS_OFFLINE=1` | Use bundled/cached catalog content without remote source refresh. Does not disable provider calls, Google sign-in, research or all server networking. |
+| `--skills-offline` | False, unless `SUITE_SKILLS_OFFLINE=1` | Use bundled/cached catalog content without remote source refresh. Does not disable provider calls, research or all server networking. |
 
 Command allowlists restrict executable names, not what an allowed interpreter can do. Commands inherit the server account's OS permissions; directories and allowlists do not provide an OS sandbox. Browser session permissions, review/takeover choices, run step budgets and paging are configured in the UI, not by additional server flags.
 
@@ -71,8 +70,6 @@ Provider API keys are stored in profile JSON or set through `/relay`; the server
 | Text providers (`--config`) | Root: `format: "architex-relay-providers"`, `version: 1`, `activeProfileId`, `profiles`, `allowedOrigins`. The legacy format name `architex-provider-configs` is also accepted. Each profile: `id`, `provider`, `name`, `protocol`, `endpoint`, `model`, `apiKey`, `upstreamProvider`, `maxTokens`, `tokenLimitEnabled`, `temperature`. |
 | Images (`<provider-stem>.images.json`) | `generationEndpoint`, `editEndpoint`, `model`, `apiKey`. Derived automatically from `--config`; e.g. `providers.json` → `providers.images.json`. No image-config CLI flag. |
 | Search (`--search-config`) | `apiKey`, `engineId`. The settings API additionally accepts `clearKey: true` as a save action; it is not needed in the file. |
-| Device OAuth (`--google-device-config`) | `clientId`, `clientSecret`. Private TV/limited-input credentials, not a Web OAuth client. No refresh/access tokens are persisted. |
-| Public Browser/Drive OAuth (`shared-suite/google-drive-config.json`) | `clientId`. Public Web OAuth client ID; no client secret. Browser-local connection settings can also contain optional Picker `apiKey`, project number `appId`, and `access` (`files` or `all`); those are not extra server-file fields. |
 | Shared catalog (`--skills-db`) | SQLite, managed by the skill-set/catalog UI. Do not replace it with JSON. |
 | Agent state (`<workspace>/.suite-agent/`) | Managed run snapshots, recovery copies, scripts, logs and SQLite memory/skill/workflow libraries. Not a server settings file. |
 
@@ -146,17 +143,6 @@ The runtime now offers compiler/AST code navigation, optional local learned sent
 
 `POST /api/chat` accepts validated native image, WAV/MP3 audio and PDF content parts, plus optional `modalities` (`["text","image"]` or `["text","audio"]`). OpenAI-compatible adapters forward native parts; Gemini converts them to MIME-typed inline data. Replies preserve text and normalized media without automatically fetching provider-hosted URLs. Legacy Eden v2 remains text-only. Restart after upgrading. See [protocol coverage and usage](../shared-ai/MULTIMODAL.md).
 
-## Optional Google account verification
-
-Install `python3 -m pip install -r server/requirements-google.txt` to enable `/api/google/verify` for GIS sign-in. It uses Google's official ID-token verifier and cached public signing certificates. Other routes do not require this package. Configure the public client ID in `shared-suite/google-drive-config.json`; requests require the suite origin and a JSON POST. Responses are not cached. This provides a page-local verified account display, not server access control or a login session. See [the sign-in guide](../docs/GOOGLE-SIGN-IN.md).
-
-### Google device authorization
-
-`--google-device-config PATH` optionally selects the private TV/limited-input OAuth client configuration; the default is `google-device.json` beside provider settings. Manage it through Google account → Device sign-in setup on the same localhost origin. The `/api/google/device` endpoint handles private setup and start/poll/cancel operations. It requests OpenID profile scopes only and is separate from Drive. Pending grants and all tokens are transient; only client configuration is saved. Device sign-in uses the standard library and needs no Google verifier dependency. Google limits this flow to eligible device clients. See [device setup](../docs/GOOGLE-SIGN-IN.md#device-code-setup-for-limited-input-deployments).
-
-## Extracted headless runtime
-
-`server/agent_*.py` are compatibility module aliases to `codingagentlib/python/`. The server keeps its HTTP/origin checks, provider transport, catalog injection and protected configuration paths. The standalone library adds Python, JavaScript and Rust entry points without starting this server; see [codingagentlib](../codingagentlib/README.md). No existing server CLI flags or `/api/agent` request formats changed. Browser pages load the canonical JavaScript loop/spec helpers from `codingagentlib/javascript/`, while chat and agent UI stay in `shared-agent/`.
 
 ### Approved runtime server settings
 

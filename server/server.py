@@ -13,21 +13,17 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from server import relay, crawler, google_search, workflow_commands, agent_runtime, skill_catalog, skill_api, image_provider, google_identity, google_device, server_settings
+from server import relay, crawler, google_search, workflow_commands, agent_runtime, skill_catalog, skill_api, image_provider, server_settings
 from server.relay import validate_origin
 
 SLOTS=threading.BoundedSemaphore(3)
 class Handler(relay.Handler):
-    def end_headers(self):
-        if self.path in {'/api/google/verify','/api/google/device'}:self.send_header('Cache-Control','no-store')
-        super().end_headers()
     def send_head(self):
         settings=getattr(self.server,'settings',None)
         if settings and (Path(self.translate_path(self.path)).resolve()==settings.path or Path(self.translate_path(self.path)).name.startswith('.server-settings-')):
             self.send_error(404);return None
-        device=getattr(self.server,'google_device',None)
         target=Path(self.translate_path(self.path)).resolve()
-        if device and (target==device.path.resolve() or target.name.startswith('.google-device-')):
+        if target.name=='google-device.json' or target.name.startswith('.google-device-'):
             self.send_error(404);return None
         if Path(self.translate_path(self.path)).resolve()==image_provider.config_path(self.server).resolve():
             self.send_error(404);return None
@@ -80,32 +76,6 @@ class Handler(relay.Handler):
                 with settings.lock: settings.active_requests -= 1
 
     def _do_POST(self):
-        if self.path=='/api/google/device':
-            if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'Device sign-in setup requires its same localhost origin'});return
-            if self.headers.get_content_type()!='application/json':self.send_json(415,{'error':'Use application/json'});return
-            try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=12000:raise ValueError('Device sign-in request is too large')
-                self.send_json(200,self.server.google_device.dispatch(json.loads(self.rfile.read(size))))
-            except (ValueError,TypeError,UnicodeError) as error:self.send_json(400,{'error':str(error)})
-            except (OSError,google_device.ProviderError):self.send_json(502,{'error':'Google device authorization is unavailable. Check server connectivity, TLS trust and private configuration access.'})
-            return
-        if self.path=='/api/google/verify':
-            import urllib.parse
-            host=self.headers.get('Host','');origin=self.headers.get('Origin');site=self.headers.get('Sec-Fetch-Site')
-            host_name=urllib.parse.urlsplit('http://'+host).hostname
-            if self.headers.get('X-Architex-Request')!='1' or site=='cross-site' or origin is not None and origin not in {'http://'+host,'https://'+host} or origin is None and site not in {'same-origin','none'} and host_name not in {'localhost','127.0.0.1','::1'}:
-                self.send_json(403,{'error':'Google sign-in verification requires the suite origin'});return
-            if self.headers.get_content_type()!='application/json':self.send_json(415,{'error':'Use application/json'});return
-            try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=20000:raise ValueError('Google sign-in request is too large')
-                data=json.loads(self.rfile.read(size))
-                self.send_json(200,google_identity.verify(data,Path(self.directory)/'shared-suite/google-drive-config.json'))
-            except google_identity.Unavailable as error:self.send_json(503,{'error':str(error)})
-            except (ValueError,TypeError,UnicodeError) as error:self.send_json(400,{'error':str(error)})
-            except (OSError,RuntimeError):self.send_json(502,{'error':'Google account verification is unavailable. Check network access and TLS trust.'})
-            return
         if self.path in {'/api/images','/api/admin/images'}:
             admin=self.path=='/api/admin/images'
             host=self.headers.get('Host','');origin=self.headers.get('Origin')
@@ -200,7 +170,6 @@ class Handler(relay.Handler):
 def main(default_port=8000, shutdown_event=None):
     parser = argparse.ArgumentParser(description=__doc__)
     config_home = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home()/'.config')))
-    parser.add_argument('--google-device-config', help='Private device OAuth client configuration (default: google-device.json beside provider config)')
     parser.add_argument('--skills-db', help='Shared skill vector database path (default: private skills directory beside provider config)')
     parser.add_argument('--skills-offline', action='store_true', help='Use bundled/cached skill index without remote refresh')
     parser.add_argument('--port', type=int, default=default_port)
@@ -244,7 +213,6 @@ def main(default_port=8000, shutdown_event=None):
     server.skill_catalog.start()
     server.allowed_origins = origins
     server.store = relay.relay_config.Store(args.config)
-    server.google_device = google_device.DeviceLogin(args.google_device_config or Path(args.config).expanduser().parent/'google-device.json')
     server.search_store = google_search.Store(args.search_config)
     server.agent_runtime.private_paths.update({server.store.path.resolve(),server.search_store.path.resolve(),server.skill_catalog.path.resolve(),image_provider.config_path(server).resolve()})
     default_commands = ([sys.executable] if not getattr(sys,'frozen',False) else [name for name in ('python3','python') if shutil.which(name)]) + [name for name in ('node','npm','git') if shutil.which(name)]

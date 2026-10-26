@@ -4,7 +4,7 @@ The suite desktop lives at `/` and lists all 16 applications. Each card opens an
 
 ## Save and open files
 
-Use any normal Open, Import, Insert image or Attach files control to choose **Local disk**, **Virtual disk**, or **Google Drive**. This includes dynamically created controls such as component icons and chat attachments. Folder readers preserve relative paths from either source. Canceling the source chooser leaves the content unchanged. Local workspace linking in codeiX still uses a real filesystem directory so write-back works.
+Use any normal Open, Import, Insert image or Attach files control to choose **Local disk** or **Virtual disk**. This includes dynamically created controls such as component icons and chat attachments. Folder readers preserve relative paths from either source. Canceling the source chooser leaves the content unchanged. Local workspace linking in codeiX still uses a real filesystem directory so write-back works.
 
 1. In any app, choose **Destination: Virtual disk** beside the app’s export controls (inside Architex’s export dialog).
 2. Use that app's normal export or backup button and choose its format as usual.
@@ -16,9 +16,6 @@ For complete editable backups, use each app's JSON/project/research backup forma
 
 Architex has separate metamodel and instance import scopes, plus validation-rule and Sphinx RST readers. Select the intended model scope before importing. Its native compatibility checks still apply. Source files and folder trees can be imported by codeiX. The text, diagram and presentation editors also offer their image insertion readers.
 
-## Google Drive
-
-[Google Drive setup and usage](GOOGLE-DRIVE.md) covers API-key-free Google consent, installation-wide OAuth client ID configuration, loading files, saving exports and project ZIPs, limited file-scoped access, and troubleshooting. Connect through a load chooser or the virtual-disk window; choose Google Drive in export destinations to save remotely. Google configuration is separate from relay/AI provider settings.
 
 ## Manage the disk
 
@@ -38,7 +35,7 @@ Serving through `python3 server/server.py` or another static web server is recom
 
 ## Integration
 
-`apps.js` is the common app registry and declares native file-input readers. `disk.js` exposes `SuiteDisk` (`write`, `get`, `all`, `list`, `mkdir`, `remove`, `asFile`) and stores Blobs without text conversion. `ui.js` provides navigation, disk management and import delivery to registered and dynamically discovered file-input readers. App download helpers call `SuiteDiskUI.download(anchor)` with an object-URL anchor; the computer destination keeps the existing download behavior, while the disk destination opens a save dialog. The Drive destination lazily loads `google-drive.js` and `google-drive-ui.js`, authenticates directly with Google, and sends the same export Blob to Drive. No browser globals or native download/file-picker prototypes are replaced.
+`apps.js` is the common app registry and declares native file-input readers. `disk.js` exposes `SuiteDisk` (`write`, `get`, `all`, `list`, `mkdir`, `remove`, `asFile`) and stores Blobs without text conversion. `ui.js` provides navigation, disk management and import delivery to registered and dynamically discovered file-input readers. App download helpers call `SuiteDiskUI.download(anchor)` with an object-URL anchor; the computer destination keeps the existing download behavior, while the disk destination opens a save dialog. No browser globals or native download/file-picker prototypes are replaced.
 
 To add an app, register its identity and input IDs, add an SVG icon, load the shared stylesheet/scripts in its entry point, and route its download helper through `SuiteDiskUI.download`. Provider configuration exports deliberately stay in the relay's own UI and are not copied automatically to this disk.
 
@@ -74,7 +71,7 @@ A disk ZIP contains **all virtual-disk files**, including configuration exports 
 
 Verification: `node shared-suite/disk-zip-test.cjs` and `BASE_URL=http://127.0.0.1:8000 node shared-suite/disk-zip-browser-test.cjs`. The browser test exercises merge/overwrite/replace, cancelled confirmation, binary and empty-folder restoration, stale previews, file/folder conflicts, simulated quota rollback, invalid archives, ZIPs already on disk and cross-app access.
 
-colabriX adds a collaborative whiteboard with native Google Docs revision-checked synchronization. See [the app guide](../colabriX/README.md) for workshop controls, shared-document setup and recovery.
+colabriX provides a local whiteboard with workshop controls and native project recovery.
 
 ## Installed project apps
 

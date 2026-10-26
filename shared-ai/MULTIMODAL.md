@@ -4,7 +4,7 @@ The shared AI chat, codeiX's native chat, and the **Coding agent** tab accept im
 
 ## Send references
 
-1. Use **Attach files**, **Attach reference files**, or the coding agent's **Attach images, audio, PDF or text** control. The normal local-disk, virtual-disk and Google Drive source chooser remains available.
+1. Use **Attach files**, **Attach reference files**, or the coding agent's **Attach images, audio, PDF or text** control. The normal local-disk and virtual-disk source chooser remains available.
 2. Choose PNG, JPEG, WebP or GIF images, WAV/MP3 audio, PDF, or UTF-8 text files. Attachments receive unique names. Images show a thumbnail; other files show their type and name.
 3. Enter a request describing how the references should be used. Choose a provider/model capable of reading those formats in relay settings. Sending a picture does not make a text-only model a vision model.
 4. Send the request, or start/resume the coding agent. Regular chat keeps draft reference files until removed or the page reloads. References already sent can also remain in earlier conversation turns; use New conversation to clear that history and remove any draft references you no longer want to send. Coding-agent references are saved with the follow-up event and consumed from its draft attachment list after the event is saved. They remain available to later steps and after loading the session.

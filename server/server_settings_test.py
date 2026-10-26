@@ -11,7 +11,7 @@ class SettingsTest(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         root=self.temp.name
-        values=dict(bind='127.0.0.1',port=8000,config=root+'/providers.json',search_config=root+'/search.json',google_device_config=None,skills_db=None,skills_offline=True,allow_origin=[],allow_workflow_command=[],workflow_cwd=root,agent_workspace=root,disable_agent=False,agent_no_commands=False,agent_allow_command=None,agent_navigation_dir=None,agent_embedding_dir=None)
+        values=dict(bind='127.0.0.1',port=8000,config=root+'/providers.json',search_config=root+'/search.json',skills_db=None,skills_offline=True,allow_origin=[],allow_workflow_command=[],workflow_cwd=root,agent_workspace=root,disable_agent=False,agent_no_commands=False,agent_allow_command=None,agent_navigation_dir=None,agent_embedding_dir=None)
         self.server=SimpleNamespace(server_port=8000,allowed_origins=set(),agent_runtime=SimpleNamespace(root=Path(root),allowed={},sessions={}),workflow_commands=SimpleNamespace(active={}))
         self.settings=Settings(self.server,root+'/settings.json',argparse.Namespace(**values),[sys.executable])
     def review(self,**changes):

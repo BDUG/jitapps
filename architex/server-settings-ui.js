@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const labels = {
-    bind:'Listening address',port:'Port (0 selects an available port)',config:'Provider configuration file',search_config:'Google search configuration file',google_device_config:'Google device OAuth configuration file',skills_db:'Skill catalog database',skills_offline:'Keep skill catalog offline',allow_origin:'Additional trusted origins (one per line)',allow_workflow_command:'Allowed workflow executables (one per line)',workflow_cwd:'Workflow working directory',agent_workspace:'Coding-agent workspace',disable_agent:'Disable coding agent',agent_no_commands:'Disable coding-agent commands',agent_allow_command:'Allowed agent executables (one per line)',agent_navigation_dir:'Code navigation service directory',agent_embedding_dir:'Local embedding model directory'
+    bind:'Listening address',port:'Port (0 selects an available port)',config:'Provider configuration file',search_config:'Google search configuration file',skills_db:'Skill catalog database',skills_offline:'Keep skill catalog offline',allow_origin:'Additional trusted origins (one per line)',allow_workflow_command:'Allowed workflow executables (one per line)',workflow_cwd:'Workflow working directory',agent_workspace:'Coding-agent workspace',disable_agent:'Disable coding agent',agent_no_commands:'Disable coding-agent commands',agent_allow_command:'Allowed agent executables (one per line)',agent_navigation_dir:'Code navigation service directory',agent_embedding_dir:'Local embedding model directory'
   };
   const lists = new Set(['allow_origin','allow_workflow_command','agent_allow_command']);
   const bools = new Set(['skills_offline','disable_agent','agent_no_commands']);

@@ -21,6 +21,7 @@ find desktop-tauri/src-tauri/binaries/ -type f -not -name ".gitkeep" -delete
 # Remove agent analysis dependencies and models
 rm -rf server/code-navigation/node_modules/
 rm -rf server/models/
+rm -rf server/ca/
 
 # Remove Standalone coding-agent library builds
 rm -rf codingagentlib/rust/target/
@@ -33,7 +34,6 @@ echo "Cleaning up configuration files..."
 rm -f providers.json providers.images.json search.json server-settings.json google-device.json
 rm -rf skills/
 
-echo "Resetting tracked configuration files..."
-git checkout -- shared-suite/google-drive-config.json
+
 
 echo "Cleanup complete."

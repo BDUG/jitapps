@@ -86,10 +86,3 @@ Additional **Workspace → Tool actions** capability: Scale text across slides w
 **Productivity extension:** Fit a complete slide composition inside margins with uniform scaling and preserved image proportions. Use **Workspace → Tool actions** to review and apply native changes.
 
 **Reusable variants:** Duplicate an editable slide with new slide/object IDs, including images and notes. Available through **Workspace → Tool actions**, with native validation, preview and recovery.
-
-## Project ZIP
-
-Use **Project ZIP** in the header, or **Workspace → Recovery → Import / export project ZIP**, to save and restore the complete native project. Choose Computer or Virtual disk. Imports validate and stage a review; applying preserves the previous project in Recovery. Embedded assets are included, while separate app/relay settings and external workspace files are excluded. See the [shared ZIP guide](../shared-suite/PROJECT-ZIP.md).
-
-
-Use **Open Google Slides** to import a native Drive presentation, or **Save Google Slides** to create/update a native Google presentation. Connect and approve Google Drive access first. Conversion uses DOCX/XLSX/PPTX and may simplify unsupported features. See [Google Workspace interchange](../shared-suite/GOOGLE-DRIVE.md#google-docs-sheets-and-slides).

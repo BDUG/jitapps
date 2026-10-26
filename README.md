@@ -6,7 +6,7 @@
 
 Sixteen local-first apps for architecture, graphics, images, video, documents, presentations, spreadsheets, mind maps, collaborative whiteboards, project planning, code, app generation, automation, and research. Use the searchable desktop launcher, share files through a virtual disk, and refine each app’s content with AI chat or the coding agent.
 
-Load and save app contents with optional [Google Drive integration](shared-suite/GOOGLE-DRIVE.md), including native project ZIP exports. Local disk and the shared virtual disk remain available offline. Google Drive uses a Google confirmation popup without an API key; the installation owner configures its public OAuth client ID once.
+Load and save app contents through local disk or the shared virtual disk, including native project ZIP exports.
 
 Run the suite in your browser with a single Python server, or build the optional **Tauri 2 desktop application**. Basic editing works without an AI account. AI features use providers configured on your local relay; generative image editing has its own image-provider configuration.
 
@@ -54,7 +54,7 @@ The relay page also has a **Server settings** dialog. Review changes and explici
 
 ## Complete server configuration example
 
-This example enables the coding agent and explicitly allowlisted workflow commands, stores private data outside the repository, configures three text-provider profiles plus images/search, and separates Google device credentials from the public Web client. API/model names are examples: replace credentials and select a model available to your account. Optional integrations can be left unconfigured.
+This example enables the coding agent and explicitly allowlisted workflow commands, stores private data outside the repository, configures three text-provider profiles plus images/search. API/model names are examples: replace credentials and select a model available to your account. Optional integrations can be left unconfigured.
 
 **1. Create private configuration and workspace directories** (POSIX shell, from the repository root):
 
@@ -141,27 +141,6 @@ mkdir -p "$SUITE_CONFIG_DIR" "$SUITE_WORKSPACE_DIR"
 }
 ```
 
-`$SUITE_CONFIG_DIR/google-device.json` — only for an eligible **TVs and Limited Input devices** OAuth client:
-
-```json
-{
-  "clientId": "REPLACE_DEVICE_CLIENT_ID.apps.googleusercontent.com",
-  "clientSecret": "REPLACE_DEVICE_CLIENT_SECRET"
-}
-```
-
-Keep these files private; do not commit them. Use the corresponding UI to save credentials with owner-only file permissions, or create the files under the restrictive `umask` above. The device method requests account-profile scopes and does not connect Drive.
-
-The **public** Browser/Drive OAuth file is instead `shared-suite/google-drive-config.json`:
-
-```json
-{
-  "clientId": "REPLACE_WEB_CLIENT_ID.apps.googleusercontent.com"
-}
-```
-
-This uses a separate **Web application** OAuth client. Register `http://127.0.0.1:8000` as an authorized JavaScript origin (also register `http://localhost:8000` if you use that address). Enable Drive API and, for colabriX collaboration, Docs API. Never put a client secret in this public file. Browser ID-token verification additionally needs `python3 -m pip install -r server/requirements-google.txt`; device-code sign-in does not need that package.
-
 **4. Start the server with explicit paths and allowlists:**
 
 ```sh
@@ -170,7 +149,6 @@ python3 server/server.py \
   --port 8000 \
   --config "$SUITE_CONFIG_DIR/providers.json" \
   --search-config "$SUITE_CONFIG_DIR/search.json" \
-  --google-device-config "$SUITE_CONFIG_DIR/google-device.json" \
   --skills-db "$SUITE_CONFIG_DIR/skills/catalog.sqlite3" \
   --skills-offline \
   --allow-origin https://tools.example.com \
@@ -203,7 +181,7 @@ For a restricted variant, append `--agent-no-commands` to disable agent terminal
 | App | Open | Main capabilities |
 | --- | --- | --- |
 | **[architeX](architex/README.md)** | [/architex/](architex/) | Metamodels and instance graphs, optional direct diagrams, nested components, directional ports, scripted validation, dependency layout and AI model editing. Exchange JSON, YAML, Markdown, draw.io, SVG, Mermaid, PlantUML, XLSX and Sphinx-Needs/RST projects. |
-| **[colabriX](colabriX/README.md)** | [/colabriX/](colabriX/) | Collaborative whiteboards with notes, shapes, connectors, frames, freehand, comments, voting, workshop timers and AI proposals. Share a Google Drive document with revision-checked merging. Export JSON, SVG, PNG, Markdown, CSV and project ZIP. |
+| **[colabriX](colabriX/README.md)** | [/colabriX/](colabriX/) | Collaborative whiteboards with notes, shapes, connectors, frames, freehand, comments, voting, workshop timers and AI proposals. Export JSON, SVG, PNG, Markdown, CSV and project ZIP. |
 | **[designiX](designiX/README.md)** | [/designiX/](designiX/) | Multi-page graphic design with editable templates, shapes, typography, brand kits, embedded images, grouping, layers and AI proposals. Export SVG, PNG/JPEG/WebP, multi-page PDF and native project ZIPs. |
 | **[graphiX](graphiX/README.md)** | [/graphiX/](graphiX/) | Editable SVG shapes, paths, text, groups, layers and properties; mouse editing, zoom, SVG/PNG export and AI artwork proposals. |
 | **[photiX](photiX/README.md)** | [/photiX/](photiX/) | Raster-image effects and captions scoped to rectangular selections or the whole image. Generative fill/removal, expansion, generation, reference-guided edits and variations through an image provider. PNG/JPEG/WebP and editable JSON projects. |
@@ -310,15 +288,10 @@ The virtual disk, browser project and server filesystem are distinct. Importing 
 
 In **codeiX** or **appiX**, choose **Add to desktop** to install a saved project snapshot. Choose a name, description and logo; codeiX projects also need an HTML entry point. Desktop tiles open an isolated app runner with **Run app**, **Stop**, **Edit source project** and **App settings**. Use **App settings** to change an added app's name, description or logo, or remove it. Standard suite apps cannot be removed or modified through this manager.
 
-To publish changes, reopen the source editor, edit the project, choose **Add to desktop**, and select **Update …** instead of creating another app. Removing an app deletes its installed snapshot, while the editor's source project stays unchanged. Logos can be loaded from local disk, virtual disk or Google Drive; SVG logos are sanitized and rasterized.
+To publish changes, reopen the source editor, edit the project, choose **Add to desktop**, and select **Update …** instead of creating another app. Removing an app deletes its installed snapshot, while the editor's source project stays unchanged. Logos can be loaded from local disk or virtual disk; SVG logos are sanitized and rasterized.
 
 Installed apps are kept in this browser's IndexedDB for this origin, separately from the shared virtual disk. Export source projects for backup before clearing browser storage. Static codeiX HTML, local classic JavaScript, stylesheets and SVG images are bundled; module-based projects, backend programs and build-dependent projects must first be bundled into a static browser app. Relative fetches and imports need to be bundled or inlined as well. Added apps run without desktop/workspace access or same-origin storage. HTTPS fetch and external assets can be enabled per app; browsers still enforce CORS. Runtime state stays inside the isolated frame and resets on restart.
 
-## Google account sign-in
-
-Open **Google account** on the desktop or in any app's Drive dialog, then use **More options → Browser** for Google's official sign-in button and optional One Tap, or **Device code** for limited-input device authorization. Sign-in displays a server-verified account for the current page; Drive access requires separate consent. Configure a public Web OAuth client ID and install `server/requirements-google.txt`, then restart the server. The Browser method needs no API key or client secret. The optional **Device code** method supports eligible TVs/limited-input devices with a separate device client ID and server-stored secret. See [Google sign-in setup and behavior](docs/GOOGLE-SIGN-IN.md).
-
-The coding-agent header also offers **Inspect run files**: a separate, read-only live dialog for added, changed and removed server-workspace files, with filters, paged before/after content, unified diffs and patch downloads. It remains usable during commands and clearly labels unavailable recovery baselines. See [agent inspection](shared-agent/README.md#inspect-files-during-a-run).
 
 ## Headless coding-agent library
 

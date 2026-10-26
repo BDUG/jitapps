@@ -13,7 +13,6 @@ From the repository root:
 ```sh
 python -m pip install "pyinstaller>=6.11,<7"
 # Optional Google account sign-in verification in the bundled server:
-python -m pip install -r server/requirements-google.txt
 cd desktop-tauri
 npm ci
 npm run dev

@@ -78,10 +78,3 @@ Select **PDF document → Export** to save an A4 PDF to the selected computer or
 Conversion runs locally using bundled PDF.js 3.11.174 (Apache-2.0; dynamic evaluation disabled) and html2pdf.js 0.10.2 (MIT, including its bundled dependencies). Licenses are in `vendor/`. No AI provider or external conversion service is used.
 
 Run `node textiX/pdf-browser-test.cjs` with the suite server on port 8027 (or set `BASE_URL`) to check independent multipage text import, rendered export and reimport, corrupt-file rejection and Undo.
-
-## Project ZIP
-
-Use **Project ZIP** in the header, or **Workspace → Recovery → Import / export project ZIP**, to save and restore the complete native project. Choose Computer or Virtual disk. Imports validate and stage a review; applying preserves the previous project in Recovery. Embedded assets are included, while separate app/relay settings and external workspace files are excluded. See the [shared ZIP guide](../shared-suite/PROJECT-ZIP.md).
-
-
-Use **Open Google Docs** to import a native Drive document. Select **Google Docs · Drive** in the export format menu to save a native Google document. Connect and approve Google Drive access first. Conversion uses DOCX/XLSX/PPTX and may simplify unsupported features. See [Google Workspace interchange](../shared-suite/GOOGLE-DRIVE.md#google-docs-sheets-and-slides).

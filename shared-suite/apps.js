@@ -1,6 +1,6 @@
 /* One registry for the desktop, app identity and virtual-disk import targets. */
 window.SuiteApps=[
- {id:'colabriX',name:'colabriX',category:'Collaborative whiteboard',description:'Brainstorm with sticky notes, diagrams, frames, workshops and AI on shared Google Drive boards.',color:'#3f6f98',imports:[['file','Whiteboard project JSON'],['imageFile','Board images / SVG']]},
+ {id:'colabriX',name:'colabriX',category:'Collaborative whiteboard',description:'Brainstorm with sticky notes, diagrams, frames, workshops and AI on local boards.',color:'#3f6f98',imports:[['file','Whiteboard project JSON'],['imageFile','Board images / SVG']]},
  {id:'designiX',name:'designiX',category:'Graphic design',description:'Create multi-page posters, social graphics and branded layouts with templates, layers and AI.',color:'#8b1e3f',imports:[['file','Design project JSON'],['mediaFile','Images / SVG'],['brandFile','Brand kit'],['replaceFile','Replace selected image']]},
  {id:'photiX',name:'photiX',category:'Image editing',description:'Edit whole images or selected areas with AI-guided effects, captions and color adjustments.',color:'#783b4a',imports:[['file','Images / photiX project JSON']]},
  {id:'vidiX',name:'vidiX',category:'Video & motion',description:'Edit video clips, animate layers and export GIF, SVG and video.',color:'#ad6f9c',imports:[['file','vidiX project JSON'],['mediaFiles','Video, GIF, SVG and image assets']]},

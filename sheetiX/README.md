@@ -90,10 +90,3 @@ intact. Cells outside the destination rectangle are retained, and empty source
 cells clear their destination. Invalid destination bounds or shifted references
 reject the whole operation. Undo/Redo restores previous cells. The Workspace
 transpose action offers an explicit native review preview.
-
-## Project ZIP
-
-Use **Project ZIP** in the header, or **Workspace → Recovery → Import / export project ZIP**, to save and restore the complete native project. Choose Computer or Virtual disk. Imports validate and stage a review; applying preserves the previous project in Recovery. Embedded assets are included, while separate app/relay settings and external workspace files are excluded. See the [shared ZIP guide](../shared-suite/PROJECT-ZIP.md).
-
-
-Use **Open Google Sheets** to import a native Drive spreadsheet. Select **Google Sheets · Drive** in the export format menu to save a native Google spreadsheet. Connect and approve Google Drive access first. Conversion uses DOCX/XLSX/PPTX and may simplify unsupported features. See [Google Workspace interchange](../shared-suite/GOOGLE-DRIVE.md#google-docs-sheets-and-slides).
