@@ -14,7 +14,7 @@ Run the suite in your browser with a single Python server, or build the optional
 
 ## Project disclosure and license
 
-This is a personal hobby project for learning, experimentation, and enjoyment. It is not developed for commercial purposes or offered as a commercial product.
+This is a personal hobby project for learning, experimentation and enjoyment to validate teh following [hypothesis](https://medium.com/@dirk.bangel/just-in-time-app-afterthought-d6b7a402ff91). It is not developed for commercial purposes or offered as a commercial product. 
 
 The [MIT License](LICENSE) permits commercial use. The disclosure describes the project’s development purpose and adds no restrictions to that license. Bundled dependencies and skill documents retain their respective licenses. The suite is an independent implementation; feature coverage and file fidelity vary by app and format.
 
