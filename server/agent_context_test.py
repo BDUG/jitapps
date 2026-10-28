@@ -1,4 +1,7 @@
 import json
+import os
+from unittest import mock
+from codingagentlib.python import agent_context
 from pathlib import Path
 import tempfile
 import unittest
@@ -44,6 +47,50 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(self.tool('read_context',snapshot=digest)['code'],'context_snapshot_missing')
         restored=self.archive(source);self.assertEqual(restored['snapshot'],digest)
         self.assertIn('unsaved original',self.tool('read_context',snapshot=digest)['result']['text'])
+
+    def test_verified_pages_reuse_parsing_and_rendering(self):
+        value={'items':['Unicode 🧪']*2000};saved=self.archive(value);session=self.runtime.get(self.sid)
+        self.runtime._context_cache=None
+        expected=json.dumps(value,ensure_ascii=False,indent=2)
+        with mock.patch.object(agent_context.json,'loads',wraps=json.loads) as loads, mock.patch.object(agent_context.json,'dumps',wraps=json.dumps) as dumps:
+            pages=[agent_context.read(self.runtime,session,{'snapshot':saved['snapshot'],'offset':offset,'limit':1000})['text'] for offset in range(0,len(expected),1000)]
+            self.assertEqual(''.join(pages),expected);self.assertEqual(loads.call_count,1);self.assertEqual(dumps.call_count,1)
+        path=session['_dir']/'contexts'/(saved['snapshot']+'.json');stamp=path.stat();raw=path.read_bytes()
+        path.write_bytes(raw.replace(b'Unicode',b'Changed'));os.utime(path,ns=(stamp.st_atime_ns,stamp.st_mtime_ns))
+        with self.assertRaisesRegex(ValueError,'changed'):agent_context.read(self.runtime,session,{'snapshot':saved['snapshot']})
+        path.unlink()
+        with self.assertRaises(agent_context.SnapshotMissing):agent_context.read(self.runtime,session,{'snapshot':saved['snapshot']})
+
+    def test_read_returns_only_the_bytes_it_verified(self):
+        saved=self.archive({'source':'verified original'});session=self.runtime.get(self.sid)
+        path=session['_dir']/'contexts'/(saved['snapshot']+'.json');original=path.read_bytes()
+        self.runtime._context_cache=None
+        read_bytes=Path.read_bytes
+        def replace_after_read(target):
+            raw=read_bytes(target)
+            if target==path:target.write_bytes(original.replace(b'verified original',b'unverified change'))
+            return raw
+        with mock.patch.object(Path,'read_bytes',replace_after_read):
+            result=agent_context.read(self.runtime,session,{'snapshot':saved['snapshot'],'path':'/source'})
+        self.assertEqual(result['text'],'verified original')
+        with self.assertRaisesRegex(ValueError,'changed'):agent_context.read(self.runtime,session,{'snapshot':saved['snapshot']})
+
+    def test_cache_limits_and_session_isolation(self):
+        saved=self.archive({'items':['large text']*100});session=self.runtime.get(self.sid)
+        self.runtime._context_cache=None
+        with mock.patch.object(agent_context,'CACHE_BYTES',100):
+            first=agent_context.read(self.runtime,session,{'snapshot':saved['snapshot']})
+            self.assertIsNone(self.runtime._context_cache)
+            self.assertEqual(first,agent_context.read(self.runtime,session,{'snapshot':saved['snapshot']}))
+        agent_context.read(self.runtime,session,{'snapshot':saved['snapshot']})
+        other=self.runtime.get(self.runtime.start({'goal':'isolated'})['id'])
+        with self.assertRaises(agent_context.SnapshotMissing):agent_context.read(self.runtime,other,{'snapshot':saved['snapshot']})
+        value={str(i):['🧪']*10 for i in range(10)};rendered={}
+        with mock.patch.object(agent_context,'CACHE_BYTES',200):
+            for i in range(10):
+                self.assertEqual(agent_context.page(value,'/'+str(i),{},rendered),agent_context.page(value,'/'+str(i),{}))
+                self.assertLessEqual(len(rendered),agent_context.RENDERED_PATHS);self.assertLessEqual(sum(map(len,rendered.values())),200)
+        self.runtime.close();self.assertIsNone(self.runtime._context_cache)
 
     def test_original_history_and_exact_pointer_are_retrievable(self):
         event=self.runtime.event(self.runtime.get(self.sid),'assistant',{'plan':'original '*3000,'special/key':'exact 🧪'})

@@ -48,4 +48,32 @@ class ActionChecksTests(unittest.TestCase):
                     report=json.loads(archive.read('action-checks.json'));self.assertEqual(report['failed'],1);self.assertEqual(report['passed'],1);self.assertTrue(report['latestPassed']);saved=json.loads(archive.read('session.json'));self.assertTrue(saved['events'][-1]['value']['evidence']['checksPassed']);self.assertTrue(any(e['value'].get('checks',{}).get('passed') is False for e in saved['events'] if e['kind']=='observation'))
             finally:runtime.close()
 
+class CheckHistoryTests(unittest.TestCase):
+    def test_shared_history_fixtures(self):
+        cases=json.loads((Path(__file__).resolve().parent.parent/'shared-agent/check-history-fixtures.json').read_text())
+        for case in cases:
+            with self.subTest(case=case['name']):
+                before=json.dumps(case);report=checks.history(case['events'])
+                self.assertEqual(report['passed'],case['passed'])
+                self.assertEqual([v['id'] for v in report['unresolved']],case['unresolved'])
+                self.assertEqual(json.dumps(case),before)
+
+    def test_unrelated_pass_cannot_clear_failure_even_after_reload(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'a.txt').write_text('a');(root/'b.txt').write_text('b')
+            runtime=Runtime(root,[]);sid=runtime.start({'goal':'Verify both artifacts'})['id']
+            def read(path,expected,call):return runtime.dispatch({'op':'tool','session':sid,'tool':'read_file','callId':call,'args':{'path':path},'checks':[{'path':'/text','op':'equals','value':expected}]})
+            try:
+                read('a.txt','wrong','a-failed');read('b.txt','b','b-passed')
+                with zipfile.ZipFile(runtime.package(runtime.get(sid))) as archive:
+                    report=json.loads(archive.read('action-checks.json'));self.assertTrue(report['latestPassed']);self.assertFalse(report['currentPassed']);self.assertEqual(report['unresolved'][0]['id'],'a-failed')
+                with self.assertRaisesRegex(ValueError,'a-failed'):runtime.dispatch({'op':'finish','session':sid})
+                runtime.close();runtime=Runtime(root,[]);runtime.dispatch({'op':'resume','session':sid})
+                with self.assertRaisesRegex(ValueError,'a-failed'):runtime.dispatch({'op':'finish','session':sid})
+                read('a.txt','a','a-fixed')
+                result=runtime.dispatch({'op':'finish','session':sid,'summary':'Both artifacts checked'})
+                self.assertEqual(result['status'],'complete')
+                self.assertTrue(result['events'][-1]['value']['evidence']['checksPassed'])
+            finally:runtime.close()
+
 if __name__=='__main__':unittest.main()

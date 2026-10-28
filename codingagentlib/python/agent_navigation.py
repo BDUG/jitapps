@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
+MAX_FILE_BYTES=1000000
 EXTENSIONS={'.py','.js','.jsx','.ts','.tsx','.mjs','.cjs'}
 SERVICE=Path(__file__).with_name('code-navigation')/'service.cjs'
 def module_name(path):
@@ -123,6 +124,7 @@ class Navigation:
         required=[self.service,self.compiler/'package.json',self.compiler/'lib/typescript.js']
         if self.service.is_file() and b"require('../../codingagentlib/python/code-navigation/service.cjs')" in self.service.read_bytes():required.append((self.service.parent/'../../codingagentlib/python/code-navigation/service.cjs').resolve())
         self.required=tuple(required)
+        self._python_snapshot=None
         for path in self.required:
             if path.is_file():self.trusted[path]=(path.resolve(),path.stat().st_size,hashlib.sha256(path.read_bytes()).hexdigest())
         self.private_paths={p.resolve() for p in self.required}
@@ -135,7 +137,7 @@ class Navigation:
                 for chunk in iter(lambda:source.read(1048576),b''):hasher.update(chunk)
                 value=hasher.hexdigest()
             if value!=digest:raise ValueError('Trusted navigation files changed; restart after reviewing updates')
-    def health(self):return {'python':'builtin-ast','javascriptTypescript':'typescript-language-service' if self.node and len(self.trusted)==len(self.required) else 'unavailable; prepare TypeScript in '+str(self.service.parent)+' with npm ci, then restart','limits':{'files':400,'fileBytes':262144,'totalBytes':8000000}}
+    def health(self):return {'python':'builtin-ast','javascriptTypescript':'typescript-language-service' if self.node and len(self.trusted)==len(self.required) else 'unavailable; prepare TypeScript in '+str(self.service.parent)+' with npm ci, then restart','limits':{'files':400,'fileBytes':MAX_FILE_BYTES,'totalBytes':8000000}}
     def run(self,runtime,op,args):
         requested=args.get('path');query=args.get('query','')
         if not isinstance(query,str) or len(query)>500:raise ValueError('Use a symbol query under 500 characters')
@@ -148,16 +150,23 @@ class Navigation:
             relative=str(path.relative_to(runtime.root)).replace('\\','/')
             try:length=path.stat().st_size
             except OSError:skipped+=1;continue
-            if len(files)>=400 or length>262144 or size+length>8000000:skipped+=1;continue
+            if len(files)>=400 or length>MAX_FILE_BYTES or size+length>8000000:skipped+=1;continue
             try:
-                with path.open('rb') as source:data=source.read(262145)
-                if len(data)>262144 or size+len(data)>8000000:skipped+=1;continue
+                with path.open('rb') as source:data=source.read(MAX_FILE_BYTES+1)
+                if len(data)>MAX_FILE_BYTES or size+len(data)>8000000:skipped+=1;continue
                 text=data.decode('utf-8')
             except (OSError,UnicodeError):skipped+=1;continue
             files.append({'path':relative,'text':text,'hash':hashlib.sha256(data).hexdigest()});size+=len(data)
-        hashes={f['path']:f['hash'] for f in files};python=PythonIndex(files);result=[];engines=[];notes=[]
+        hashes={f['path']:f['hash'] for f in files};result=[];engines=[];notes=[]
         if op=='symbols' or requested.endswith('.py'):
-            result.extend(python.query(op,args));engines.append('python-ast');notes.append('Python resolves lexical scopes and explicit workspace imports; dynamic attributes, wildcard imports, global/nonlocal rebinding and runtime types are not resolved.')
+            # Re-read and hash sources above; reuse only an identical Python snapshot.
+            sources=[f for f in files if f['path'].endswith('.py')]
+            key=tuple((f['path'],f['hash']) for f in sources)
+            cached=self._python_snapshot
+            if cached is None or cached[0]!=key:
+                python=PythonIndex(sources);self._python_snapshot=(key,python)
+            else:python=cached[1]
+            result.extend(dict(item) for item in python.query(op,args));engines.append('python-ast');notes.append('Python resolves lexical scopes and explicit workspace imports; dynamic attributes, wildcard imports, global/nonlocal rebinding and runtime types are not resolved.')
         if op=='symbols' or not requested.endswith('.py'):
             js=[f for f in files if not f['path'].endswith('.py')]
             if js:

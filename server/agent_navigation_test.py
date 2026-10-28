@@ -1,4 +1,7 @@
 import shutil
+import os
+from unittest.mock import patch
+from codingagentlib.python.agent_navigation import PythonIndex, MAX_FILE_BYTES
 import tempfile
 from pathlib import Path
 import unittest
@@ -10,6 +13,53 @@ class NavigationTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.runtime=Runtime(self.root,[]);self.nav=Navigation()
     def tearDown(self):self.runtime.close();self.temp.cleanup()
     def write(self,path,text):target=self.root/path;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text)
+    def test_python_snapshot_reuse_and_content_invalidation(self):
+        self.write('lib.py','def first(): pass\n')
+        with patch('codingagentlib.python.agent_navigation.PythonIndex',wraps=PythonIndex) as build:
+            first=self.nav.run(self.runtime,'symbols',{'query':'first'})
+            first['results'][0]['name']='mutated response'
+            again=self.nav.run(self.runtime,'symbols',{'query':'first'})
+            self.assertEqual(again['results'][0]['name'],'first')
+            self.assertEqual(build.call_count,1)
+            before=(self.root/'lib.py').stat()
+            self.write('lib.py','def other(): pass\n')
+            os.utime(self.root/'lib.py',ns=(before.st_atime_ns,before.st_mtime_ns))
+            changed=self.nav.run(self.runtime,'symbols',{'query':'other'})
+            self.assertEqual(changed['results'][0]['name'],'other')
+            self.assertEqual(build.call_count,2)
+            self.write('added.py','def added(): pass\n')
+            self.assertEqual(self.nav.run(self.runtime,'symbols',{'query':'added'})['total'],1)
+            self.assertEqual(build.call_count,3)
+            (self.root/'added.py').unlink()
+            self.assertEqual(self.nav.run(self.runtime,'symbols',{'query':'added'})['total'],0)
+            self.assertEqual(build.call_count,4)
+
+    def test_javascript_requests_do_not_build_python_index(self):
+        self.write('lib.py','def unused(): pass\n')
+        self.write('main.js','const value = 1;\n')
+        with patch('codingagentlib.python.agent_navigation.PythonIndex') as build,patch.object(self.nav,'health',return_value={'javascriptTypescript':'unavailable'}):
+            with self.assertRaisesRegex(ValueError,'Install the TypeScript'):
+                self.nav.run(self.runtime,'diagnostics',{'path':'main.js'})
+            build.assert_not_called()
+
+    def test_one_megabyte_source_is_indexed_and_larger_file_disclosed(self):
+        prefix='def large_symbol():\n    return 1\n#'
+        self.write('boundary.py',prefix+'x'*(MAX_FILE_BYTES-len(prefix.encode())))
+        self.write('too-large.py',prefix+'x'*(MAX_FILE_BYTES+1-len(prefix.encode())))
+        self.assertEqual(self.nav.health()['limits']['fileBytes'],1000000)
+        result=self.nav.run(self.runtime,'symbols',{'query':'large_symbol'})
+        self.assertEqual([r['path'] for r in result['results']],['boundary.py'])
+        self.assertEqual(result['coverage']['indexedFiles'],1);self.assertEqual(result['coverage']['skippedFiles'],1);self.assertFalse(result['coverage']['complete'])
+
+    def test_one_megabyte_javascript_uses_the_server_navigation_service(self):
+        navigation=Navigation(Path(__file__).parent/'code-navigation')
+        if navigation.health()['javascriptTypescript']!='typescript-language-service':self.skipTest('Install server/code-navigation dependencies')
+        prefix='export function largeSource(value) { return value + 1; }\n//'
+        self.write('large.js',prefix+'x'*(MAX_FILE_BYTES-len(prefix.encode())))
+        result=navigation.run(self.runtime,'symbols',{'path':'large.js','query':'largeSource'})
+        self.assertTrue(any(item['name']=='largeSource' for item in result['results']))
+        self.assertIn('typescript-language-service',result['engines']);self.assertEqual(result['coverage']['bytes'],MAX_FILE_BYTES);self.assertEqual(result['coverage']['skippedFiles'],0)
+
     def test_python_imports_shadowing_and_syntax(self):
         self.write('lib.py','def add(a, b):\n    return a + b\n')
         self.write('main.py','from lib import add as total\nx = total(2, 3)\ndef other(total):\n    return total\n')

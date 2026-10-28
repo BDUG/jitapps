@@ -48,3 +48,7 @@ button.ag-final-merge,#suite-agent button.ag-final-merge,#sai-apply,#reviewDialo
 #ag-response-recovery h3{margin:0 0 8px;font-size:14px}#ag-response-recovery p{font-size:12px;overflow-wrap:anywhere}
 #ag-response-recovery pre{max-height:280px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;border:1px solid #d9dde1;border-radius:7px;padding:10px;font-size:11px}
 #ag-response-recovery summary{cursor:pointer;font-weight:600;margin:10px 0}#ag-response-recovery a{color:#3f6f98}#ag-response-recovery .ag-row{flex-wrap:wrap}#ag-response-recovery button{white-space:normal}
+
+#ag-http-exchanges{max-height:60vh;overflow:auto;min-width:0}#ag-http-exchanges details{margin:8px 0}#ag-http-exchanges summary{overflow-wrap:anywhere;font:12px/1.5 ui-monospace,monospace}#ag-http-exchanges pre{max-height:45vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}#ag-http-exchanges strong{display:block;margin-top:10px}
+
+#ag-history-dialog{width:min(960px,calc(100vw - 24px));max-height:90dvh;overflow:auto}#ag-history-runs{max-height:55vh;overflow:auto}#ag-history-runs article{border:1px solid var(--line,#d9dde1);padding:14px;margin:12px 0;border-radius:8px;overflow-wrap:anywhere}#ag-history-runs h3{font-size:16px;margin:0 0 8px}#ag-history-runs button{margin:8px 8px 0 0}#ag-history-form input{min-width:0;flex:1}#ag-history-form select{max-width:100%}

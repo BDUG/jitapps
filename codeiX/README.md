@@ -20,7 +20,7 @@ Changes autosave in browser storage. Undo history is limited to the current sess
 4. Click **Save to folder** or press Ctrl/Command S. Confirm the listed writes and deletions. The folder status shows whether the current project has unsaved disk changes. Only loaded text files and files you add are eligible for writing or deletion.
 5. Use **Reload folder** to discard editor changes and reread disk, or **Disconnect folder** to keep editing the browser copy without a disk connection.
 
-Nested folders are preserved. `.git`, `node_modules`, `.venv`, `venv` and `__pycache__` are excluded; binary, invalid and oversized files are skipped and reported. Existing project limits still apply (120 text files, 200 KB each, 2 MB total); choose a smaller directory if loading exceeds them. Empty directories are not represented or removed. The directory scan is bounded to 5,000 entries and 20 levels.
+Nested folders are preserved. `.git`, `node_modules`, `.venv`, `venv` and `__pycache__` are excluded; binary, invalid and oversized files are skipped and reported. Existing project limits still apply (120 text files, 1 MB each, 2 MB total); choose a smaller directory if loading exceeds them. Empty directories are not represented or removed. The directory scan is bounded to 5,000 entries and 20 levels.
 
 Before saving, codeiX compares every affected file with its last-read contents. An external modification, removal or colliding new file stops the save instead of overwriting it. Export your editor copy before reloading if you need to merge changes. The save checks precede writing but do not lock external editors; avoid simultaneous disk edits while saving. Multiple-file saves are not atomic: if a later write fails, earlier writes may already be on disk. Undo changes the editor copy; save again to write that reversal to disk.
 
@@ -31,7 +31,7 @@ Directory permission and handles are session-only. Reloading the page restores t
 - **Import files** adds UTF-8 text files. **Import folder** preserves relative subfolders, skipping `.git` and `node_modules`. Existing paths require confirmation before replacement. Binary, invalid or oversized files are skipped and reported.
 - **Open project** replaces the workspace with a codeiX JSON backup or ZIP archive of UTF-8 text files. An invalid project leaves the current workspace intact. Successful imports can be undone.
 - **Export ZIP** downloads the project files with their relative paths. **Save JSON backup** also retains the project name. **Download file** downloads the active file.
-- Projects support up to 120 files, 200 KB per file and 2 MB total text. Project archives are limited to 8 MB. Paths must be relative, without traversal, backslashes or empty segments.
+- Projects support up to 120 files, 1 MB per file and 2 MB total text. Project archives are limited to 8 MB. Paths must be relative, without traversal, backslashes or empty segments.
 - **HTML preview** displays only the active HTML file in a sandbox. Scripts, external resources, forms and navigation are disabled. It is a static visual check, not an application runner; neighboring CSS/JS files are not bundled into the preview.
 
 ## Connect the coding agent
@@ -128,3 +128,5 @@ From the desktop tile's **App settings**, edit its metadata/logo or remove it. S
 Each explorer file has an **Include … in AI context** checkbox. Clear it to exclude that file from both AI chat context (including the file manifest and active editor selection) and coding-agent browser project snapshots. The explorer marks it **AI off**. Exclusions are saved with the project, follow file renames and are undoable. AI edits cannot replace or delete excluded browser files; complete-project proposals preserve them.
 
 Changing exclusions clears chat history and requires a new coding-agent run before resuming with the new policy. Previously submitted requests and historical server sessions cannot be retracted. These are browser project context exclusions, not OS access controls: separately authorized server-workspace tools and commands retain their permissions, and manually attached files are explicit input.
+
+The per-file limit is **1,000,000 UTF-8 bytes** (decimal MB), not a character count. The 120-file, 2 MB total-project and 8 MB archive limits still apply. Files over 200,000 bytes use a labelled plain rendering mode to avoid expensive syntax overlays; their complete text remains editable, searchable, exportable and available to reviewed agent edits.

@@ -3,6 +3,7 @@ from array import array
 from collections import Counter
 from contextlib import closing
 import hashlib
+import heapq
 import json
 import math
 from pathlib import Path
@@ -67,19 +68,26 @@ class Memory:
                 fallback=self.lexical_search(session,query,limit,collection,cursor);fallback['semanticError']=type(error).__name__+': '+str(error);return fallback
         return self.lexical_search(session,query,limit,collection,cursor)
     def lexical_search(self,session,query,limit=8,collection=None,cursor=0):
-        v=vector(query);sql='SELECT document,part,embedding FROM chunks WHERE session=?';args=[session]
+        v=[(i,weight) for i,weight in enumerate(vector(query)) if weight];sql='SELECT document,part,embedding FROM chunks WHERE session=?';args=[session]
         if collection:sql+=' AND collection=?';args.append(collection)
         with closing(self.connect()) as db:
             db.execute('BEGIN')
-            ranked=[]
-            for row in db.execute(sql,args):
-                values=array('f');values.frombytes(row['embedding']);score=sum(a*b for a,b in zip(v,values))
-                if score>0:ranked.append((score,row['document'],row['part']))
-            ranked.sort(key=lambda r:(-r[0],r[1],r[2]));results=[]
-            for score,document,part in ranked[cursor:cursor+limit]:
+            total=0
+            def candidates():
+                nonlocal total
+                for row in db.execute(sql,args):
+                    values=array('f');values.frombytes(row['embedding'])
+                    score=sum(weight*values[i] for i,weight in v)
+                    if score>0:
+                        total+=1
+                        yield (-score,row['document'],row['part'])
+            ranked=heapq.nsmallest(cursor+limit,candidates()) if v else []
+            results=[]
+            for negative_score,document,part in ranked[cursor:cursor+limit]:
+                score=-negative_score
                 row=db.execute('SELECT * FROM chunks WHERE session=? AND document=? AND part=?',(session,document,part)).fetchone()
                 results.append({'id':document,'part':part,'score':round(score,6),'collection':row['collection'],'source':row['source'],'text':row['content'],'metadata':json.loads(row['metadata']),'updatedAt':row['updated']})
-        return {'model':MODEL,'dimensions':DIMENSIONS,'semantic':False,'matches':results,'matchedChunks':len(ranked),'nextCursor':cursor+len(results),'done':cursor+len(results)>=len(ranked),'note':'Local hashed lexical features with cosine similarity; not a cloud semantic embedding model.'}
+        return {'model':MODEL,'dimensions':DIMENSIONS,'semantic':False,'matches':results,'matchedChunks':total,'nextCursor':cursor+len(results),'done':cursor+len(results)>=total,'note':'Local hashed lexical features with cosine similarity; not a cloud semantic embedding model.'}
     def health(self):
         return self.semantic.health() if self.semantic else {'enabled':False,'semantic':False,'backend':'lexical-hash','model':MODEL,'dimensions':DIMENSIONS,'note':'Configure --agent-embedding-dir for learned semantic retrieval.'}
     def reindex(self,session,document=None,limit=32):

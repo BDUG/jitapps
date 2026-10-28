@@ -1,0 +1,292 @@
+[
+  {
+    "name": "no checks",
+    "events": [],
+    "passed": null,
+    "unresolved": []
+  },
+  {
+    "name": "unrelated success retains failure",
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "args": {
+            "path": "a.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "a.txt"
+          },
+          "checks": {
+            "passed": false
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "b-passed",
+          "tool": "read_file",
+          "args": {
+            "path": "b.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "b-passed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "b.txt"
+          },
+          "checks": {
+            "passed": true
+          }
+        }
+      }
+    ],
+    "passed": false,
+    "unresolved": [
+      "a-failed"
+    ]
+  },
+  {
+    "name": "same checked action resolves failure",
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "args": {
+            "path": "a.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "a.txt"
+          },
+          "checks": {
+            "passed": false
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "b-passed",
+          "tool": "read_file",
+          "args": {
+            "path": "b.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "b-passed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "b.txt"
+          },
+          "checks": {
+            "passed": true
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "a-fixed",
+          "tool": "read_file",
+          "args": {
+            "path": "a.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a-fixed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "a.txt"
+          },
+          "checks": {
+            "passed": true
+          }
+        }
+      }
+    ],
+    "passed": true,
+    "unresolved": []
+  },
+  {
+    "name": "unchecked rerun does not clear failure",
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "args": {
+            "path": "a.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "a.txt"
+          },
+          "checks": {
+            "passed": false
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "a-unchecked",
+          "tool": "read_file",
+          "args": {
+            "path": "a.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a-unchecked",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "a.txt"
+          }
+        }
+      }
+    ],
+    "passed": false,
+    "unresolved": [
+      "a-failed"
+    ]
+  },
+  {
+    "name": "browser assistant action identities",
+    "events": [
+      {
+        "kind": "assistant",
+        "value": {
+          "status": "act",
+          "action": {
+            "tool": "read_file",
+            "args": {
+              "path": "a.txt"
+            }
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "a.txt"
+          },
+          "checks": {
+            "passed": false
+          }
+        }
+      },
+      {
+        "kind": "assistant",
+        "value": {
+          "status": "act",
+          "action": {
+            "tool": "read_file",
+            "args": {
+              "path": "b.txt"
+            }
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "b-passed",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "text": "b.txt"
+          },
+          "checks": {
+            "passed": true
+          }
+        }
+      }
+    ],
+    "passed": false,
+    "unresolved": [
+      "a-failed"
+    ]
+  },
+  {
+    "name": "failed execution cannot pass checks",
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "args": {
+            "path": "a.txt"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a-failed",
+          "tool": "read_file",
+          "ok": false,
+          "result": {
+            "text": "a.txt"
+          },
+          "checks": {
+            "passed": true
+          }
+        }
+      }
+    ],
+    "passed": false,
+    "unresolved": [
+      "a-failed"
+    ]
+  }
+]

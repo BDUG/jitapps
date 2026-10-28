@@ -6,6 +6,7 @@ import ipaddress
 import socket
 import http.client
 import json
+from server import http_trace
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import ssl
@@ -96,6 +97,8 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def send_json(self, status, body):
+        if isinstance(body,dict) and getattr(self,'provider_trace',None) is not None and self.path=='/api/chat':
+            body={**body,'httpTrace':self.provider_trace}
         payload = json.dumps(body).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -133,6 +136,7 @@ class Handler(SimpleHTTPRequestHandler):
         else: super().do_GET()
 
     def do_POST(self):
+        self.provider_trace=None
         admin=self.path.startswith('/api/admin/')
         if self.path not in {'/api/chat','/api/admin/config','/api/admin/import','/api/admin/export','/api/admin/test'}:
             self.send_json(404, {'error':'Unknown API route'})
@@ -168,7 +172,8 @@ class Handler(SimpleHTTPRequestHandler):
                 profile=self.server.store.active()
                 messages=[{'role':'user','content':'Reply with OK.'}]
             else:
-                if not isinstance(data,dict) or not {'messages'}<=set(data) or set(data)-{'messages','app','modalities'}: raise ValueError('Send messages and an optional app ID; provider configuration belongs to the relay')
+                if not isinstance(data,dict) or not {'messages'}<=set(data) or set(data)-{'messages','app','modalities','trace'}: raise ValueError('Send messages and an optional app ID; provider configuration belongs to the relay')
+                if 'trace' in data and not isinstance(data['trace'],bool):raise ValueError('trace must be boolean')
                 profile=self.server.store.active()
                 messages=data['messages']
                 if hasattr(self.server,'skill_catalog'):
@@ -178,16 +183,21 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError,TypeError,UnicodeDecodeError,KeyError,OSError) as error:
             self.send_json(400,{'error':str(error) if isinstance(error,ValueError) else 'Invalid relay request or configuration storage unavailable'})
             return
+        self.provider_trace=http_trace.trace(url,headers,body) if not admin and data.get('trace') is True else None
         try:
             opener = urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=ssl.create_default_context()))
             req = urllib.request.Request(url, data=body, headers=headers, method='POST')
             with opener.open(req, timeout=None) as response:
                 payload = response.read()
+                if self.provider_trace is not None:http_trace.response(self.provider_trace,response.status,response.headers,payload)
             parsed = json.loads(payload)
             if not isinstance(parsed, dict):
                 raise ValueError('Provider response is not an object')
             self.send_json(200,relay_config.response_content(profile,parsed))
         except urllib.error.HTTPError as error:
+            if self.provider_trace is not None:
+                try:http_trace.response(self.provider_trace,error.code,error.headers,error.read())
+                except OSError:self.provider_trace['error']={'message':'Provider error body unavailable'}
             hints = {
                 400: 'Check the model, protocol, token limit, context size and supported input/output modalities in relay settings.',
                 401: 'Check the API key in relay provider settings.',
@@ -202,6 +212,7 @@ class Handler(SimpleHTTPRequestHandler):
         except (json.JSONDecodeError, UnicodeDecodeError):
             self.send_json(502, {'error':'Provider returned invalid JSON. Check that the relay endpoint is a non-streaming chat API, not a website or login page.', 'code':'provider_invalid_json'})
         except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as error:
+            if self.provider_trace is not None:self.provider_trace.update(error={'type':type(error).__name__,'message':'Provider transport failed'},elapsedMs=round((__import__('time').time()-self.provider_trace['startedAt'])*1000))
             reason = error.reason if isinstance(error, urllib.error.URLError) else error
             if isinstance(reason, ssl.SSLError):
                 code, message = 'provider_tls_error', 'TLS verification failed between the relay and provider. Install the required trusted CA certificates on the relay server; keep certificate verification enabled.'

@@ -1,6 +1,10 @@
 //! Native Rust coding agent. No Python, Node, worker process or HTTP server is required.
 //! Model callbacks are supplied by the host. Commands require an explicit allowlist and
 //! session permission, and run with host OS permissions (not in a sandbox).
+mod integration;
+pub use integration::ContextRegistry;
+mod embedded;
+pub use embedded::{EmbeddedAgent, ToolContext, ToolPermission};
 mod runtime;
 mod tools;
 use serde_json::{json, Value};
@@ -84,6 +88,22 @@ impl Agent {
             }
             "agent_next" => self.next(session()?),
             "agent_submit" => self.submit(session()?, params["response"].clone()),
+            "package" | "changes" => {
+                let id = session()?;
+                self.runtime.session(id)?;
+                let readonly_cancel = CancelHandle(Arc::new(AtomicBool::new(false)));
+                tools::execute(
+                    &mut self.runtime,
+                    id,
+                    if method == "package" {
+                        "package_results"
+                    } else {
+                        "changes"
+                    },
+                    &serde_json::json!({"limit":1000}),
+                    &readonly_cancel,
+                )
+            }
             "close" => {
                 self.runtime.pause_all()?;
                 Ok(json!({"closed":true}))

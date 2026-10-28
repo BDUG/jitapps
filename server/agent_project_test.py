@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -26,6 +27,18 @@ class ProjectBridgeTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.call('project_begin',**{**action,'callId':'other','currentTool':'appiX'})
         other=self.runtime.start({'goal':'read only','tool':'codeiX','allowEdits':False,'allowProjectContext':True,'allowProjectEdits':True})
         with self.assertRaises(PermissionError):self.runtime.dispatch({'op':'project_begin','session':other['id'],**action})
+    def test_browser_edits_invalidate_prior_command_verification(self):
+        self.runtime.close();self.runtime=Runtime(self.root,[sys.executable])
+        self.sid=self.runtime.start({'goal':'Edit and verify browser project','tool':'codeiX','allowEdits':True,'allowProjectContext':True,'allowProjectEdits':True,'allowCommands':True})['id']
+        args={'command':sys.executable,'args':['-c','print("verified")']}
+        self.call('tool',tool='run_command',callId='before-edit',args=args)
+        snapshot=self.context({'tool':'codeiX','project':{'name':'Browser','version':1,'files':[]}})
+        self.call('project_begin',currentTool='codeiX',tool='apply_project',callId='edit',args={'expectedSnapshot':snapshot,'changes':[]})
+        self.call('project_finish',callId='edit',result={'source':'browser editor','tool':'codeiX','snapshot':snapshot,'status':'applied','validated':True})
+        with self.assertRaisesRegex(ValueError,'verification after the latest edit'):self.call('finish',summary='Unverified edit')
+        self.call('tool',tool='run_command',callId='after-edit',args=args)
+        self.assertEqual(self.call('finish',summary='Verified after browser edit')['status'],'complete')
+
     def test_current_project_is_exported_without_workspace_changes(self):
         document={'version':1,'name':'Current app','files':[{'path':'src/main.js','content':'actual browser source'}]}
         self.context({'tool':'codeiX','project':document});self.call('finish',summary='Current project captured')

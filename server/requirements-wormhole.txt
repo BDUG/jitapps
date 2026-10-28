@@ -1,0 +1,2 @@
+# Optional PC-to-PC file sharing and colabriX transport.
+magic-wormhole[dilate]==0.24.0

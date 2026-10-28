@@ -17,22 +17,24 @@ def validate(rules):
     return out
 
 def evaluate(rules,events):
-    rules=validate(rules);actions={};observations=[];last_edit=-1
+    rules=validate(rules);actions={};observations=[];last_edit=-1;pending=None
     for index,event in enumerate(events):
         value=event.get('value',{})
         if event['kind']=='action':actions[value.get('id')]=value
+        if event['kind']=='assistant' and value.get('status')=='act':pending=value.get('action')
         if event['kind']=='user_action' and value.get('operation') in ('script_write','script_delete','restore_file'):last_edit=index
         if event['kind']=='observation':
-            observations.append((index,value))
+            action=actions.get(value.get('id'))
+            if action is None and isinstance(pending,dict) and pending.get('tool')==value.get('tool'):action=pending
+            observations.append((index,value,action));pending=None
             if value.get('ok') and value.get('tool') in EDITS:last_edit=index
     results=[]
     for rule in rules:
         latest=None
-        for index,value in observations:
-            action=actions.get(value.get('id'))
+        for index,value,action in reversed(observations):
             if value.get('tool')!=rule['tool']:continue
             if rule['match'] and (not action or action.get('tool')!=rule['tool'] or not agent_checks.evaluate(action.get('args',{}),rule['match'])['passed']):continue
-            latest=(index,value)
+            latest=(index,value);break
         status='pending';checks=None;call_id=None
         if latest:
             index,value=latest;call_id=value.get('id')

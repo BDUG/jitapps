@@ -5,3 +5,12 @@
 .suite-export-options{display:inline-flex;align-items:center;gap:6px}.suite-export-options label{display:flex;align-items:center;gap:6px;font:11px system-ui;color:inherit;margin:0}.suite-export-options select{display:inline-block;width:auto;max-width:160px;font:11px system-ui;margin:0;padding:7px;border:1px solid #d9c8e8;border-radius:6px;background:white;color:#574263}
 
 #sd-backup{border:1px solid var(--tlal-border,#d9dde1);border-radius:8px;padding:12px;margin:16px 0}#sd-backup summary{cursor:pointer;font-weight:600;line-height:1.35;padding:4px 0}#sd-backup p{font-size:12px;line-height:1.6;color:var(--tlal-secondary,#626a73)}#sd-backup label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}#sd-backup select{max-width:100%;min-width:0;flex:1}#sd-backup .sd-toolbar{flex-wrap:wrap}#sd-backup-preview{margin-top:12px;border-top:1px solid var(--tlal-border,#d9dde1);padding-top:12px}
+
+/* PC sharing and master-led document collaboration. */
+#suite-wormhole,#colabrix-wormhole{box-sizing:border-box;width:min(720px,94vw);max-width:94vw;max-height:90vh;overflow:auto;border:1px solid #d9dde1;border-radius:16px;padding:24px;background:white;color:#343b43;font:14px/1.5 system-ui,sans-serif}
+#suite-wormhole::backdrop,#colabrix-wormhole::backdrop{background:#20172c80}
+#suite-wormhole .sd-heading,#colabrix-wormhole .sd-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#suite-wormhole .sd-toolbar,#colabrix-wormhole .sd-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+#suite-wormhole button,#colabrix-wormhole button,#suite-wormhole input,#colabrix-wormhole input,#colabrix-wormhole select,#wh-history{box-sizing:border-box;max-width:100%;padding:8px 10px;border:1px solid #d9dde1;border-radius:7px;font:inherit;background:white;color:inherit}
+#suite-wormhole label,#colabrix-wormhole label{display:block;margin:12px 0}#suite-wormhole p,#colabrix-wormhole p{overflow-wrap:anywhere}#wh-history,#cw-role,#cw-code-input{display:block;width:100%}#wh-code,#cw-code{display:block;font-weight:700;overflow-wrap:anywhere}#suite-wormhole h2,#colabrix-wormhole h2{margin:0}#suite-wormhole button,#colabrix-wormhole button{cursor:pointer}#suite-wormhole :focus-visible,#colabrix-wormhole :focus-visible{outline:2px solid #3f6f98;outline-offset:2px}
+.desktop-header-links{flex-wrap:wrap;justify-content:flex-end;gap:12px}

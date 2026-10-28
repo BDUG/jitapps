@@ -10,6 +10,10 @@ The suite's headless coding-agent components, reusable without the desktop, chat
 | Native Rust API | `rust/` crate, `codingagentlib::Agent` | Rust/Cargo to build; the compiled library requires no Python, Node, worker or web server. |
 | JSON-lines worker | `python3 -m codingagentlib --workspace PATH` | Python only. Protocol documented below; no listening TCP ports. |
 
+## Dynamic integrations
+
+JavaScript, Python and native Rust support named, revisioned `ContextRegistry` sources, context refresh before every model turn, dynamic tool discovery/revocation, progress events and exact-turn context in host tool callbacks. A reviewed editor integration example shows how to stage proposals and reject stale projects. See the [integration framework guide](INTEGRATION.md#dynamic-host-integration-framework).
+
 ## Layout
 
 - `javascript/`: canonical schema/instructions, plan parsing/validation, ReAct/Sense–Plan–Act orchestration, context compression/recovery, task planning, action checks, acceptance checks and independent-review orchestration. `loop.run(state, callbacks)` is transport independent.
@@ -189,3 +193,13 @@ Regenerate the Python protocol artifact after changing the canonical JavaScript 
 ```sh
 node -e "require('fs').writeFileSync('codingagentlib/protocol.json',JSON.stringify(require('./codingagentlib/javascript/spec.js'),null,2)+'\\n')"
 ```
+
+## Standalone VS Code extension
+
+[`vscode/`](vscode/README.md) provides a standalone, installable VS Code extension with native Rust workspace execution, model chat/follow-ups, saved sessions, live trace, file comparisons and ZIP exports. It needs no Python package or suite server. API keys use VS Code SecretStorage; trust and per-run permissions are explicit. Build the platform-specific VSIX with `npm ci`, `npm run verify`, and `npm run package -- --target linux-x64` from that directory. See its guide for direct provider setup, optional relay transport, remote hosts and supported capabilities.
+
+## Simple host integration API
+
+JavaScript, Python and Rust now export `EmbeddedAgent` for registering application tools and injecting model callbacks, public progress events, approval hooks, context and cancellation. Questions and follow-up resumes share the same JSON protocol. See [cross-language integration examples and contracts](INTEGRATION.md), including a small [Rust browser UI](rust/examples/ui.rs) using actual native workspace tools.
+
+The JavaScript planning core exposes `loop.failureRecovery(events)` for structured, observation-based recovery guidance. The suite shows it in a foldable panel, offers an unsent follow-up draft and exports a linked JSON report. See the [agent recovery guide](../shared-agent/README.md#evidence-based-failure-recovery).

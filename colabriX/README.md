@@ -19,7 +19,7 @@ Shortcuts: **V** select, **H** hand, **N** sticky note, **C** connector, **P** f
 
 ## Local boards
 
-Boards are saved locally in the browser. Exchange JSON or native project ZIP files for manual sharing. Existing local board drafts and collaboration recovery JSON remain importable; there is no remote synchronization.
+Boards are saved locally in the browser. Exchange JSON or native project ZIP files for manual sharing. Existing local board drafts and collaboration recovery JSON remain importable; choose **Work together** for master-led collaboration over magic-wormhole.
 
 ## AI chat and coding agent
 
@@ -40,3 +40,7 @@ Use **Project ZIP** for a portable, reviewed native project import/export with e
 node colabriX/model-test.cjs
 BASE_URL=http://127.0.0.1:8000 node colabriX/browser-test.cjs
 ```
+
+## Work together between PCs
+
+The default collaboration transport is magic-wormhole. The master shares a single-use code; a participant joins after confirming replacement of its local board. Changes use durable in/out queues and master-numbered snapshots. See [installation, roles, queue behavior and limits](../shared-suite/WORMHOLE.md). Local editing and project ZIP sharing do not require pairing.

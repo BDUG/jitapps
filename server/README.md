@@ -38,7 +38,7 @@ Run `python3 server/server.py --help` for the installed version. The same flags 
 | `--agent-workspace DIRECTORY` | Repository root | Existing server-side workspace for coding-agent files and commands. Private run state is stored in its `.suite-agent/` directory. This is separate from the browser's codeiX/appiX project and virtual disk. |
 | `--disable-agent` | False | Disable the coding runtime and its commands. Hosting, relay, research and shared catalog remain available. No workspace directory is required for a disabled runtime. |
 | `--agent-no-commands` | False | Disable coding-agent terminal execution while keeping its other runtime capabilities available. File edits still depend on the session's permissions. Overrides any command allowlist. |
-| `--agent-allow-command EXECUTABLE` | Auto-detected Python interpreter plus installed `node`, `npm`, `git` | Repeat to **replace**, not extend, the default coding-agent executable list. Every explicitly named executable must exist. When frozen, Python candidates are installed `python3`/`python`, not the sidecar binary. Ignored when commands/the agent are disabled. |
+| `--agent-allow-command EXECUTABLE` | Auto-detected Python interpreter plus installed `node`, `npm`, `git`, `sh` | Repeat to **replace**, not extend, the default coding-agent executable list. Every explicitly named executable must exist. When frozen, Python candidates are installed `python3`/`python`, not the sidecar binary. Ignored when commands/the agent are disabled. |
 | `--agent-navigation-dir DIRECTORY` | `SUITE_AGENT_NAVIGATION_DIR`, otherwise bundled `server/code-navigation/` | Trusted directory containing `service.cjs` and its installed `node_modules/typescript`. Python AST navigation is built in; full JS/TS analysis needs Node and `npm ci --prefix server/code-navigation`. CLI overrides the environment value. |
 | `--agent-embedding-dir DIRECTORY` | `SUITE_AGENT_EMBEDDING_DIR`, otherwise off | Prepared local `model.onnx`, `tokenizer.json`, `manifest.json` with matching hashes. Requires `server/requirements-agent.txt`. Enables learned session-memory embeddings; startup never downloads a model. The shared skill catalog remains a separate hashed lexical vector index. Ignored when the coding runtime is disabled. |
 | `--skills-db PATH` | `skills/catalog.sqlite3` beside `--config` | Private shared skill index, app skill profiles, edits and history. Its parent is created automatically. This is separate from learned workspace-local agent skills. |
@@ -117,7 +117,7 @@ The setting is saved/exported/imported as `tokenLimitEnabled: false`. Existing c
 
 Use the **Coding agent** tab in AI chat for iterative code inspection, file editing, managed scripts and real terminal execution. See the [runtime setup and workflow](../shared-agent/README.md) for startup flags, permissions, session recovery and verification.
 
-Coding-agent commands are enabled by default for installed Python, Node.js, npm and Git, with the suite repository as workspace. Override with `--agent-workspace` and repeated `--agent-allow-command` flags; disable commands with `--agent-no-commands`, or the whole runtime with `--disable-agent`. Commands run with the server process’s OS permissions.
+Coding-agent commands are enabled by default for installed Python, Node.js, npm, Git and sh, with the suite repository as workspace. Override with `--agent-workspace` and repeated `--agent-allow-command` flags; disable commands with `--agent-no-commands`, or the whole runtime with `--disable-agent`. Commands run with the server process’s OS permissions.
 
 ## Shared app skills
 
@@ -153,3 +153,7 @@ Additional trusted origins, coding-agent command enablement/allowlists, workflow
 Listener bind/port, coding-agent workspace/enablement, navigation/embedding directories, skill catalog/offline settings and private configuration file locations are saved for the next restart. The dialog lists pending restart fields and keeps the effective values separate from saved values. Restart using the same `--server-config` location. Explicit startup flags continue to override saved values; remove those flags if you want saved settings to win. `SUITE_SKILLS_OFFLINE=1` still forces offline operation. Configuration path changes also affect dependent default paths as described above.
 
 The JSON uses the field names returned by `/api/admin/server-settings` (`action: "read"`); optional paths and the automatic agent command list are `null`. Saves are atomic and owner-only. Server settings contain paths and permissions, not provider API keys. The file and temporary save files cannot be downloaded through static hosting. Administration requires the same localhost origin and `X-Architex-Admin: 1`; apply requires a previously reviewed ticket and `approved: true`.
+
+## Optional magic-wormhole sharing
+
+Install `server/requirements-wormhole.txt` in the server Python environment and restart to enable **Share between PCs** and colabriX **Work together**. The local-origin `/api/wormhole` endpoint manages private durable queues and isolated encrypted transport workers. See [installation, relay networking and validation](../shared-suite/WORMHOLE.md).

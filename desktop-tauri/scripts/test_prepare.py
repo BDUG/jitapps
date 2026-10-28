@@ -28,7 +28,7 @@ class StagingTest(unittest.TestCase):
     def test_actual_suite_stages_every_registered_app(self):
         with tempfile.TemporaryDirectory() as folder:
             out=prepare.stage(prepare.ROOT,Path(folder)/'suite')
-            self.assertEqual(len(prepare.APPS),16)
+            self.assertEqual(len(prepare.APPS),17)
             for app in prepare.APPS:self.assertTrue((out/app/'index.html').exists())
             self.assertTrue((out/'shared-suite/apps.js').exists())
             self.assertTrue((out/'codingagentlib/javascript/loop.js').exists())

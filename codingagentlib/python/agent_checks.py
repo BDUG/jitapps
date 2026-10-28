@@ -1,5 +1,6 @@
 """Non-executable postconditions over actual JSON tool results (RFC 6901 paths)."""
 import math
+import json
 import re
 
 
@@ -51,3 +52,22 @@ def evaluate(result,checks):
         passed=exists==expected if op=='exists' else exists and (equal(actual,expected) if op=='equals' else isinstance(actual,str) and isinstance(expected,str) and expected in actual or isinstance(actual,list) and any(equal(v,expected) for v in actual))
         results.append({'path':check['path'],'op':op,'label':check.get('label',check['path'] or '(result root)'),'expected':expected,'exists':exists,'passed':bool(passed),'note':'Evaluated against the actual tool result; no code or expressions executed.'})
     return {'passed':all(r['passed'] for r in results),'results':results}
+
+
+def history(events):
+    """Latest checked result per exact tool/argument pair, never a model claim."""
+    actions={};latest={};pending=None
+    for event in events:
+        value=event.get('value',{})
+        if event['kind']=='action':actions[value.get('id')]=value
+        if event['kind']=='assistant' and value.get('status')=='act':pending=value.get('action')
+        if event['kind']!='observation':continue
+        action=actions.get(value.get('id'))
+        if action is None and pending and pending.get('tool')==value.get('tool'):action=pending
+        pending=None
+        if not isinstance(value.get('checks'),dict):continue
+        args=action.get('args',{}) if action else {}
+        key=json.dumps({'tool':value.get('tool'),'args':args},sort_keys=True,separators=(',',':'),ensure_ascii=False)
+        latest[key]={'id':value.get('id'),'tool':value.get('tool'),'passed':value.get('ok') is not False and value['checks'].get('passed') is True}
+    failures=[value for value in latest.values() if not value['passed']]
+    return {'passed':not failures if latest else None,'unresolved':failures}

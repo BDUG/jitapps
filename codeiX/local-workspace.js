@@ -9,7 +9,7 @@ function update(){for(const id of ['saveWorkspace','reloadWorkspace','disconnect
 function disconnect(){directory=null;originals=new Map();savedSignature='';update();$('#saveStatus').textContent='● Saved in browser';}
 window.CodeixDisconnectWorkspace=disconnect;
 async function scan(handle){
- const files=[],disk=new Map();let skipped=0,visited=0;
+ const files=[],disk=new Map();let skipped=0,visited=0,totalBytes=0;
  async function walk(dir,prefix=''){
   for await(const [name,entry] of dir.entries()){
    if(++visited>5000)throw Error('Folder contains too many entries. Choose a smaller workspace.');
@@ -17,7 +17,9 @@ async function scan(handle){
    const path=prefix+name;
    if(entry.kind==='directory'){if(path.split('/').length>20){skipped++;continue;}await walk(entry,path+'/');continue;}
    try{P.path(path);const f=await entry.getFile();const text=await decode(f);files.push({path,content:text});disk.set(path,text);}catch{skipped++;continue;}
-   P.validate({name:handle.name,files});
+   totalBytes+=P.bytes(files.at(-1).content);
+   if(files.length>P.limits.files)throw Error('Import at most 120 files.');
+   if(totalBytes>P.limits.totalBytes)throw Error('Project contents exceed 2 MB.');
   }
  }
  await walk(handle);return {next:P.validate({name:handle.name,files}),disk,skipped};

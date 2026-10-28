@@ -7,6 +7,8 @@ import threading
 import time
 import unittest
 import uuid
+import hashlib
+from unittest.mock import patch
 from server.agent_runtime import Runtime
 
 class AgentRuntimeTests(unittest.TestCase):
@@ -15,6 +17,77 @@ class AgentRuntimeTests(unittest.TestCase):
         self.runtime=Runtime(self.root,[sys.executable]);self.session=self.runtime.start({'goal':'Fix and verify','allowEdits':True,'allowCommands':True});self.sid=self.session['id']
     def tearDown(self):self.runtime.close();self.tmp.cleanup()
     def tool(self,name,**args):return self.runtime.dispatch({'op':'tool','session':self.sid,'tool':name,'args':args,'callId':uuid.uuid4().hex})
+    def test_search_pages_preserve_order_counts_and_text_boundaries(self):
+        (self.root/'a.txt').write_bytes('needle needle\r\nmiss\u2028needle\vneedle\n'.encode())
+        (self.root/'b.txt').write_text('needle\nneedle\n')
+        (self.root/'invalid.bin').write_bytes(b'needle\n\xff')
+        (self.root/'.env.local').write_text('needle\n')
+        (self.root/'node_modules').mkdir()
+        (self.root/'node_modules'/'hidden.txt').write_text('needle\n')
+        page=self.runtime.execute({},'search',{'query':'needle','cursor':2,'limit':2})
+        self.assertEqual(page,{'matches':[{'path':'a.txt','line':4,'excerpt':'needle'},{'path':'b.txt','line':1,'excerpt':'needle'}],'nextCursor':4,'total':5,'done':False})
+        last=self.runtime.execute({},'search',{'query':'needle','cursor':4,'limit':2})
+        self.assertEqual(last['matches'],[{'path':'b.txt','line':2,'excerpt':'needle'}])
+        self.assertTrue(last['done']);self.assertEqual(last['nextCursor'],5)
+        empty=self.runtime.execute({},'search',{'query':'needle','cursor':100,'limit':2})
+        self.assertEqual(empty,{'matches':[],'nextCursor':5,'total':5,'done':True})
+
+    def test_search_large_result_set_returns_only_requested_page(self):
+        (self.root/'many.txt').write_text(('needle '*100+'\n')*5000)
+        result=self.runtime.execute({},'search',{'query':'needle','cursor':2500,'limit':3})
+        self.assertEqual(result['total'],5000)
+        self.assertEqual([m['line'] for m in result['matches']],[2501,2502,2503])
+        self.assertTrue(all(len(m['excerpt'])==500 for m in result['matches']))
+        self.assertEqual(result['nextCursor'],2503);self.assertFalse(result['done'])
+        missing=self.runtime.execute({},'search',{'query':'not-present'})
+        self.assertEqual(missing,{'matches':[],'nextCursor':0,'total':0,'done':True})
+
+    def test_command_previews_resume_at_complete_utf8_boundaries(self):
+        code='import sys; sys.stdout.buffer.write(("x"+"😀"*2000+"\\n").encode()); sys.stderr.buffer.write(("y"+"🧪"*2000+"\\n").encode())'
+        result=self.tool('run_command',command=sys.executable,args=['-c',code])['result']
+        self.assertEqual(result['exitCode'],0);self.assertTrue(result['outputPaged'])
+        for stream,prefix,emoji in [('stdout','x','😀'),('stderr','y','🧪')]:
+            self.assertNotIn('�',result[stream]);text=result[stream];offset=result[stream+'NextOffset']
+            self.assertEqual(offset,len(text.encode('utf-8')))
+            self.assertLess(offset,6000)
+            while offset<result[stream+'Bytes']:
+                page=self.tool('read_command_output',jobId=result['jobId'],stream=stream,offset=offset,limit=4093)['result']
+                self.assertGreater(page['nextOffset'],offset);text+=page['text'];offset=page['nextOffset']
+            self.assertEqual(text,prefix+emoji*2000+'\n')
+
+    def test_file_pages_preserve_utf8_newlines_and_snapshot_metadata(self):
+        text='x'*63999+'😀\r\nsecond\rthird\n'+'é'*40000
+        path=self.root/'unicode.txt';path.write_bytes(text.encode())
+        for offset,limit in [(0,4),(63998,8),(64000,12),(len(text)-3,10),(len(text)+5,4)]:
+            result=self.runtime.page(path,{'path':'unicode.txt','offset':offset,'limit':limit})
+            self.assertEqual(result['text'],text[offset:offset+limit]);self.assertEqual(result['totalCharacters'],len(text))
+            self.assertEqual(result['bytes'],len(text.encode()));self.assertEqual(result['hash'],hashlib.sha256(text.encode()).hexdigest())
+            self.assertEqual(result['nextOffset'],min(len(text),offset+limit));self.assertEqual(result['done'],offset+limit>=len(text))
+        path.write_bytes(b'valid prefix'+b'\xff')
+        with self.assertRaisesRegex(ValueError,'not UTF-8'):self.runtime.page(path,{'limit':4})
+
+    def test_page_hash_describes_read_text_when_file_changes_at_eof(self):
+        path=self.root/'changing.txt';before=b'original source';after=b'changed source!';path.write_bytes(before)
+        original_open=Path.open;changed=False
+        class ChangingReader:
+            def __init__(self,stream):self.stream=stream
+            def __enter__(self):return self
+            def __exit__(self,*args):return self.stream.__exit__(*args)
+            def read(self,*args):
+                nonlocal changed
+                value=self.stream.read(*args)
+                if not value and not changed:
+                    changed=True
+                    with original_open(path,'wb') as writer:writer.write(after)
+                return value
+        def opening(file,*args,**kwargs):
+            stream=original_open(file,*args,**kwargs)
+            return ChangingReader(stream) if file==path and (not args or args[0] in {'r','rb'}) else stream
+        with patch.object(Path,'open',opening):result=self.runtime.page(path,{'path':'changing.txt'})
+        self.assertTrue(changed);self.assertEqual(result['text'],before.decode());self.assertEqual(result['hash'],hashlib.sha256(before).hexdigest());self.assertEqual(result['bytes'],len(before))
+        self.assertEqual(path.read_bytes(),after)
+        with self.assertRaisesRegex(ValueError,'File changed'):self.runtime.guard(path,result['hash'])
+
     def test_read_only_file_browser_after_cancel(self):
         self.runtime.cancel(self.runtime.get(self.sid))
         before=len(self.runtime.get(self.sid)['events'])
@@ -75,6 +148,16 @@ class AgentRuntimeTests(unittest.TestCase):
         self.tool('run_command',command=sys.executable,args=['-c','from calc import add; assert add(2,3)==5'])
         result=self.runtime.dispatch({'op':'finish','session':self.sid,'summary':'Verified'})
         self.assertEqual(result['status'],'complete');self.assertFalse(result['events'][-1]['value']['evidence']['needsVerification'])
+    def test_failed_verification_attempt_invalidates_earlier_success(self):
+        self.tool('write_script',path='verify.py',content='print("verified")')
+        self.assertEqual(self.tool('run_script',path='verify.py',command=sys.executable)['result']['exitCode'],0)
+        self.assertFalse(self.tool('run_script',path='verify.py',command='unavailable-interpreter')['ok'])
+        with self.assertRaisesRegex(ValueError,'Completion review'):self.runtime.dispatch({'op':'finish','session':self.sid,'summary':'Done'})
+        self.runtime.close();self.runtime=Runtime(self.root,[sys.executable]);self.runtime.dispatch({'op':'resume','session':self.sid})
+        with self.assertRaisesRegex(ValueError,'Completion review'):self.runtime.dispatch({'op':'finish','session':self.sid,'summary':'Done'})
+        self.assertEqual(self.tool('run_script',path='verify.py',command=sys.executable)['result']['exitCode'],0)
+        self.assertEqual(self.runtime.dispatch({'op':'finish','session':self.sid,'summary':'Reverified'})['status'],'complete')
+
     def test_completion_review_allows_partial_and_readonly_work(self):
         self.tool('write_script',path='verify.py',content='print("not yet run")')
         result=self.runtime.dispatch({'op':'finish','session':self.sid,'outcome':'partial','summary':'Verification unavailable'})
@@ -117,7 +200,7 @@ class AgentRuntimeTests(unittest.TestCase):
     def test_disabled_paths_and_caps(self):
         with self.assertRaises(PermissionError):Runtime().start({'goal':'no'})
         outside=self.root.parent/'outside';(self.root/'link').symlink_to(self.root.parent,target_is_directory=True)
-        for path in ['../outside','/etc/passwd','link/file','.git/config','.env']:
+        for path in ['../outside','/etc/passwd','link/file','.git/config','.env','.codingagentlib-rust/sessions/private.json']:
             self.assertFalse(self.tool('read_file',path=path)['ok'],path)
         s=self.runtime.start({'goal':'Read only'})
         denied=self.runtime.dispatch({'op':'tool','session':s['id'],'tool':'write_file','args':{'path':'no','content':'x','expectedHash':'missing'},'callId':'deny'})

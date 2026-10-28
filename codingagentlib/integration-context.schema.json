@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dynamic coding agent integration context",
+  "type": "object",
+  "required": ["format", "base", "sources"],
+  "properties": {
+    "format": {"const": "codingagentlib/integration-context-v1"},
+    "base": {},
+    "sources": {"type": "array", "items": {
+      "type": "object", "required": ["id", "description", "schema", "revision", "data"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,99}$"},
+        "description": {"type": "string"}, "schema": {"type": "object"},
+        "revision": {"type": "string"}, "data": {}
+      }
+    }}
+  }
+}

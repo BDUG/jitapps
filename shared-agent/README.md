@@ -474,3 +474,91 @@ Choose **Inspect run files** in the coding-agent header to open a separate read-
 The read-only `inspect_preview` and `inspect_patch` operations preserve current-file and recovery-copy hash guards while allowing active-tool inspection. Existing paused change-review operations retain their active-tool guard. Restart the server after updating to enable the new operations.
 
 Checks: `python3 -m unittest server.agent_review_test` and `node shared-agent/inspect-browser-test.cjs`. The browser check runs a real temporary local command while inspecting changes, and verifies filters, pagination, diff export, stale-read recovery, deletion/binary states and mobile layout.
+
+
+## Optional request / response log
+
+Expand **Request / response log** (inside the coding agent's Live trace panel, or below the shelliX conversation), then enable **Record agent requests and responses** before running. Download the JSON log at any time; **Clear log** discards it, including pending captures. Turning recording off retains captured entries and lets pending captures finish. Reloading discards the in-memory log and resets recording to off.
+
+The log records agent browser HTTP requests/replies and agent-runtime requests/results, with session IDs, timestamps, durations, HTTP status, sanitized headers and transport errors. Invalid JSON and failed replies are retained for diagnosis. Binary downloads record metadata rather than file bytes. The shared coding agent captures each actual request/result page. When recording is enabled, `/api/chat` requests opt into relay/provider tracing: the response includes `httpTrace` with the actual augmented provider request and raw provider response, including errors and invalid JSON. Update/restart the relay to use this capability. Captures begin when enabled; earlier exchanges are not reconstructed. There is no automatic upload or browser-storage persistence.
+
+Browser authorization/cookie headers and endpoint query strings are redacted or excluded; relay provider URLs preserve ordinary query parameters but redact credentials. Structured credential fields and provider authorization/cookie headers are redacted. Prompts, source files, tool output and free-text responses can still contain sensitive data: review downloaded logs before sharing. This log is separate from the retained server session audit and the public operation trace.
+
+
+## Model connection recovery
+
+In **Live trace → Model connection recovery**, choose 0–3 additional attempts (default 2). The preference is saved per app. Planning and independent-review model requests retry network `TypeError` failures and HTTP 408, 429, 500, 502, 503 and 504. Authentication errors, malformed successful replies, schema repairs and tool/command calls are outside this retry policy. Schema repairs continue to use the existing validated agent loop. Paging retains its own per-page recovery controls; this setting wraps the logical model call.
+
+Retries reuse the same logical planning request and identifiers; no action executes until a reply has passed normal validation. Delays use exponential backoff with jitter, or the provider's `Retry-After` seconds/date header. A cooldown longer than 30 seconds returns the failure instead of retrying too soon. **Stop** cancels backoff immediately. Failed generation attempts can still incur provider charges.
+
+Recent retry status appears in the live trace panel. When request/response logging is enabled, actual HTTP attempts/pages are captured separately, including failed responses and opt-in provider traces. The preference controls the next model call; changing it does not alter an already scheduled retry sequence.
+
+
+## Fresh evidence for follow-ups
+
+The shared planning loop rejects a complete claim on a new follow-up until a relevant workspace action planned after that instruction has succeeded. Old checks, an old action whose result arrives late, memory/skill/workflow metadata, historical context snapshots and log retrieval do not count as fresh workspace evidence. Failed/cancelled/timed-out commands and failed action checks do not satisfy it. Read-only inspection can satisfy an informational follow-up; edits retain the existing command-verification guards. Tool-less integrations are exempt because they cannot inspect a workspace.
+
+The working brief includes `followUpEvidence` and the progress summary highlights missing evidence. Premature completion becomes response-repair feedback; repeated invalid plans pause using the normal three-attempt limit. Clarification questions and honest partial/blocked outcomes remain available. This is an evidence check in the shared planning loop, not semantic proof of correctness or a replacement for server permissions and verification.
+
+
+## Execution checkpoints
+
+Under **Live trace → Execution checkpoints**, optionally set tool calls and minutes per checkpoint. Both default to 0 (off); the existing step budget remains unchanged. Limits are captured when starting/resuming the loop. Reaching either budget pauses before the next planning step or action, after the current operation has returned. **Continue** starts a fresh budget window. **Stop** cancels the wait and requests cancellation normally. New instructions received while paused supersede the pending action before it can execute.
+
+These are cooperative browser-loop checkpoints, not hard runtime deadlines or spending limits. Active model/tool calls may exceed the chosen time; pause time is excluded from the next window. Tool calls count attempts through the loop, including failed/denied calls; nested workflow steps, reviewer requests, provider retries and external programs launched by a command do not count as additional tool calls. The request includes an `executionBudget` summary. Headless JavaScript hosts can pass `limits:{maxToolCalls,maxActiveMs}` and implement a blocking `onPause({reason,checkpoint})`; a callback that returns immediately automatically continues. Limits are not persisted in server sessions.
+
+
+## Optional command approval
+
+Under **Live trace → Command approval**, enable **Confirm command, script and workflow actions before execution**. It defaults to off and the preference is saved per app. The choice is captured at the start/resume of the browser loop; changing it during a run affects the next run/resume.
+
+For `run_command`, `run_script`, `workflow_run` and `workflow_continue`, a dialog displays the exact tool request (including arguments, working directory and timeout when specified). **Approve this action** approves one invocation; the same displayed copy is dispatched. The approval is recorded as a `command_review` event before dispatch. **Decline and stop** or Escape stops the browser run without sending that tool request. Already completed actions are retained. Ordinary file edits and manual terminal calls retain their existing permission/confirmation behavior.
+
+Approving a workflow can authorize several child actions; this is not approval of each child. Script/workflow bodies are referenced by path/revision rather than frozen by the dialog. The runtime still enforces permissions, allowlists and instruction revisions. New instructions arriving during the dialog invalidate the pending action at runtime. Approval is a browser UX control, not a new server authentication boundary or an OS sandbox; other clients can use their normal authorized APIs. Lost-response recovery uses the existing call receipt rather than executing an approved command again.
+
+
+### Inspect HTTP payloads
+
+Expand **Request / response log** inside **Live trace**, enable recording, then expand an exchange to inspect request/response headers and payloads. Search filters the captured exchanges. **Download trace** includes HTTP data alongside operation history; **Download request / response log** exports HTTP data alone. Recording remains optional and off by default. Relay/provider traces are returned only to the requesting client, are not persisted, and reflect the augmented request actually sent after skill retrieval.
+
+Coverage includes the active coding-agent panel's runtime calls, planning, independent review, controlled-English preprocessing, individual paging exchanges, and its inline inspector. Separate browser windows and arbitrary HTTP performed inside commands/scripts are not globally intercepted. The relay captures its direct provider exchange; it cannot see a gateway's further internal calls. Cancellation/navigation may leave a pending or incomplete body capture. Bodies may still contain sensitive free text even when structured credentials are redacted. Binary downloads retain metadata rather than inline file bytes.
+
+
+## Agent run history
+
+Select **Run history** in the coding-agent panel to browse durable sessions saved under this server workspace's `.suite-agent/sessions`. The view defaults to this app and can show all apps. Search goals, the latest completion summary or a run ID; filter by runtime status and completion outcome. Pages show 20 runs, most recently updated first, with creation/update timestamps, tool-call attempts, observed failures and the last completion summary. A resumed run can show an earlier completion summary, explicitly labelled **Last completion**. Status `complete` can have outcome `complete`, `partial` or `blocked`.
+
+**Load run** opens its existing audit and workspace-change view; it never resumes execution or restores historical file contents. Use Resume explicitly when ready. Loading is disabled while the current browser loop is active. **Download run log** exports the saved session JSON without invoking a model. HTTP captures remain tab-local and are not recovered from old runs. No delete or overwrite action is provided. History survives browser reload and server restart while server session storage is retained.
+
+The server runtime exposes `op:"run_history"` with optional `tool`, `status`, `outcome`, `query`, `cursor` and `limit` (1–100). It returns `runs`, `total`, `cursor`, `nextCursor` and `done`; the existing `list` operation is unchanged. Paging bounds response size; filtering still scans saved sessions, so it is not a database-backed index for arbitrarily large archives. It uses the same workspace access rules as existing session APIs.
+
+
+**Prompt workflows** beside the goal input opens the same per-app/all-app prompt library as chat. Explicit `{{input:name}}` placeholders support repeated tasks with variable requirements; Preview and Insert only prepare a goal draft. They do not start a run or execute local-tool workflows. See [prompt workflow documentation](../shared-ai/README.md#reusable-prompt-workflows).
+
+## Evidence-based failure recovery
+
+The agent includes a structured `cycle.recovery` report in subsequent planning requests after an observed failure. It distinguishes missing browser context, stale revisions, permission restrictions, missing resources, failed declarative checks, command failures, timeouts and cancellations. Reports link to the actual call ID, workspace path and retained command job ID when known, with tailored diagnostic guidance. They do not execute inspection suggestions or replay commands.
+
+The foldable **Failure recovery** section presents the same evidence and offers **Draft recovery follow-up** and **Export recovery report**. Drafting appends editable guidance to the existing goal; it starts no model call or tool action. The report export uses the normal download/virtual-disk route. Error messages can include workspace paths and runtime details.
+
+A failure remains labeled historical when later observations exist. A recorded successful retry is recognized only when the tool, canonical arguments and declarative checks match the earlier failed action and its observation succeeds (commands must exit zero without timeout/cancellation). This does not establish overall task completion or resolve unrelated acceptance checks. A new user follow-up starts a fresh diagnostic window; existing completion/verification gates and the complete event history remain intact.
+
+This is deterministic guidance derived from observations, not an LLM diagnosis or an automatic repair guarantee. The JavaScript headless core also exports `loop.failureRecovery(events)` for custom host UIs; Python/Rust embedded hosts can consume the resulting JSON report but do not automatically run this browser-loop helper.
+
+## Retained command output and completion
+
+The JavaScript suite planning loop now requires review of unread retained streams from successful paged commands before accepting an overall `complete` outcome, when `read_command_output` is available. `workingBrief.requiredOutputReviews` counts pending streams, while `suggestedInspections` provides actual job IDs, stream names and consecutive runtime cursors. The UI working brief displays the pending count. The agent reads those pages as ordinary recorded read-only tool actions; the library never reruns a command to recover logs.
+
+Output is tracked per job and stream. Another successful command cannot hide earlier unread successful output. Failed reads, guessed/wrong offsets, backward cursors and non-boolean completion flags do not finish a stream review. A new edit invalidates earlier verification and clears its earlier output-review obligations; meaningful verification must then follow the edit. A later successful command may replace optional diagnostics for a failed command, while declarative checks and acceptance-rule failures remain governed by their existing completion gates.
+
+A `partial` or `blocked` result remains available if retained output is unavailable or too extensive to inspect within the run's budget. Without the output-reading tool, this gate cannot enforce inspection and does not block completion; existing verification checks still apply. Reading pages records access, not proof that the model understood their content or that a zero exit establishes correctness. Hosts must still choose meaningful tests and review actual results. Older saved jobs without preview cursors are read from offset zero rather than guessing where the preview ended.
+
+## Longer no-progress cycles and receipt identity
+
+No-progress detection compares the executable tool, canonical arguments and declared checks, rather than task labels, IDs or explanatory wording. It recognizes one- through eight-action cycles after three identical cycles of recorded results. A proposed next replay is replaced with a question before executing the tool; the agent waits for user guidance instead of continuing the loop.
+
+Modern observations are matched to actual pending call IDs. Delayed same-tool results are associated with their original action, unrelated IDs are ignored for cycle evidence, and duplicate receipts count once. Older histories without action call IDs retain a tool-matched fallback. A changed actual result or check report counts as progress. Command job IDs and completion timestamps are ignored as runtime metadata; meaningful output, errors and exit states remain part of the comparison. A new user follow-up resets cycle tracking.
+
+The detector is a bounded heuristic, not proof that an approach is wrong: cycles longer than eight actions and changes in meaningful output may continue. No tools are replayed or permissions changed by the detector. Existing run budgets and cancellation remain available.
+
+Console output reads served through the runtime output API now produce `user_action` / `output_read` receipts with job, stream, byte cursors and `done`. The completion ledger accepts these only at the expected consecutive cursor, alongside agent tool-read observations. This prevents already-read shell console pages from remaining pending without rerunning commands. Restart the server to activate the receipt change.

@@ -116,3 +116,24 @@ Coding-agent planning now prefers direct compressed requests in Recommended mode
 ## Multimodal references and results
 
 See the [multimodal guide](MULTIMODAL.md) for supported input types, provider adapters, response media previews/downloads, direct-transport behavior, and coding-agent reference persistence. Media never bypasses project validation or proposal review.
+
+
+## Reusable prompt workflows
+
+**Prompt workflows** appears beside chat inputs and coding-agent goals in every app. Workflows are editable text drafts, separate from executable local-tool workflows and existing built-in prompt fragments. Create a new workflow, start from tool-aware guidance, or use the current input as a starting point. Save a name, description and tags for this app, or mark it **Available in all apps**. Load a saved workflow to edit it, then **Update selected workflow**; Save as new creates a separate copy. Search, import/export and deletion affect the local library only.
+
+Placeholders use `{{input:name}}`, where names start with an ASCII letter and continue with letters, digits or underscores (up to 40 characters). Repeated names share one value. Required values are filled in dedicated multiline fields; Preview shows the result. Replacement is literal, single-pass text substitution: expressions, shell commands, file paths and JavaScript are never evaluated. Other brace syntax stays literal. Variable values are not automatically stored in saved workflows; inserted text remains subject to the app's usual draft/history storage behavior.
+
+**Insert into current draft** appends to the selected chat or coding-agent input and preserves its existing content. It never submits, invokes tools or starts an agent. Schema validation, proposal review, runtime permissions and command approval still apply when you later send it. The library is stored in browser IndexedDB, scoped by origin and app; all-app workflows are visible throughout this desktop. Clearing browser storage removes local copies, so export important workflows.
+
+Portable JSON uses `suite-prompt-workflow/v1`, an exact app ID or `*`, metadata and `prompt`. Imports from another app are rejected unless explicitly shared for all apps; imports create new saved copies rather than overwriting existing records. Standard local/virtual file controls and export destinations apply. Imported prompts remain user-reviewed instructions, not trusted system policy. No provider credentials or model configuration are imported by this feature.
+
+## Structured task briefs across apps
+
+Open **Prompt workflows** beside any chat or coding-agent input and expand **Build a structured task brief**. Enter the goal, scope, constraints and observable success criteria, then choose **Propose edits**, **Review only**, **Plan only** or **Explain only**. Each brief includes app-specific preservation guidance, such as formulas/references, evidence citations, native asset IDs, workflow mappings, GSN relationships or SysML semantics.
+
+**Build task brief** writes only to the workflow editor. By default it appends to existing workflow text; uncheck **Append to the workflow text** to replace it. The target chat/agent draft is untouched until **Insert into current draft**, which appends and preserves existing text. Preview first, edit freely, save in the existing prompt library, or export/import through the existing workflow JSON and local/virtual-disk controls. Brief text can use the library's explicit `{{input:name}}` placeholders if desired. Builder form fields are not stored separately; save the generated workflow text to retain it.
+
+These modes express instructions to the model; they are not new permission gates. Existing tool permissions, proposal validation and human review remain authoritative. Building, previewing, saving and inserting briefs send no model request, start no agent run, execute no command and change no native document. Coding-agent briefs additionally request current workspace evidence, respect for approval gates and verification after edits. Reuse an app-specific brief in another app only after reviewing its guidance.
+
+The headless helper `SuitePromptLibraryCore.brief(app, fields, isCodingAgent)` returns the same plain-text brief; `fields` contains `goal`, optional `scope`, `constraints`, `acceptance` and a `mode` of `edit`, `review`, `plan` or `explain`.

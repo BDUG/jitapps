@@ -4,13 +4,27 @@
 
 # TLAL OS · Agentic Desktop Tool Suite
 
-Sixteen local-first apps for architecture, graphics, images, video, documents, presentations, spreadsheets, mind maps, collaborative whiteboards, project planning, code, app generation, automation, and research. Use the searchable desktop launcher, share files through a virtual disk, and refine each app’s content with AI chat or the coding agent.
+Seventeen local-first apps for architecture, graphics, images, video, documents, presentations, spreadsheets, mind maps, collaborative whiteboards, project planning, code, app generation, automation, research, and shell commands. Use the searchable desktop launcher, share files through a virtual disk, and refine each app’s content with AI chat or the coding agent.
 
-Load and save app contents through local disk or the shared virtual disk, including native project ZIP exports.
+Every document app includes shared, Unicode-aware whole-word search, field-scoped replacement previews, paged results and full search-report export under **Workspace → Find & replace**. shelliX offers matching command-history filters and filtered history export. See the [shared workspace guide](shared-suite/README.md#search-and-review-across-apps).
+
+Document apps also offer read-only **Document preflight** under **Workspace → Inspect & share**, with app-specific findings, JSON reports and an editable AI-fix draft. shelliX can parse scripts with **Check shell syntax** without executing them.
+
+Use **Workspace → Templates** to save, search, import/export and review reusable native documents across sessions. shelliX has a command snippet library that fills inputs without automatic execution. Template libraries are separate from rolling recovery checkpoints.
+
+Shared workspace change reviews support per-field selection, full paging and selected-change exports. Native validation, stale-document checks and recovery remain in place. shelliX can prepare earlier commands for inspection with **Use command**, without executing them.
+
+Every AI chat and coding-agent goal supports reusable **Prompt workflows** with explicit placeholders, per-app or shared libraries, editable metadata and import/export. The structured task-brief builder adds goal, scope, constraints and success criteria with app-specific guidance and edit/review/plan/explain modes. Preview and insertion prepare a draft only; they never send or execute it automatically.
+
+All apps can export self-contained HTML review reports with searchable inventory or command results, diagnostics, print layouts and optional extractable native backups/session audits. Reports display source content as text and need no external resources.
+
+**Content hub** on the desktop and in every app makes published snapshots searchable and reusable across tools. Integrate text, inventories and flattened visuals through native review, open a target app with an item selected, or prepare unsent AI-reference drafts. Multi-item AI reference drafts, selected collection export, paged/sorted browsing, editable names/tags, multi-word search and atomic collection import/export make reusable content easier to organize and transfer between browsers. Optional native snapshots, portable content files and an exchange schema support further integrations. [Cross-app guide](shared-suite/README.md#cross-app-content-hub).
+
+Load and save app contents through local disk or the shared virtual disk, including native project ZIP exports. Optional [magic-wormhole PC sharing](shared-suite/WORMHOLE.md) adds bidirectional file queues and master-led colabriX collaboration.
 
 Run the suite in your browser with a single Python server, or build the optional **Tauri 2 desktop application**. Basic editing works without an AI account. AI features use providers configured on your local relay; generative image editing has its own image-provider configuration.
 
-[Get started](#get-started) · [Apps](#the-16-apps) · [Screenshots](#screenshots) · [AI workflows](#ai-chat-and-image-tools) · [Coding agent](#workspace-coding-agent) · [Native desktop](#optional-tauri-2-desktop) · [Verification](#development-and-verification)
+[Get started](#get-started) · [Apps](#the-17-apps) · [Screenshots](#screenshots) · [AI workflows](#ai-chat-and-image-tools) · [Coding agent](#workspace-coding-agent) · [Native desktop](#optional-tauri-2-desktop) · [Verification](#development-and-verification)
 
 ## Project disclosure and license
 
@@ -176,7 +190,9 @@ For a restricted variant, append `--agent-no-commands` to disable agent terminal
 
 **5. Verify and use:** open [the desktop](http://127.0.0.1:8000/), configure/test the active provider at [AI relay settings](http://127.0.0.1:8000/relay), and use **Check runtime** in the coding-agent tab. `/api/health` checks relay availability; `/api/agent/health` additionally requires a same-local-origin request with `X-Architex-Request: 1`. Provider tests and AI calls may incur charges. Run startup without making a provider call to verify local configuration first. Restart after hand-editing startup-loaded provider files or changing flags; `/relay` applies its own saved profile changes live.
 
-## The 16 apps
+## The 17 apps
+
+[shelliX](shelliX/) is an AI shell: run allowlisted server commands manually or describe a goal in chat, inspect stdout/stderr and continue with follow-up instructions. See its [setup guide](shelliX/README.md).
 
 | App | Open | Main capabilities |
 | --- | --- | --- |
@@ -193,6 +209,7 @@ For a restricted variant, append `--agent-no-commands` to disable agent terminal
 | **[sheetiX](sheetiX/README.md)** | [/sheetiX/](sheetiX/) | Formulas, multiple sheets, formatting, sorting, formula-aware fill and transpose; XLSX/CSV/JSON interchange. |
 | **[vidiX](vidiX/README.md)** | [/vidiX/](vidiX/) | Layered timelines, clips, drawing frames, editable design scenes, motion presets and brand colors. Animated GIF/SVG and browser-supported silent video export. |
 | **[appiX](appiX/README.md)** | [/appiX/](appiX/) | Generate SPAs, design screens and logic without code, edit HTML/CSS/JS, preview safely, and export standalone apps, a UI SDK, deployment packages or a Rust Cargo project. |
+| **[shelliX](shelliX/README.md)** | [/shelliX/](shelliX/) | Goal-driven AI chat, allowlisted server commands, retained stdout/stderr, follow-ups, stopping and saved shell sessions. |
 | **[codeiX](codeiX/README.md)** | [/codeiX/](codeiX/) | Project files, code search/editing, local-workspace integration, AI changes, coding-agent execution and source ZIP or Tauri 2 project ZIP export. |
 | **[automatextiX](automatextiX/README.md)** | [/automatextiX/](automatextiX/) | Connect transforms, AI calls, virtual-disk files, web requests, branching and allowed local commands. Pass step results onward and inspect execution logs. |
 | **[reportiX](reportiX/README.md)** | [/reportiX/](reportiX/) | Google/Bing source discovery, public-page crawling, source libraries, cited reports, comparison tables and SVG charts, with AI questions and revisions. |
@@ -280,7 +297,7 @@ Use the **Coding agent** tab for an iterative sense/plan/act loop over the open 
 - Before starting, choose whether takeovers into the open app must be reviewed. Native validation and stale-document guards still apply.
 - Inspect changes, apply to the current project, undo project edits, export patches, or download a result ZIP with changed files, scripts, retained logs and evidence.
 
-By default, the browser/server deployment uses the repository as its coding workspace; use `--agent-workspace` for another directory. Installed Python/Node/npm/git commands are enabled by default for agent runs through the allowlist. Use `--agent-no-commands` or `--disable-agent` to disable execution or the runtime. Allowed commands run with the server user’s OS permissions; they are not sandboxed. Workflow command steps have a separate allowlist and remain disabled by default.
+By default, the browser/server deployment uses the repository as its coding workspace; use `--agent-workspace` for another directory. Installed Python/Node/npm/git/sh commands are enabled by default for agent runs through the allowlist. Use `--agent-no-commands` or `--disable-agent` to disable execution or the runtime. Allowed commands run with the server user’s OS permissions; they are not sandboxed. Workflow command steps have a separate allowlist and remain disabled by default.
 
 The virtual disk, browser project and server filesystem are distinct. Importing a chat or handoff does not grant filesystem permissions or execute historical instructions. See the [coding-agent guide](shared-agent/README.md) for policies, working memory, local skill learning, reusable tools, paging and recovery.
 
@@ -304,6 +321,10 @@ python3 -m codingagentlib --workspace /absolute/path/to/workspace
 cargo test --manifest-path codingagentlib/rust/Cargo.toml
 ```
 
+A [standalone VS Code extension](codingagentlib/vscode/README.md) packages the native Rust agent with model chat, live trace, sessions and ZIP exports; it needs neither Python nor the suite server.
+
+The [cross-language embedding API](codingagentlib/INTEGRATION.md) offers host tools, model callbacks, progress/approval hooks and cancellation for JavaScript, Python and Rust, with a small Rust UI example.
+
 See [language examples, capabilities and protocol](codingagentlib/README.md) for permissions, step budgets, cancellation, packaging and the differences between the JavaScript and Python/Rust drivers.
 
 ## Shared skill catalog
@@ -316,7 +337,7 @@ Sources include obra/superpowers, VoltAgent/awesome-agent-skills, mattpocock/ski
 
 ## Optional Tauri 2 desktop
 
-The [`desktop-tauri/`](desktop-tauri/README.md) wrapper packages the desktop, all 16 apps, and a frozen Python server sidecar. End users do not need Python or Node just to launch a packaged build; coding-agent commands still require the tools they execute.
+The [`desktop-tauri/`](desktop-tauri/README.md) wrapper packages the desktop, all 17 apps, and a frozen Python server sidecar. End users do not need Python or Node just to launch a packaged build; coding-agent commands still require the tools they execute.
 
 Install the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS, Rust stable, Node.js 22+, and build-time Python:
 
@@ -402,3 +423,7 @@ Further reading: [product roadmap](docs/PRODUCT-ROADMAP.md), [verification basel
 Saved editing workflows in every editor support renaming, independent duplication, and reordering or removing individual steps under **Workspace → Tools**. Preview the combined changes before applying them with recovery.
 
 Chat and coding-agent inputs can optionally be rewritten into **ASD-STE100-style Simplified Technical English** before submission. Each app has independent chat/agent toggles, off by default. Originals and technical literals are retained. See the [input-conversion guide](shared-ai/INPUT-STE.md).
+
+All apps now offer **Apps → Apps & display** (Alt+Shift+P): search the suite, pin favorite tools, and choose comfortable/compact controls or reduced interface motion. Preferences stay in this browser and leave documents, artwork and playback unchanged.
+
+In editors, **Workspace → Tool actions → Refresh inventory** opens a searchable, sortable, paginated browser of native document objects. Select items to export just that scope or draft a focused AI request; nothing is sent or applied automatically. Images, pages, slide objects and whiteboard discussions have richer inventories. shelliX adds search over loaded command/conversation output and a failed-command filter. See the [workspace usability guide](shared-suite/WORKSPACE-USABILITY.md).

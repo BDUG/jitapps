@@ -5,6 +5,10 @@ import re
 import uuid
 from . import agent_checks
 
+# At most one decoded snapshot per runtime; never reuse it without rehashing bytes.
+CACHE_BYTES=8000000
+RENDERED_PATHS=4
+
 
 def number(value,default=0,maximum=2**53-1):
     if value is None:return default
@@ -49,22 +53,29 @@ def invalid_constant(value):raise ValueError('App context must use finite JSON v
 def commit(runtime,s,data):
     runtime.enabled();path=upload_path(runtime,s,data.get('upload'))
     with s['_lock']:
-        if path.stat().st_size!=number(data.get('bytes')):raise ValueError('Context upload byte count does not match')
-        with path.open(encoding='utf-8') as stream:json.load(stream,parse_constant=invalid_constant)
-        digest=signature(path);destination=runtime.path(digest+'.json',base=folder(runtime,s),private=True)
+        raw=path.read_bytes()
+        if len(raw)!=number(data.get('bytes')):raise ValueError('Context upload byte count does not match')
+        value=json.loads(raw.decode('utf-8'),parse_constant=invalid_constant)
+        digest=hashlib.sha256(raw).hexdigest();destination=runtime.path(digest+'.json',base=folder(runtime,s),private=True)
         if destination.exists():
             if signature(destination)!=digest:raise ValueError('Archived context content was changed')
-            path.unlink()
-        else:path.replace(destination)
-        result={'snapshot':digest,'bytes':destination.stat().st_size,'source':'browser app context, not runtime workspace files'}
+        else:runtime.write(destination,raw)
+        path.unlink()
+        if len(raw)<=CACHE_BYTES:runtime._context_cache={'key':(s['id'],digest),'value':value,'rendered':{}}
+        result={'snapshot':digest,'bytes':len(raw),'source':'browser app context, not runtime workspace files'}
         s['contextSnapshot']=digest;runtime.event(s,'user_action',{'operation':'context_snapshot',**result});return result
 
 
-def page(value,pointer,args):
+def page(value,pointer,args,rendered=None):
     agent_checks.validate([{'path':pointer,'op':'exists','value':True}])
     exists,selected=agent_checks.lookup(value,pointer)
     if not exists:raise ValueError('Context/history path does not exist')
-    text=selected if isinstance(selected,str) else json.dumps(selected,ensure_ascii=False,indent=2)
+    text=rendered.get(pointer) if rendered is not None else None
+    if text is None:
+        text=selected if isinstance(selected,str) else json.dumps(selected,ensure_ascii=False,indent=2)
+        if rendered is not None and len(text)<=CACHE_BYTES:
+            while rendered and (len(rendered)>=RENDERED_PATHS or sum(map(len,rendered.values()))+len(text)>CACHE_BYTES):rendered.pop(next(iter(rendered)))
+            rendered[pointer]=text
     offset=number(args.get('offset'));limit=number(args.get('limit'),12000,64000)
     if limit<1:raise ValueError('Context page size must be positive')
     end=min(len(text),offset+limit)
@@ -93,9 +104,12 @@ def read(runtime,s,args):
     digest=args.get('snapshot',s.get('contextSnapshot'))
     if not isinstance(digest,str) or not re.fullmatch(r'[a-f0-9]{64}',digest):raise ValueError('No valid app-context snapshot; include app context when starting/resuming')
     path=runtime.path(digest+'.json',base=folder(runtime,s),private=True)
-    try:
-        if signature(path)!=digest:raise ValueError('Archived app context has changed')
-        with path.open(encoding='utf-8') as stream:value=json.load(stream,parse_constant=invalid_constant)
-    except FileNotFoundError:
-        raise SnapshotMissing(digest) from None
-    return {'snapshot':digest,'source':'browser app context, not runtime workspace files',**page(value,args.get('path',''),args)}
+    try:raw=path.read_bytes()
+    except FileNotFoundError:raise SnapshotMissing(digest) from None
+    if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('Archived app context has changed')
+    cached=runtime._context_cache
+    if cached is None or cached['key']!=(s['id'],digest):
+        value=json.loads(raw.decode('utf-8'),parse_constant=invalid_constant)
+        cached={'key':(s['id'],digest),'value':value,'rendered':{}}
+        if len(raw)<=CACHE_BYTES:runtime._context_cache=cached
+    return {'snapshot':digest,'source':'browser app context, not runtime workspace files',**page(cached['value'],args.get('path',''),args,cached['rendered'] if len(raw)<=CACHE_BYTES else None)}

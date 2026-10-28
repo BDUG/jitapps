@@ -1,4 +1,7 @@
 import hashlib
+from array import array
+from contextlib import closing
+from server.agent_memory import vector
 import json
 from pathlib import Path
 import sys
@@ -32,6 +35,29 @@ class MemoryPackageTests(unittest.TestCase):
             self.assertEqual(memory.read('one','decision')['total'],1)
             self.assertEqual(memory.delete('one','decision')['deletedChunks'],1)
             self.assertEqual(memory.list('one')['total'],0)
+
+    def test_lexical_pages_match_dense_reference_and_stable_ties(self):
+        with tempfile.TemporaryDirectory() as folder:
+            memory=Memory(Path(folder)/'memory.sqlite3')
+            for n in range(80):memory.store('one',f'quartz calibration module {n} branch '+('signal '*(n%5+1)),document=f'doc-{n:03}',collection='notes' if n%2 else 'observations')
+            for document in ['tie-z','tie-a']:memory.store('one','quartz calibration exact match',document=document)
+            memory.store('other','quartz calibration private',document='private')
+            for query in ['quartz calibration','signal branch','no-such-word','!!!']:
+                for collection in [None,'notes']:
+                    weights=vector(query);expected=[]
+                    with closing(memory.connect()) as db:
+                        for row in db.execute('SELECT * FROM chunks WHERE session=?',('one',)):
+                            if collection and row['collection']!=collection:continue
+                            values=array('f');values.frombytes(row['embedding'])
+                            score=sum(a*b for a,b in zip(weights,values))
+                            if score>0:expected.append((score,row['document'],row['part']))
+                    expected.sort(key=lambda item:(-item[0],item[1],item[2]))
+                    for cursor in [0,3,40,1000]:
+                        with self.subTest(query=query,collection=collection,cursor=cursor):
+                            page=memory.search('one',query,limit=3,collection=collection,cursor=cursor)
+                            self.assertEqual([(r['score'],r['id'],r['part']) for r in page['matches']],[(round(score,6),document,part) for score,document,part in expected[cursor:cursor+3]])
+                            self.assertEqual(page['matchedChunks'],len(expected));self.assertEqual(page['nextCursor'],cursor+len(page['matches']));self.assertEqual(page['done'],cursor+len(page['matches'])>=len(expected))
+            memory.delete('one','tie-a');self.assertNotIn('tie-a',[r['id'] for r in memory.search('one','quartz calibration',limit=100)['matches']])
 
     def test_package_actual_files_scripts_logs_and_hashes(self):
         with tempfile.TemporaryDirectory() as folder:

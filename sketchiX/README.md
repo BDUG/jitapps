@@ -133,3 +133,39 @@ Additional **Workspace → Tool actions** capability: Snap nodes to a configurab
 ## Project ZIP
 
 Use **Project ZIP** in the header, or **Workspace → Recovery → Import / export project ZIP**, to save and restore the complete native project. Choose Computer or Virtual disk. Imports validate and stage a review; applying preserves the previous project in Recovery. Embedded assets are included, while separate app/relay settings and external workspace files are excluded. See the [shared ZIP guide](../shared-suite/PROJECT-ZIP.md).
+
+## Goal Structuring Notation (GSN)
+
+The **Diagrams** editor has a GSN palette for **Goal, Strategy, Solution, Context, Assumption and Justification**. Goals are rectangles; strategies are parallelograms; solutions are circles; contexts are rounded rectangles; assumptions/justifications are ellipses with A/J markers. Labels are freely editable; defaults demonstrate G1, S1, Sn1, C1, A1 and J1 identifiers. IDs in labels are display text, separate from stable internal element IDs.
+
+1. Use **Load GSN example** for a connected starter argument (replacement is confirmed and undoable), or add stencils individually.
+2. Choose **GSN Supported by** or **GSN In context of** beside Connect, activate **Connect**, then click the source goal/strategy followed by the target. Supported by uses a filled triangular arrow; In context of uses a hollow triangular arrow. Both use solid lines. Choose a connection to change its relationship in Selection.
+3. In Selection, mark a goal or strategy **GSN undeveloped** to display a diamond beneath it. Move, resize, label, duplicate and undo diagrams normally.
+4. **Check GSN structure** writes advisory findings to Import report: incompatible relationship endpoints, missing support links, explicitly undeveloped arguments, blank labels, and cycles in supported-by links. It does not validate evidence, establish argument completeness, or certify safety.
+5. AI chat receives the GSN shapes and relationship schema. For example: “Create a GSN argument for safe shutdown, with operating context, an explicit assumption and verification evidence. Mark unsupported claims undeveloped.” Existing AI proposal review still applies.
+
+JSON and sketchiX-generated SVG/draw.io/PlantUML/PPTx/VSDX files retain the full editable GSN model in the existing embedded backup when that backup remains intact. SVG renders the actual GSN symbols and hollow context arrows. draw.io uses portable basic geometry plus GSN type/relationship attributes; common `mxgraph.gsn.*` stencils are also recognized on import. External edits that remove these attributes may lose semantics. PlantUML, PPTx and Visio visual representations may simplify special symbols, A/J suffixes, undeveloped markers and relationship arrowheads; use SVG for faithful visual sharing and JSON for explicit native backups. This release supports the six core nodes, not GSN modules, away nodes or argument-pattern extensions.
+
+## SysML v2 text import and export
+
+Try the [vehicle SysML example](examples/vehicle.sysml). Select **Import** and choose `.sysml` or `.sysmlv2`, from the computer or through the suite's virtual-disk file controls. Export with **SysML v2 text** to download a `.sysml` file. This is textual structural interchange, not the SysML v2 REST API or a full SysML compiler.
+
+Supported declarations are packages and named part, item, port, attribute, action, state, requirement and interface definitions/usages. The importer retains nesting, type references, in/out/inout direction, simple `connect a to b;` connections and `dependency from a to b;` dependencies. Scoped names, forward references and quoted names are supported. Declaration nodes are laid out as editable UML-style boxes; owning namespaces remain semantic metadata rather than physical nested containers. Inherited member endpoints such as `engine.input` are drawn at the owning usage and retained as member paths for textual export, with an explicit warning that inherited type semantics were not validated.
+
+Select a node and expand **SysML v2 semantics** in Selection to edit its semantic name, kind, definition flag, type reference, direction and owning namespace. These fields are independent of the visible label. Enable **SysML element** to annotate a newly drawn shape. Select a connection to choose its **SysML relationship**. Duplicate remaps copied ownership and assigns a fresh semantic name; deleting a namespace promotes surviving children into the nearest surviving namespace. Undo supports these edits.
+
+```sysml
+package Example {
+    port def Signal;
+    part def Controller { port input : Signal; }
+    part controller : Controller;
+    part source;
+    connect source to controller.input;
+}
+```
+
+The import report lists unsupported or omitted constructs and unresolved/ambiguous endpoints. External imports are never fetched. This subset does not fully interpret inheritance, multiplicities, values/expressions, constraints, behavioral bodies, requirements satisfaction/verification, views or external standard libraries. Unsupported bodies can be omitted; keep the original source as well as a native backup. It does not establish full language conformance or model validity. Limits are 500 elements, 40 nesting levels, a bounded token budget and the native diagram size limits.
+
+Export uses explicit fully qualified endpoints. Generic diagram nodes become uniquely named untyped part usages; their labels are included as comments. Generic links become dependencies. Connections without attached endpoints are omitted from the text with export-note comments. Semantic names must be unique within an owning namespace. Export does not attempt to infer SysML meaning from UML or GSN shapes.
+
+A leading `// sketchix-sysml-data:` comment contains a sketchiX native backup and text-change checksum. When the text is unchanged, reimport restores exact layout, labels, IDs, styles and metadata. When text changes, sketchiX ignores the cached layout and parses the current text again. The checksum is a change detector, not a signature or trust guarantee; the native model is still structurally validated. SVG, draw.io and JSON backups also retain SysML metadata through their existing native model envelopes. Third-party tools may ignore or remove this optional comment. The AI chat schema includes SysML element/relationship metadata so reviewed proposals can preserve it.

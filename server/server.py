@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import signal
+import sqlite3
 import shutil
 import sys
 import threading
@@ -13,7 +14,7 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from server import relay, crawler, google_search, workflow_commands, agent_runtime, skill_catalog, skill_api, image_provider, server_settings
+from server import relay, crawler, google_search, workflow_commands, agent_runtime, skill_catalog, skill_api, image_provider, server_settings, wormhole_share
 from server.relay import validate_origin
 
 SLOTS=threading.BoundedSemaphore(3)
@@ -23,12 +24,15 @@ class Handler(relay.Handler):
         if settings and (Path(self.translate_path(self.path)).resolve()==settings.path or Path(self.translate_path(self.path)).name.startswith('.server-settings-')):
             self.send_error(404);return None
         target=Path(self.translate_path(self.path)).resolve()
+        sharing=getattr(self.server,'wormhole_share',None)
+        if sharing and target.is_relative_to(sharing.directory):
+            self.send_error(404);return None
         if target.name=='google-device.json' or target.name.startswith('.google-device-'):
             self.send_error(404);return None
         if Path(self.translate_path(self.path)).resolve()==image_provider.config_path(self.server).resolve():
             self.send_error(404);return None
 
-        if any(p in {'.suite-agent','.suite-skills'} for p in Path(self.translate_path(self.path)).parts):
+        if any(p in {'.suite-agent','.suite-skills','.codingagentlib-rust','.suite-wormhole'} for p in Path(self.translate_path(self.path)).parts):
             self.send_error(404);return None
         catalog=getattr(self.server,'skill_catalog',None)
         if catalog and str(Path(self.translate_path(self.path)).resolve()) in {str(catalog.path.resolve())+suffix for suffix in ('','-wal','-shm','-journal')}:
@@ -76,6 +80,19 @@ class Handler(relay.Handler):
                 with settings.lock: settings.active_requests -= 1
 
     def _do_POST(self):
+        if self.path=='/api/wormhole':
+            if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'File sharing requires its same localhost origin'});return
+            if self.headers.get_content_type()!='application/json':self.send_json(415,{'error':'Use application/json'});return
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=12*1024*1024:raise ValueError('Sharing request exceeds 12 MiB')
+                data=json.loads(self.rfile.read(size))
+                if not isinstance(data,dict):raise ValueError('Use a JSON object')
+                result=self.server.wormhole_share.dispatch(data)
+                self.send_json(200,result)
+            except (ValueError,KeyError,TypeError,UnicodeError,RecursionError) as error:self.send_json(400,{'error':str(error)})
+            except (OSError,sqlite3.Error) as error:self.send_json(503,{'error':'Local sharing storage or worker is unavailable: '+str(error)[:200]})
+            return
         if self.path in {'/api/images','/api/admin/images'}:
             admin=self.path=='/api/admin/images'
             host=self.headers.get('Host','');origin=self.headers.get('Origin')
@@ -106,7 +123,7 @@ class Handler(relay.Handler):
                 data=json.loads(self.rfile.read(size))
                 if not isinstance(data,dict):raise ValueError('Expected a JSON object')
                 self.send_json(200,skill_api.dispatch(self.server.skill_catalog,data))
-            except (ValueError,KeyError,TypeError,UnicodeError) as error:self.send_json(400,{'error':str(error)})
+            except (ValueError,KeyError,TypeError,UnicodeError,RecursionError) as error:self.send_json(400,{'error':str(error)})
             except OSError as error:self.send_json(502,{'error':'Skill source or storage unavailable: '+str(error)[:300]})
             return
         if self.path in {'/api/agent','/api/agent/package'}:
@@ -123,7 +140,7 @@ class Handler(relay.Handler):
                         self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Length',str(os.fstat(archive.fileno()).st_size));self.send_header('Content-Disposition','attachment; filename="agent-result.zip"');self.send_header('Cache-Control','no-store');self.end_headers();shutil.copyfileobj(archive,self.wfile)
                 else:self.send_json(200,self.server.agent_runtime.dispatch(data))
             except PermissionError as error:self.send_json(403,{'error':str(error)})
-            except (ValueError,KeyError,TypeError,UnicodeError) as error:self.send_json(400,{'error':str(error)})
+            except (ValueError,KeyError,TypeError,UnicodeError,RecursionError) as error:self.send_json(400,{'error':str(error)})
             except (BrokenPipeError,ConnectionResetError):pass
             except OSError:self.send_json(500,{'error':'Agent filesystem/process operation failed. Check workspace permissions.'})
             return
@@ -182,7 +199,7 @@ def main(default_port=8000, shutdown_event=None):
     parser.add_argument('--agent-workspace', default=str(ROOT), help='Coding-agent workspace directory (default: suite repository)')
     parser.add_argument('--disable-agent', action='store_true', help='Disable the coding-agent runtime')
     parser.add_argument('--agent-no-commands', action='store_true', help='Disable coding-agent command execution')
-    parser.add_argument('--agent-allow-command', action='append', default=None, metavar='EXECUTABLE', help='Override default installed Python, node, npm and git commands; allow this executable; repeat for interpreters/build/test tools. Commands use relay OS permissions, not a sandbox.')
+    parser.add_argument('--agent-allow-command', action='append', default=None, metavar='EXECUTABLE', help='Override default installed Python, node, npm, git and sh commands; allow this executable; repeat for interpreters/build/test tools. Commands use relay OS permissions, not a sandbox.')
     parser.add_argument('--agent-navigation-dir', default=os.environ.get('SUITE_AGENT_NAVIGATION_DIR'), help='Trusted code-navigation service directory with its installed TypeScript dependency')
     parser.add_argument('--agent-embedding-dir', default=os.environ.get('SUITE_AGENT_EMBEDDING_DIR'), help='Prepared local MiniLM ONNX model directory; enables learned session memory embeddings (optional dependencies required)')
     parser.add_argument('--server-config', help='Private persistent server settings JSON (default: server-settings.json beside provider configuration)')
@@ -204,10 +221,11 @@ def main(default_port=8000, shutdown_event=None):
     server = ThreadingHTTPServer((args.bind, args.port), lambda *a, **kw: Handler(*a, directory=str(ROOT), **kw))
     try:
         server.workflow_commands = workflow_commands.Commands(args.allow_workflow_command,args.workflow_cwd)
-        agent_commands = args.agent_allow_command if args.agent_allow_command is not None else ([sys.executable] if not getattr(sys,'frozen',False) else [name for name in ('python3','python') if shutil.which(name)]) + [name for name in ('node','npm','git') if shutil.which(name)]
+        agent_commands = args.agent_allow_command if args.agent_allow_command is not None else ([sys.executable] if not getattr(sys,'frozen',False) else [name for name in ('python3','python') if shutil.which(name)]) + [name for name in ('node','npm','git','sh') if shutil.which(name)]
         server.agent_runtime = agent_runtime.Runtime(None if args.disable_agent else args.agent_workspace, [] if args.disable_agent or args.agent_no_commands else agent_commands, embedding_dir=args.agent_embedding_dir,navigation_dir=args.agent_navigation_dir or str(Path(__file__).with_name('code-navigation')))
     except ValueError as error:
         parser.error(str(error))
+    server.wormhole_share = wormhole_share.Sharing(Path(args.config).expanduser().parent/'.suite-wormhole')
     server.skill_catalog = skill_catalog.Catalog(args.skills_db or str(Path(args.config).parent/'skills/catalog.sqlite3'),offline=args.skills_offline or os.environ.get('SUITE_SKILLS_OFFLINE')=='1')
     server.agent_runtime.shared_skills = server.skill_catalog
     server.skill_catalog.start()
@@ -215,7 +233,7 @@ def main(default_port=8000, shutdown_event=None):
     server.store = relay.relay_config.Store(args.config)
     server.search_store = google_search.Store(args.search_config)
     server.agent_runtime.private_paths.update({server.store.path.resolve(),server.search_store.path.resolve(),server.skill_catalog.path.resolve(),image_provider.config_path(server).resolve()})
-    default_commands = ([sys.executable] if not getattr(sys,'frozen',False) else [name for name in ('python3','python') if shutil.which(name)]) + [name for name in ('node','npm','git') if shutil.which(name)]
+    default_commands = ([sys.executable] if not getattr(sys,'frozen',False) else [name for name in ('python3','python') if shutil.which(name)]) + [name for name in ('node','npm','git','sh') if shutil.which(name)]
     server.settings = server_settings.Settings(server,settings_path,args,default_commands)
     server.agent_runtime.private_paths.add(server.settings.path)
     if threading.current_thread() is threading.main_thread():
@@ -231,6 +249,7 @@ def main(default_port=8000, shutdown_event=None):
     except KeyboardInterrupt:
         pass
     finally:
+        server.wormhole_share.close()
         server.skill_catalog.close()
         server.agent_runtime.close()
         server.server_close()

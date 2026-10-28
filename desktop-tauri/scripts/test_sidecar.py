@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory() as folder:
                 continue
             if line.startswith('Desktop suite, AI relay and web research listening on '):base='http://'+line.strip().split(' on ')[1];break
         assert base,'Sidecar readiness timed out'
-        for route in ['/',*[app+'/' for app in ('colabriX','designiX','architex','graphiX','textiX','sheetiX','codeiX','appiX','automatextiX','reportiX','presentiX','sketchiX','mindiX','projectiX','vidiX','photiX')],'/api/health','/relay']:
+        for route in ['/',*[app+'/' for app in ('shelliX','colabriX','designiX','architex','graphiX','textiX','sheetiX','codeiX','appiX','automatextiX','reportiX','presentiX','sketchiX','mindiX','projectiX','vidiX','photiX')],'/api/health','/relay']:
             with urllib.request.urlopen(base+'/'+route.lstrip('/'),timeout=10) as response:assert response.status==200,route
         req=urllib.request.Request(base+'/api/skills',data=b'{"op":"status"}',headers={'Content-Type':'application/json','X-Architex-Request':'1'})
         with urllib.request.urlopen(req,timeout=10) as response:assert response.status==200
@@ -40,6 +40,6 @@ with tempfile.TemporaryDirectory() as folder:
         process.stdin.write('shutdown\n');process.stdin.flush()
         assert process.wait(timeout=10)==0,'Sidecar failed to shut down gracefully'
         assert (data/'skills/catalog.sqlite3').is_file(),'Private skill database was not created'
-        print('PASS: sidecar serves desktop/all 16 apps/relay/skills and exits cleanly on private stdin control.')
+        print('PASS: sidecar serves desktop/all 17 apps/relay/skills and exits cleanly on private stdin control.')
     finally:
         if process.poll() is None:process.kill();process.wait(timeout=5)

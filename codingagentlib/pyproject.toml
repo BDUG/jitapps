@@ -20,4 +20,4 @@ packages = ["codingagentlib", "codingagentlib.python"]
 package-dir = {codingagentlib = "."}
 
 [tool.setuptools.package-data]
-codingagentlib = ["protocol.json", "javascript/*.js", "javascript/package.json", "python/code-navigation/*.cjs", "python/code-navigation/*.json"]
+codingagentlib = ["protocol.json", "integration-context.schema.json", "javascript/*.js", "javascript/package.json", "python/code-navigation/*.cjs", "python/code-navigation/*.json"]

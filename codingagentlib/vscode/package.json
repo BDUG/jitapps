@@ -1,0 +1,155 @@
+{
+  "name": "codingagentlib",
+  "displayName": "codingagentlib \u00b7 Native Coding Agent",
+  "description": "Standalone native coding agent with workspace tools, model chat, live trace, sessions and result ZIPs. No Python or suite server required.",
+  "version": "0.2.0",
+  "publisher": "bdug",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BDUG/singlepageapps.git",
+    "directory": "codingagentlib/vscode"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Other"
+  ],
+  "main": "./src/extension.cjs",
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": {
+      "supported": false
+    }
+  },
+  "activationEvents": [
+    "onCommand:codingagent.open"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "codingagent.open",
+        "title": "Coding Agent: Open Chat"
+      },
+      {
+        "command": "codingagent.provider",
+        "title": "Coding Agent: Configure Model Provider"
+      },
+      {
+        "command": "codingagent.stop",
+        "title": "Coding Agent: Stop Current Run"
+      },
+      {
+        "command": "codingagent.sessions",
+        "title": "Coding Agent: Resume Saved Session"
+      },
+      {
+        "command": "codingagent.package",
+        "title": "Coding Agent: Export Result ZIP"
+      },
+      {
+        "command": "codingagent.attachFile",
+        "title": "Coding Agent: Attach Workspace Files"
+      },
+      {
+        "command": "codingagent.attachSelection",
+        "title": "Coding Agent: Attach Editor Selection"
+      },
+      {
+        "command": "codingagent.reviewChanges",
+        "title": "Coding Agent: Review Workspace Changes"
+      },
+      {
+        "command": "codingagent.exportTrace",
+        "title": "Coding Agent: Export Run Transcript"
+      },
+      {
+        "command": "codingagent.clearKey",
+        "title": "Coding Agent: Remove Stored Provider Key"
+      }
+    ],
+    "configuration": {
+      "title": "Coding Agent",
+      "properties": {
+        "codingagent.endpoint": {
+          "type": "string",
+          "default": "https://api.openai.com/v1/chat/completions",
+          "scope": "machine",
+          "description": "OpenAI-compatible chat completions URL, or the suite relay /api/chat URL. HTTPS or loopback HTTP only."
+        },
+        "codingagent.model": {
+          "type": "string",
+          "default": "gpt-4.1",
+          "scope": "machine",
+          "description": "Model for direct provider requests."
+        },
+        "codingagent.transport": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "relay"
+          ],
+          "default": "openai",
+          "scope": "machine",
+          "description": "Use a direct OpenAI-compatible provider, or an optional existing suite relay."
+        },
+        "codingagent.allowedCommands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "machine",
+          "description": "Explicitly trusted executable names or absolute paths. Commands also need per-run approval and use host OS permissions."
+        },
+        "codingagent.maxSteps": {
+          "type": "integer",
+          "default": 500,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "Pause each run after this many planning steps."
+        },
+        "codingagent.requestTimeoutSeconds": {
+          "type": "integer",
+          "default": 180,
+          "minimum": 5,
+          "maximum": 1800,
+          "description": "Timeout for each model call."
+        }
+      }
+    },
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "codingagent.attachFile",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "codingagent"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codingagent.attachSelection",
+          "when": "editorHasSelection",
+          "group": "codingagent"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build:native": "node scripts/build-native.cjs",
+    "test": "node --test test/*.test.cjs",
+    "verify": "npm run build:native && npm test",
+    "package": "npm run build:native && vsce package",
+    "vscode:prepublish": "node scripts/check-binary.cjs"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.7.1"
+  }
+}

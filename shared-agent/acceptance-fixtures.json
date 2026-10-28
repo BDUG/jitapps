@@ -567,5 +567,451 @@
     "expected": [
       "passed"
     ]
+  },
+  {
+    "name": "later reused ID cannot relabel earlier wrong target",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "other.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "later reused ID cannot invalidate earlier proof",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "other.py"
+          }
+        }
+      }
+    ],
+    "expected": [
+      "passed"
+    ]
+  },
+  {
+    "name": "result before action has no argument provenance",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "browser action supplies observed arguments",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "assistant",
+        "value": {
+          "status": "act",
+          "action": {
+            "tool": "run_script",
+            "args": {
+              "path": "verify.py"
+            }
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "passed"
+    ]
+  },
+  {
+    "name": "browser wrong target stays pending",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "assistant",
+        "value": {
+          "status": "act",
+          "action": {
+            "tool": "run_script",
+            "args": {
+              "path": "other.py"
+            }
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "browser claim without observation is not evidence",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "assistant",
+        "value": {
+          "status": "act",
+          "action": {
+            "tool": "run_script",
+            "args": {
+              "path": "verify.py"
+            }
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "browser action cannot leak across observations",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "assistant",
+        "value": {
+          "status": "act",
+          "action": {
+            "tool": "run_script",
+            "args": {
+              "path": "verify.py"
+            }
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "other",
+          "tool": "read_file",
+          "ok": true,
+          "result": {}
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "explicit action takes precedence over assistant",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "other.py"
+          }
+        }
+      },
+      {
+        "kind": "assistant",
+        "value": {
+          "status": "act",
+          "action": {
+            "tool": "run_script",
+            "args": {
+              "path": "verify.py"
+            }
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
   }
 ]

@@ -445,12 +445,16 @@ impl Runtime {
                         .into(),
                 );
             }
-            if s["events"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .rev()
-                .find_map(|e| e["value"].get("tasks"))
+            if value
+                .get("tasks")
+                .or_else(|| {
+                    s["events"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .rev()
+                        .find_map(|e| e["value"].get("tasks"))
+                })
                 .and_then(Value::as_array)
                 .map(|tasks| tasks.iter().any(|t| t["status"] != "done"))
                 .unwrap_or(false)
@@ -648,4 +652,12 @@ fn find_executable(name: &str) -> Result<PathBuf> {
         }
     }
     Err(format!("Allowed executable not found: {name}").into())
+}
+
+impl Drop for Runtime {
+    fn drop(&mut self) {
+        // Explicit unlock also releases an open-file-description lock briefly inherited
+        // by another thread's fork/exec child; closing our descriptor alone may not.
+        let _ = FileExt::unlock(&self._lock);
+    }
 }

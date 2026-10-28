@@ -15,6 +15,13 @@ class CatalogTests(unittest.TestCase):
         for app in APPS:
             profile=self.catalog.profile(app);self.assertGreaterEqual(len(profile['selected']),4)
             context=self.catalog.context(app,'Improve this document');self.assertTrue(context['skills']);self.assertTrue(all(x['kind']=='skill' for x in context['skills']))
+    def test_shellix_relay_and_profile(self):
+        messages=[{'role':'system','content':'shell response schema'},{'role':'user','content':json.dumps({'goal':'inspect sh commands'})}]
+        updated,context=augment(self.catalog,{'app':'shelliX'},messages)
+        self.assertEqual(context['app'],'shelliX');self.assertTrue(context['skills'])
+        self.assertEqual(updated[0],messages[0]);self.assertEqual(updated[-1],messages[-1])
+        profile=self.catalog.profile('shelliX');self.assertGreaterEqual(len(profile['selected']),4)
+        self.assertEqual(self.catalog.save_profile('shelliX',profile)['app'],'shelliX')
     def test_title_matches_are_ranked_above_collisions(self):
         self.assertEqual(self.catalog.search('domain modeling',kind='skill')['items'][0]['name'],'domain-modeling')
     def test_profile_cas_disable_and_reload(self):

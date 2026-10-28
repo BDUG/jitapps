@@ -72,3 +72,15 @@ cargo package --manifest-path codingagentlib/rust/Cargo.toml
 ```
 
 Native tests cover operation without any valid interpreter, session restart, exclusive locking, receipt replay, stale hashes, path/symlink permissions, Unicode paging, checks, actual commands, timeout/cancellation, verification, findings, skills/workflows and real ZIP contents. Tests use deterministic model callbacks; no paid providers are called. Unix command tests use explicit `/bin/sh`, `sleep` and `cat`; those are test programs, not runtime dependencies. Linux is exercised here; Windows/macOS runtime behavior needs validation on those platforms.
+
+## Embed in a UI or another Rust program
+
+`EmbeddedAgent`, `ToolPermission` and `ToolContext` provide a small optional host-tool integration API alongside the guarded workspace `Agent`. Register callbacks, add an event sink or approval hook, pass JSON application context and supply your own model transport. See the [language-neutral integration guide](../INTEGRATION.md) for semantics and limitations.
+
+`cargo run --manifest-path codingagentlib/rust/Cargo.toml --example ui -- /absolute/workspace` starts a small local browser UI with real read-only workspace listing and a deterministic demonstration model. No Python or GUI toolkit is needed. Replace `demo_model` with your provider callback for real AI requests.
+
+The UI also supports reading/searching files, questions and follow-ups, step budgets, live event filters, tool switches, metrics and explicit snapshot download/restore. The `EmbeddedAgent` API provides matching discovery/context/completion-policy/restore integration points across Rust, Python and JavaScript; see [session transfer contracts](../INTEGRATION.md#tool-management-completion-checks-and-session-transfer).
+
+## Dynamic host context
+
+`ContextRegistry`, `EmbeddedAgent::context_provider` and `tool_available` support live application integrations with revisioned context sources, descriptive schemas, per-turn refresh and dispatch-time capability checks. Tools receive the exact model-turn context in `ToolContext.context`. See the [cross-language guide](../INTEGRATION.md#dynamic-host-integration-framework) and `cargo run --example dynamic_context` for a native, provider-free demonstration.

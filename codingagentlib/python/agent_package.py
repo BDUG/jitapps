@@ -1,5 +1,5 @@
 """Package recorded evidence and actual changed files; does not deploy or execute."""
-from . import agent_acceptance
+from . import agent_acceptance, agent_checks
 import difflib
 import hashlib
 import json
@@ -33,7 +33,8 @@ def build(runtime,session):
             entry(archive,'verification.json',json.dumps(evidence,ensure_ascii=False,indent=2))
             checked=[{'callId':e['value']['id'],'tool':e['value']['tool'],**e['value']['checks']} for e in events if e['kind']=='observation' and isinstance(e.get('value',{}).get('checks'),dict)]
             entry(archive,'acceptance.json',json.dumps({'rules':session.get('acceptanceRules',[]),'report':agent_acceptance.evaluate(session.get('acceptanceRules'),events)},ensure_ascii=False,indent=2))
-            entry(archive,'action-checks.json',json.dumps({'observations':checked,'checkedActions':len(checked),'passed':sum(c['passed'] for c in checked),'failed':sum(not c['passed'] for c in checked),'latestPassed':checked[-1]['passed'] if checked else None,'note':'Declarative checks against returned JSON values/pages/previews; not certification of task correctness.'},ensure_ascii=False,indent=2))
+            check_state=agent_checks.history(events)
+            entry(archive,'action-checks.json',json.dumps({'observations':checked,'checkedActions':len(checked),'passed':sum(c['passed'] for c in checked),'failed':sum(not c['passed'] for c in checked),'latestPassed':checked[-1]['passed'] if checked else None,'currentPassed':check_state['passed'],'unresolved':check_state['unresolved'],'note':'Declarative checks against returned JSON values/pages/previews; not certification of task correctness.'},ensure_ascii=False,indent=2))
             try:entry(archive,'memory.json',json.dumps(runtime.memory.export(session['id']),ensure_ascii=False,indent=2))
             except Exception as error:manifest['warnings'].append('Memory export unavailable: '+type(error).__name__)
             references=[]

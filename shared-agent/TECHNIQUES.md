@@ -17,6 +17,8 @@ The agent already provides a ReAct loop, tools, persistent sessions, context com
 
 ## Semantic code navigation
 
+Python navigation retains one analyzed snapshot for repeated queries. Every request still reads and hashes the current source files; changes to file content or membership rebuild the index. JavaScript-only requests skip Python indexing. Search retains only the requested result page while preserving the exact total and scan order.
+
 Python AST navigation is available without additional packages. Enable JS/TS compiler navigation from the repository root:
 
 ```sh
@@ -39,7 +41,7 @@ The TypeScript service analyzes supplied source snapshots and trusted compiler l
 
 For an external trusted installation, use `--agent-navigation-dir /path/to/server/code-navigation` or `SUITE_AGENT_NAVIGATION_DIR`. A desktop sidecar build bundles the helper and installed TypeScript libraries when present at build time; Node.js is still required on the host.
 
-Navigation reads up to 400 supported source files, 256 KiB per file and 8 MB total. Dependency/vendor/build/private paths are excluded. Query paths are prioritized, and coverage reports disclose skipped files. Source hashes identify the analyzed bytes; read current source before editing and retain normal stale-write guards. Configure a focused workspace or narrow the path when coverage is incomplete.
+Navigation reads up to 400 supported source files, 1 MB (1,000,000 bytes) per file and 8 MB total. Dependency/vendor/build/private paths are excluded. Query paths are prioritized, and coverage reports disclose skipped files. Source hashes identify the analyzed bytes; read current source before editing and retain normal stale-write guards. Configure a focused workspace or narrow the path when coverage is incomplete.
 
 ## Learned semantic memory
 
@@ -93,3 +95,21 @@ Legacy checklists without dependencies remain supported. The planner can revise 
 ## Provider-backed evaluations
 
 See the [live evaluation guide](../evaluations/coding-agent/README.md). It explains explicit opt-in, setup, cases, held-out checks, budgets, reports, baseline comparisons and the difference between fixture replay and actual model scores.
+
+## Completion evidence
+
+Acceptance rules inspect the latest matching recorded result, searching history backward and stopping at the first match. A failed declarative action check remains unresolved until a checked rerun of the same tool with the same arguments passes; unrelated successes and unchecked reruns cannot clear it. The browser loop and server completion gate use the same policy, including restored sessions. Partial/blocked outcomes remain available for unresolved limitations. Result packages expose unresolved checks separately from the last individual check result. Browser project edits also invalidate earlier command verification when command verification is enabled. These guards do not establish that the chosen checks adequately test every user requirement.
+
+Local lexical memory retrieval evaluates only nonzero query-vector dimensions and retains the best cursor-plus-page candidates. It still scans current session/collection vectors and reports the exact positive-match count, scores and deterministic ordering. No approximate index or stale result cache is introduced.
+
+Command previews include per-stream `stdoutNextOffset` / `stderrNextOffset` byte cursors at complete UTF-8 boundaries. The working brief suggests missing log pages for successful commands with truncated output as well as failed commands. These are read-only suggestions; commands are never replayed automatically to recover output.
+
+File/script page reads decode UTF-8 and compute SHA-256 from the same binary stream. This avoids a second file scan and ties returned text, byte counts and hashes to the bytes actually read. A subsequent write still checks the current file hash; the stream is not a filesystem transaction.
+
+Compressed context retains the action arguments associated with selected observations, including browser-only assistant-action histories. Failed reads do not displace the latest successful full retrieval. The retained tool window follows last-use order, while original events remain unchanged and retrievable through history references.
+
+Archived-context paging reuses one decoded snapshot per runtime (up to 8,000,000 source bytes) and up to four rendered pointer selections, bounded to 8,000,000 characters in total. Every read still loads and hashes the current archive bytes before using the cache; missing files, changed bytes and another session's unavailable snapshot remain errors. Parsing uses those same verified bytes. Commit also hashes and persists the validated bytes rather than reopening an upload for its hash. Runtime shutdown clears the cache. A local synthetic roughly 1 MB archive benchmark measured repeated string pages about 6× faster and formatted root pages about 10× faster; this is a paging microbenchmark, not a live model quality score.
+
+Acceptance evaluation binds each observation to the action arguments already recorded at that point in history. A later action with a reused ID cannot relabel earlier evidence. Browser-only runs can use their immediately pending assistant action when no explicit runtime action exists; an observation consumes that fallback, and the tool must match. Assistant proposals without a corresponding observation never satisfy a rule. Shared Python/JavaScript fixtures cover wrong targets, reused IDs, missing provenance and explicit-action precedence; an actual browser-only loop regression checks successful completion from the required artifact.
+
+Command verification uses the latest recorded command attempt, including tool errors with no exit code. A failed launch after a passing check invalidates that earlier pass for completion after edits. Browser cycle assessment, the working brief, visible command evidence and the server completion gate follow this rule. Only an actual successful tool response with numeric exit code zero, without cancellation or timeout, verifies the latest edit. A subsequent successful rerun can restore verification; partial/blocked completion remains available. Regression coverage includes a real browser run and server restart persistence.
