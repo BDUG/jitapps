@@ -62,3 +62,5 @@ button.ag-final-merge,#suite-agent button.ag-final-merge,#sai-apply,#reviewDialo
 #ag-completion[data-outcome=partial],#ag-completion[data-outcome=blocked]{border-left-color:#a76816;background:#fffaf2}
 #ag-completion h3{margin-top:0}#ag-completion p,#ag-completion li{overflow-wrap:anywhere}
 #ag-completion .ag-row{flex-wrap:wrap}#ag-completion button{white-space:normal}
+
+.ag-intent-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0}.ag-intent-bar label{font-size:12px;font-weight:600}.ag-intent-bar select{max-width:100%;padding:8px;border:1px solid var(--tlal-border,#d9dde1);border-radius:8px;background:var(--tlal-white,#fff);color:inherit}#ag-project-memory,#ag-specification{font-size:12px;margin:6px 8px 6px 0}#ag-access-summary{font-size:11px;color:var(--tlal-secondary,#626a73);line-height:1.5}

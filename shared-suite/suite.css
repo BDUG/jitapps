@@ -23,3 +23,5 @@
 #suite-disk-dialog .sd-row.sd-selected{background:#f9eef1;border-left-color:#8b1e3f}
 @media(max-width:600px){#suite-disk-dialog .sd-row{flex-wrap:wrap}#suite-disk-dialog .sd-detail{flex-basis:100%;margin-left:25px;white-space:normal;overflow-wrap:anywhere}#suite-disk-dialog .sd-keyboard-help{line-height:1.6}}
 @media(max-width:600px){#suite-disk-dialog #sd-import-controls>label{min-width:0;max-width:100%;flex-wrap:wrap}#suite-disk-dialog #sd-import-controls select{min-width:0;max-width:100%;flex:1 1 180px}}
+
+@media(max-width:600px){#suite-tools{max-width:calc(100vw - 12px);flex-wrap:wrap}}

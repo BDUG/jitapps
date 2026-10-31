@@ -364,3 +364,9 @@ A synthetic benchmark of 1,001 events (about 16.1 million JSON characters, 80,00
 git show 6c304d6:codingagentlib/vscode/src/history-context.cjs > /tmp/history-baseline.cjs
 node --expose-gc scripts/benchmark-history.cjs /tmp/history-baseline.cjs
 ```
+
+### Persistent project memory
+
+**Project memory** opens the same categorized note manager as the browser agent, entirely inside VS Code. It supports source references, pinning, archival, expiry, revision-safe editing/deletion, indexed lexical recall, export/backup inspection and reviewed handoff drafts. Persistent notes live in private extension storage, separated by workspace path and project label. No native worker or provider call is needed to manage notes.
+
+Enable recall explicitly and review its project/count in the run approval. Up to six selected notes are captured into the native run, with full text retrievable through paged `read_project_memory`. The read tool sees only that approved snapshot. Persistent memory writes remain manual. Saved runs retain their project binding. Stores are bounded to 500 notes/5 MB per project, replaced atomically under an exclusive lock and indexed in a bounded per-process cache. File-lock recovery after a crash is manual; back up/export important knowledge. Rebuild the extension to include the updated Rust worker and bundled manager assets.

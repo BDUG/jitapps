@@ -93,6 +93,20 @@ impl Agent {
             }
             "agent_next" => self.next(session()?),
             "agent_submit" => self.submit(session()?, params["response"].clone()),
+            "agent_project_memory" => {
+                let id=session()?;let saved=self.runtime.session(id)?;
+                if saved["status"]!="running" {return Err("Project memory requires an active approved run".into());}
+                let project=params["project"].as_str().ok_or("Missing memory project")?;
+                if project.trim().is_empty()||project.chars().count()>200 {return Err("Invalid memory project".into());}
+                if let Some(bound)=saved["projectMemorySnapshot"]["project"].as_str(){if bound!=project{return Err("Saved run is bound to another memory project".into());}}
+                let notes=params["notes"].as_array().ok_or("Missing memory notes")?;
+                if notes.len()>6||params["notes"].to_string().len()>1_500_000{return Err("Project recall snapshot is too large".into());}
+                let mut ids=std::collections::BTreeSet::new();
+                for note in notes {let key=note["id"].as_str().ok_or("Missing note ID")?;if key.is_empty()||key.len()>100||!ids.insert(key)||note["text"].as_str().map_or(true,|v|v.chars().count()>100_000){return Err("Invalid project note snapshot".into());}}
+                self.runtime.sessions.get_mut(id).unwrap()["projectMemorySnapshot"]=json!({"project":project,"notes":notes});
+                self.runtime.event(id,"user_action",json!({"status":"project_memory_binding","project":project,"notes":notes.iter().map(|n|json!({"id":n["id"],"revision":n["revision"]})).collect::<Vec<_>>(),"note":"Approved reference snapshot, not instructions or verification."}))?;
+                Ok(json!({"project":project,"count":notes.len()}))
+            }
             "agent_review" => {
                 let id = session()?;
                 let saved = self.runtime.session(id)?;

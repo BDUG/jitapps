@@ -336,3 +336,38 @@ In **Tasks**, select tasks across filters and choose **Export selected JSON**. T
 The preview must still match the saved destination notebook when applying. Changed, corrupt or wrong-app notebooks are not overwritten; select the destination again to refresh the preview after reviewing its current content. Cancel or Escape leaves storage unchanged. Imports and exports do not send AI requests, run commands or modify native documents. Existing open notebook drafts remain separate and will detect the saved change through their usual conflict checks.
 
 Worklists accept at most 1,000 tasks and 1,000,000 UTF-8 bytes, with at most 5,000 characters per task. Only explicitly selected tasks are exported. App notebooks remain browser-local; retain exported files for portable backups.
+
+## Native catalogues in all apps
+
+**App catalogue** in the shared toolbar opens a searchable native catalogue in every app. There are two additional templates and two layout options per app (36 templates and 36 layouts overall):
+
+| App | New templates |
+| --- | --- |
+| architeX | Knowledge platform architecture; Service operations architecture |
+| graphiX | Event information card; Process overview infographic |
+| textiX | Product requirements specification; Research interview guide |
+| sheetiX | Risk register with calculated risk score; Content production planner |
+| codeiX | Accessible information page; Project documentation site |
+| appiX | Event registration screen; Service feedback screen |
+| automatextiX | Order priority routing; Support ticket triage |
+| reportiX | Technology evaluation brief; Customer discovery report |
+| presentiX | Project kickoff deck; Research findings deck |
+| sketchiX | Service request workflow; Release readiness workflow |
+| mindiX | Product discovery map; Learning plan map |
+| projectiX | Website delivery plan; Workshop preparation plan |
+| vidiX | Workshop opening title; Product release teaser |
+| photiX | Exhibition image caption; Product photo label |
+| designiX | Community event poster; Product announcement |
+| colabriX | Product discovery workshop; Team decision workshop |
+| mockiX | Service request portal; Course onboarding |
+| shelliX | Workspace inventory; Environment overview |
+
+Most apps offer Studio blue and Warm editorial layout themes. automatextiX offers horizontal/staggered workflow arrangements; projectiX offers compact/spacious timeline views that leave tasks unchanged; reportiX adds executive/evidence-first structure preferences to the brief; photiX adds cool/warm footer-band operations. shelliX offers tabular/sectioned reporting snippets. Native capacity limits still apply. Themes preserve locked layers; layouts may recolor existing visual elements, arrange workflow nodes or add explicit formatting as described in each card.
+
+Templates replace content and contain editable examples/placeholders, not generated facts. Project schedules use an illustrative start date; adjust it before planning real work. Image templates include the app's built-in sample image. Forms have no connected submission service. Research starters contain no fabricated sources, participants or quotes and do not automatically search. Workflow templates are not executed by applying them.
+
+Preview uses native validation and the existing workspace diff/recovery flow where available. mockiX uses a complete candidate inspection followed by explicit application with native Undo. shelliX only loads a reviewed snippet into the command draft; it does not execute it. A changed source snapshot blocks application. Timeline layouts only adjust the view, so they cannot be saved as native document copies.
+
+**Save editable copy** stores a captured candidate in the app's existing browser-local template/snippet library. **My saved native templates** lists saved entries for preview; **Save current as new template** captures content edited in the native app under a name you provide. These are independent copies; built-ins are never changed. Existing office catalogues and template libraries remain available. **Export candidate JSON** downloads the complete candidate for inspection and portable reuse; timeline exports describe view preferences rather than project documents. Review embedded sample content, scripts and media before sharing.
+
+The catalogue modules and approximately 53 KB native seed bundle load only when requested. Opening, previewing, saving and exporting use no AI and run no commands. Source documents remain unchanged until explicit application.

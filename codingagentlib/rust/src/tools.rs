@@ -30,6 +30,7 @@ pub fn names() -> &'static [&'static str] {
         "read_command_output",
         "changes",
         "read_history",
+        "read_project_memory",
         "memory_store",
         "memory_read",
         "memory_list",
@@ -62,6 +63,7 @@ pub fn description(name: &str) -> &str {
 "run_command"=>"Execute allowlisted program with literal args. args: command, args? (string array), cwd? (relative workspace directory), timeout? (milliseconds max 120000). Requires command permission; OS access is not sandboxed.",
 "read_command_output"=>"Read persisted command output pages. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes. args: jobId, stream? (stdout/stderr), offset?, limit?.",
 "changes"=>"SHA-256 differences from initial session manifest. Reports added/modified/deleted files.",
+"read_project_memory"=>"Read approved project note snapshot, not policy or verification. args: id, offset? (characters), limit? (1..8000). Cannot switch projects.",
 "read_history"=>"Read full original event pages. args: offset?, limit?.",
 "memory_store"=>"Store session-local finding. args: text, title?. Requires edits.",
 "memory_read"=>"Read finding. args: id, offset?, limit?.",
@@ -402,6 +404,18 @@ pub(crate) fn execute(
                 }
             }
             rows(changes, args, "changes")
+        }
+        "read_project_memory" => {
+            let snapshot=&runtime.sessions[id]["projectMemorySnapshot"];
+            let notes=snapshot["notes"].as_array().ok_or("Run has no approved project-memory snapshot")?;
+            let note_id=text(args,"id")?;
+            let note=notes.iter().find(|n|n["id"].as_str()==Some(note_id)).ok_or("Note is not in this run's approved project snapshot")?;
+            let offset=args["offset"].as_u64().unwrap_or(0) as usize;
+            let limit=args["limit"].as_u64().unwrap_or(2000) as usize;
+            if limit==0||limit>8000{return Err("Memory read limit must be 1..8000".into());}
+            let chars:Vec<char>=note["text"].as_str().ok_or("Invalid note text")?.chars().collect();
+            let start=offset.min(chars.len());let end=(start+limit).min(chars.len());
+            let mut value=note.clone();value["text"]=json!(chars[start..end].iter().collect::<String>());value["offset"]=json!(start);value["nextOffset"]=json!(end);value["totalCharacters"]=json!(chars.len());value["done"]=json!(end==chars.len());value["project"]=snapshot["project"].clone();Ok(value)
         }
         "read_history" => rows(
             runtime.sessions[id]["events"].as_array().unwrap().clone(),

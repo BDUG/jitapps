@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>designiX · Graphic design studio</title><link rel="icon" href="../assets/icons/designiX.svg?v=designix-style-20261025"><link rel="stylesheet" href="style.css?v=designix-style-20261025"><link rel="stylesheet" href="../shared-ai/chat.css"><link rel="stylesheet" href="../shared-agent/agent.css?v=response-recovery-20261025"><link rel="stylesheet" href="../shared-suite/suite.css"><link rel="stylesheet" href="../shared-suite/workspace.css"><link rel="stylesheet" href="../shared-suite/skills.css?v=skills-manage-20261025"><link rel="stylesheet" href="../shared-ai/input-ste.css"><link rel="stylesheet" href="../shared-suite/theme.css?v=style-guide-20261024"><link rel="stylesheet" href="../shared-ai/multimodal.css?v=multimodal-20261025"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>designiX · Graphic design studio</title><link rel="icon" href="../assets/icons/designiX.svg?v=designix-style-20261025"><link rel="stylesheet" href="style.css?v=designix-style-20261025"><link rel="stylesheet" href="../shared-ai/chat.css"><link rel="stylesheet" href="../shared-agent/agent.css?v=project-memory-20261031"><link rel="stylesheet" href="../shared-suite/suite.css?v=native-catalogues-20261031"><link rel="stylesheet" href="../shared-suite/workspace.css"><link rel="stylesheet" href="../shared-suite/skills.css?v=skills-manage-20261025"><link rel="stylesheet" href="../shared-ai/input-ste.css"><link rel="stylesheet" href="../shared-suite/theme.css?v=style-guide-20261024"><link rel="stylesheet" href="../shared-ai/multimodal.css?v=multimodal-20261025"></head>
 <body><header><a class="brand" href="./"><div><strong class="brand-name">designi<span>X</span></strong><small>Graphic design studio</small></div></a><input id="name" aria-label="Design name" maxlength="150"><span id="saveStatus">Local workspace</span><button id="new">New design</button><button id="import">Open project</button><button id="export" class="primary">Export</button><input id="file" type="file" accept=".json,application/json" data-disk-label="designiX project JSON" hidden></header>
 <details id="intro"><summary>Your ideas, beautifully arranged.</summary><p>Build a brand, tell a story, make something worth sharing. Choose a template or start with a blank page. Every element stays editable. Ask AI chat to propose a design, then review and apply it.</p></details>
 <main><aside id="library" aria-label="Design library"><nav class="tabs" aria-label="Library sections"><button data-tab="templates" aria-selected="true">Templates</button><button data-tab="elements">Elements</button><button data-tab="media">Media</button><button data-tab="brand">Brand</button></nav>
@@ -29,7 +29,7 @@
 <script src="../shared-ai/chat.js?v=multimodal-20261025"></script>
 <script src="../shared-suite/apps.js?v=tlal-mockix-20261031"></script>
 <script src="../shared-suite/disk.js?v=disk-zip-20261024"></script>
-<script src="../shared-suite/ui.js?v=tlal-mockix-20261031"></script>
+<script src="../shared-suite/ui.js?v=native-catalogues-20261031"></script>
 <script src="../shared-suite/workspace-core.js?v=selective-review-20261028"></script>
 <script src="../shared-suite/workspace-store.js?v=recovery-20261021-1"></script>
 <script src="../shared-suite/workspace-adapters.js?v=project-zip-20261024"></script>
@@ -48,7 +48,7 @@
 <script src="../shared-suite/auto-recovery.js?v=recovery-20261021-1"></script>
 <script src="../codingagentlib/javascript/spec.js?v=parallel-read-20261029"></script>
 <script src="../codingagentlib/javascript/checks.js?v=project-apply-20261023-1"></script>
-<script src="../codingagentlib/javascript/context.js?v=context-index-20261031"></script>
+<script src="../codingagentlib/javascript/context.js?v=project-memory-20261031"></script>
 <script src="../codingagentlib/javascript/acceptance.js?v=acceptance-20261023-1"></script>
 <script src="../codingagentlib/javascript/planning.js?v=agent-techniques-20261025"></script>
 <script src="../codingagentlib/javascript/tool-routing.js?v=20261029"></script><script src="../codingagentlib/javascript/loop.js?v=evidence-perf-20261031"></script>
@@ -56,7 +56,7 @@
 <script src="../shared-agent/project.js?v=agent-techniques-20261025"></script>
 <script src="../shared-agent/workflows.js?v=handoff-import-20261023-1"></script>
 <script src="../codingagentlib/javascript/independent-review.js?v=evidence-links-20261029"></script>
-<script src="../shared-agent/model-transport.js?v=model-retries-20261027"></script><script src="../shared-agent/request-log.js?v=http-payload-trace-20261028"></script><script src="../codingagentlib/javascript/handoff.js?v=20261030"></script><script src="../shared-agent/ui.js?v=lazy-receipts-20261031"></script><script src="../shared-ai/prompt-library-core.js?v=native-starters-20261031"></script><script src="../shared-ai/prompt-library.js?v=native-starters-20261031"></script><script src="../shared-suite/content-hub-core.js?v=bundles-20261028"></script><script src="../shared-suite/content-hub-visual.js?v=content-hub-20261028"></script><script src="../shared-suite/content-hub-ui.js?v=bundles-20261028"></script>
+<script src="../shared-agent/model-transport.js?v=model-retries-20261027"></script><script src="../shared-agent/request-log.js?v=http-payload-trace-20261028"></script><script src="../codingagentlib/javascript/handoff.js?v=20261030"></script><script src="../shared-agent/ui.js?v=project-memory-20261031"></script><script src="../shared-ai/prompt-library-core.js?v=native-starters-20261031"></script><script src="../shared-ai/prompt-library.js?v=native-starters-20261031"></script><script src="../shared-suite/content-hub-core.js?v=bundles-20261028"></script><script src="../shared-suite/content-hub-visual.js?v=content-hub-20261028"></script><script src="../shared-suite/content-hub-ui.js?v=bundles-20261028"></script>
 <script src="../shared-suite/skills-ui.js?v=skills-manage-20261025"></script>
 <script src="../shared-suite/action-presets.js?v=workflows-20261024"></script>
 <script src="../shared-suite/editing-workflows.js?v=workflow-editing-20261024"></script>

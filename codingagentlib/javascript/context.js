@@ -82,6 +82,7 @@
       lastRetrieval = -1;
     const retrieval = new Set([
       "read_project_instructions",
+    "read_project_memory",
       "read_file",
       "read_script",
       "read_context",

@@ -461,3 +461,7 @@ The coding agent's **Create specification** button opens a questionnaire and use
 The shared Tasks dashboard supports direct task creation for any app and editing existing tasks, including from the desktop. Saves preserve notes and completion flags and reject changed notebook versions. See [task capture and editing](shared-suite/README.md#capture-and-edit-tasks-from-any-app).
 
 All apps support portable selected-task JSON worklists, with reviewed cross-app imports, duplicate-text detection and destination conflict checks. See [portable worklists](shared-suite/README.md#portable-worklists-and-cross-app-handoffs).
+
+Every app now includes a searchable **App catalogue** with two new native templates and two layouts or view/output presets, plus editable saved copies. See the [all-app native catalogue](shared-suite/README.md#native-catalogues-in-all-apps).
+
+The browser coding agent now offers Plan/Build/Review presets, and both browser and standalone VS Code agents offer persistent **Project memory**: categorized project notes, source references, pinning, expiry, archival, revision-safe editing, indexed search, exports and reviewed handoff drafts. Opt-in recall is scoped per project and cached within a run. See [project memory and task modes](shared-agent/TECHNIQUES.md#project-memory-and-task-modes); restart the Python relay after updating.

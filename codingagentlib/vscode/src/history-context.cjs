@@ -61,7 +61,7 @@ function prepare(request, { enabled = true, budget = 80000 } = {}) {
   last(
     (e, i) => i > lastAccepted && ["protocol_error", "repair"].includes(e.kind),
   );
-  last((e) => e.kind === "observation" && e.value?.tool === "read_history");
+  last((e) => e.kind === "observation" && ["read_history", "read_project_memory"].includes(e.value?.tool));
   const selected = new Set(pinned);
   let used = 2;
   for (const i of selected) used += eventJSON(i).length + 1;
