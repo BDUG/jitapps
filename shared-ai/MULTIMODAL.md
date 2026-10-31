@@ -1,6 +1,6 @@
 # Multimodal chat and coding-agent requests
 
-The shared AI chat, codeiX's native chat, and the **Coding agent** tab accept image, audio, PDF and UTF-8 text reference files. Returned provider media is displayed alongside the text response. Restart the suite/relay server after upgrading; the relay advertises `multimodalVersion: 1` while preserving the existing text-chat protocol.
+The shared AI chat and the **Coding agent** tab accept image, audio, PDF and UTF-8 text reference files. Returned provider media is displayed alongside the text response. Restart the suite/relay server after upgrading; the relay advertises `multimodalVersion: 1` while preserving the existing text-chat protocol.
 
 ## Send references
 
@@ -67,3 +67,23 @@ node shared-ai/multimodal-browser-test.cjs
 ```
 
 These checks cover native part adapters, binary preservation, invalid/unsafe input, mixed/media-only replies, direct transport despite paging settings, previews/downloads, virtual-disk saves, codeiX chat, persisted coding references/media, reload/resume and absence of media-triggered tool execution. Browser/provider responses are mocked; no paid provider call or live model capability certification is included.
+
+### Attachment continuity
+
+The coding-agent reference picker keeps selections after starting a run. Remove a selection explicitly to stop adding it to future runs; prior copies are still part of an existing session's history. Start a fresh session after removing a file if that historical reference must be excluded too.
+
+Each coding-agent model step now has an explicit `attachments` collection reconstructed from saved user reference events, including UTF-8 text as well as native media. Exact duplicate references are combined; different content remains distinguishable. Text contents stay complete when aggressive context compression is enabled, while binary inputs retain their native media parts. Saved event references restore model access after reload even when the picker itself is empty.
+
+Paging repeats complete small text references in `attachmentContext` on every provider call; larger ones remain available as named, lossless resources. Regression checks: `node shared-ai/attachment-continuity-test.cjs` and `node shared-ai/multimodal-browser-test.cjs`.
+
+codeiX exposes the coding-agent interface only. Its standalone AI chat has been removed; attach references and select response modes in the coding-agent panel. Other apps retain their Chat and Coding agent tabs.
+
+## Standalone VS Code extension
+
+The native VS Code extension also accepts explicit workspace image, WAV/MP3 and PDF snapshots through **Attach files**. It sends named native parts through its OpenAI-compatible or relay provider connection. Saved references survive steps, history compression and resume; the latest attached snapshot for a path is active. Draft removal does not erase references already saved to a session. See the [extension guide](../codingagentlib/vscode/README.md#native-multimodal-references-v025) for supported formats, provider requirements and native transport limits.
+
+## Reference notes and image detail
+
+Browser chat and coding-agent attachment lists let you add a **Reference note** for each image, audio file or PDF: identify its role (current screen versus target design), a page/time range to focus on, or a region to inspect. The note is untrusted reference metadata alongside its unique filename; it is not an instruction override, automatic crop, transcript, or verification result. Notes are retained with saved agent references.
+
+Images offer **Automatic**, **Low · overview**, and **High · fine details**. Explicit choices travel as native image `detail` settings and in reference descriptors. Source bytes are unchanged. Supporting OpenAI-compatible providers interpret the detail hint; Gemini inline-data conversion does not implement this hint. High detail can increase provider input cost. The default leaves provider behavior unchanged. Editing a draft note/detail does not rewrite earlier saved conversation turns.

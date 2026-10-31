@@ -1,5 +1,6 @@
 /* One registry for the desktop, app identity and virtual-disk import targets. */
 window.SuiteApps=[
+ {id:'mockiX',name:'mockiX',category:'Wireframing & UI mockups',description:'Design mockups with reusable components, align layouts, map user flows and refine screens with AI chat.',color:'#3f6f98',imports:[['file','mockiX wireframe project JSON']]},
  {id:'shelliX',name:'shelliX',category:'AI shell',description:'Run workspace commands, inspect output and work toward a goal with AI chat.',color:'#24584c',imports:[]},
  {id:'colabriX',name:'colabriX',category:'Collaborative whiteboard',description:'Brainstorm with sticky notes, diagrams, frames, workshops and AI on local boards with master-led PC collaboration.',color:'#3f6f98',imports:[['file','Whiteboard project JSON'],['imageFile','Board images / SVG']]},
  {id:'designiX',name:'designiX',category:'Graphic design',description:'Create multi-page posters, social graphics and branded layouts with templates, layers and AI.',color:'#8b1e3f',imports:[['file','Design project JSON'],['mediaFile','Images / SVG'],['brandFile','Brand kit'],['replaceFile','Replace selected image']]},

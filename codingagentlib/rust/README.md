@@ -84,3 +84,35 @@ The UI also supports reading/searching files, questions and follow-ups, step bud
 ## Dynamic host context
 
 `ContextRegistry`, `EmbeddedAgent::context_provider` and `tool_available` support live application integrations with revisioned context sources, descriptive schemas, per-turn refresh and dispatch-time capability checks. Tools receive the exact model-turn context in `ToolContext.context`. See the [cross-language guide](../INTEGRATION.md#dynamic-host-integration-framework) and `cargo run --example dynamic_context` for a native, provider-free demonstration.
+
+### Retained output through the host API
+
+`Agent::request("output", json!({"session_id": id, "jobId": job, "stream": "stdout", "offset": 0, "limit": 12000}))` reads a recorded command's retained log in running, paused or completed sessions. It uses the same Unicode-character paging and 8 MB log bound as read_command_output; maximum page size is 32,000 characters. Results contain text, offset, nullable nextOffset, done and totalCharacters.
+
+This host method bypasses the mutating tool-call ledger, not path/job validation: only command/script jobs recorded in that session are eligible. Symlinked/nonregular logs are rejected. It does not resume a session, execute a program, record an observation or change verification state. Model-issued read_command_output remains an ordinary audited tool call and now applies the same recorded-job/log checks. JSON-lines workers expose the additional method without changing the codingagentlib/1 envelope.
+
+
+### Host terminal review audit
+
+`Agent::request("agent_review", params)` accepts `session_id`, the current reserved numeric `step`, and `review` containing boolean `approved`, `tool` (`run_command`, `run_script`, `workflow_run`, or `workflow_continue`) and a 64-character hexadecimal `fingerprint`. Optional `reason` is one of `declined`, `preview_requested`, `review_required`, `reviewed_action_changed`, `commands_disabled`, or `workflow_requires_individual_steps`. A declined `preview_requested` review requires `proposal` with matching `tool`, object `args`, and optional `checks`.
+
+This host-only audit operation preserves the pending planning turn and records a user event. It does not execute the proposal, grant permissions, or verify human approval. Proposal data is untrusted reference material and may appear in session exports. Generic user-event dispatch still invalidates the pending turn. Hosts must bind approval to their exact proposal and continue to submit with the native turn identity.
+
+
+### Scoped repository guidance
+
+Native requests include fresh `projectInstructions`, loading workspace-root and most recently targeted subtree guidance. The read-only `read_project_instructions` tool selects a file/directory scope explicitly. It supports non-empty `AGENTS.override.md` precedence over `AGENTS.md`, exact UTF-8 source hashes and a 32 KiB aggregate budget with explicit skipped-source warnings. No global/home guidance is read. Source provenance is recorded on turn events; source bodies stay in current model requests and explicit read observations. These documents never grant permissions or bypass runtime checks. See the [library guide](../README.md#scoped-repository-instructions).
+
+
+### Source-bound command receipts
+
+Command results now include `verificationBinding` with input hashes/digest and stability metadata for known file-tool inputs and managed scripts. Native planning requests include `verificationFreshness`; completion rechecks the hashes and rejects `stale`/`unavailable` inputs even if an earlier command exited zero. Partial/blocked reporting remains available. Bindings persist across process restarts and do not execute retries. See the [scope and limits](../README.md#source-bound-verification).
+
+
+### Precise edit batches
+
+Native `apply_edits` accepts `path`, `expectedHash` and 1–32 `edits` with `find`, `replacement` and optional exact `count` (default 1; at most 1,000). It validates the immutable original UTF-8 snapshot and every overlap before one atomic write, retaining the existing recovery copy and verification bookkeeping. It rejects unsupported arguments, including preview/dryRun modes. Python is not required. See [precise edit batches](../README.md#precise-edit-batches) for examples and scope.
+
+## Evidence-driven model handoff
+
+Native `ModelHandoff`, `Agent::run_with_handoff` and `resume_with_handoff` support shadow and one-way automatic routing with persistent session metadata and host-supplied primary/continuation/detector callbacks. See the [shared guide](../MODEL_HANDOFF.md#native-rust-integration) for configuration, evidence requirements, examples and limits. No Python dependency is introduced.

@@ -1,6 +1,6 @@
 # shelliX
 
-A command workspace with goal-driven AI chat. Open `/shelliX/` on the suite server, or launch shelliX from the desktop.
+A single-window terminal with blocking command execution and an optional goal-driven AI mode. Open `/shelliX/` on the suite server, or launch shelliX from the desktop.
 
 ## Setup
 
@@ -16,7 +16,7 @@ Use **AI provider settings** to configure a text provider on `/relay`. shelliX u
 ## Working with shelliX
 
 - Enter a goal and select **Send & work**. The assistant chooses one tool at a time, receives actual command results, and adjusts its next step. Follow-ups and replies stay in the same session.
-- To run a command manually, choose an executable and enter its arguments as a JSON string array, for example `python3` with `["-c", "print(1 + 1)"]`.
+- In **Shell command** mode, enter POSIX shell text and press Enter. Use Shift+Enter to add a line. To invoke an executable directly, leave shell text blank, expand **Direct executable and JSON arguments**, choose an executable and enter a JSON string array, for example `python3` with `["-c", "print(1 + 1)"]`.
 - Set a working directory relative to the server workspace. Each command starts there; changing directory inside one command does not persist. Commands do not implicitly invoke a shell. To use pipes or shell syntax, explicitly allow and select a shell, for example `bash` with `["-lc", "your command"]`.
 - Inspect stdout, stderr, exit status, timeouts and cancellations. **Read remaining stdout/stderr** pages through retained logs without repeating the command. The AI has the same log-paging tool.
 - **Stop** aborts the AI request and requests cancellation of the active command. Inspect retained results before continuing. shelliX never automatically replays an interrupted command whose outcome is unknown.
@@ -26,7 +26,7 @@ Use **AI provider settings** to configure a text provider on `/relay`. shelliX u
 Commands run with the server account's OS permissions, including any file changes the allowed programs can perform. They are not sandboxed. Use an appropriate workspace and executable allowlist. Output and selected file/history context are sent to the configured AI provider during AI work. Tool output is displayed as plain text; it is never interpreted as browser HTML or terminal escape instructions. shelliX is a command runner, not an interactive PTY: prompts requiring stdin and persistent terminal processes are unsupported. Browser closure stops planning but does not promise cancellation of an already running server command; reopening the saved session shows retained results and offers Stop if a tool is still running.
 
 
-The interface uses the suite's light surfaces, maroon actions, blue focus indicators and shared icon style. Command output and AI conversation use a monospace, Bash-style prompt. The AI input remains a natural-language goal; it is not executed as shell syntax.
+The interface uses the suite's light surfaces, maroon actions, blue focus indicators and shared icon style. Command requests, output and AI responses share a monospace, Bash-style transcript. The AI input remains a natural-language goal; it is not executed as shell syntax.
 
 When `sh` is installed, the server includes it in its default coding-agent executable list. Explicit `--agent-allow-command` flags replace that default list: include `--agent-allow-command sh` to enable shell entry with a custom list. `--agent-no-commands` and `--disable-agent` still disable execution.
 
@@ -39,7 +39,7 @@ shelliX adds its own **Inspect → Plan → Execute → Observe → Verify** pol
 
 The phase indicator and foldable **Agent activity** show public plans, actions, observations and verification status, not private model reasoning. The activity list displays the latest 100 entries in this tab; the downloaded server session retains its audit events.
 
-The primary input runs POSIX shell expressions through `sh -c`; Enter submits. **Direct executable and JSON arguments** expands the alternative program-call controls. `help`, `history` and `clear` are local UI commands. **Clear screen** or Ctrl+L hides displayed command history without deleting its server audit. Up/Down recalls commands. Ctrl+C while the command input is focused requests cancellation; it is not a PTY signal stream. Commands requiring interactive stdin remain unsupported. **Stop** is available for cancellation regardless of focus.
+The primary input runs POSIX shell expressions through `sh -c`; Enter submits and Shift+Enter adds a line. Both Shell command and AI agent goal modes have a visible multiline input and preserve their separate drafts while switching. You can draft input while commands are unavailable; execution still requires an enabled runtime and allowed executables. **Direct executable and JSON arguments** expands the alternative program-call controls. `help`, `history` and `clear` are local UI commands. **Clear screen** or Ctrl+L hides displayed command history without deleting its server audit. Up/Down recalls commands for single-line drafts; multiline drafts keep normal cursor navigation. Ctrl+C while the command input is focused requests cancellation; it is not a PTY signal stream. Commands requiring interactive stdin remain unsupported. **Stop** is available for cancellation regardless of focus.
 
 If an older relay reports **Unknown app**, update and restart the server hosting the configured AI relay. shelliX now has its own editable skill profile (including planning, verification, debugging, testing and security references); an old relay missing this registration rejects the request before contacting a provider.
 
@@ -91,3 +91,18 @@ Failed command/tool results include a foldable resolution card. It distinguishes
 When the app receives HTML or another non-JSON API response, it now identifies the runtime/relay endpoint problem rather than showing a raw JSON parser error. Start the suite with `python3 server/server.py`; a static-only HTTP server does not provide `/api/agent`. The configured AI relay must provide `/api/chat`. Inspect the failed request in browser developer tools for its actual URL/status when diagnosing proxies, TLS or CORS. Never work around an executable restriction without the server owner's authorization.
 
 **Read remaining stdout/stderr** now records a lightweight, server-generated `output_read` audit event with job ID, stream, actual byte offsets and completion state. The coding agent recognizes consecutive recorded page reads, so output already served through the console does not remain permanently pending in its completion ledger. No command is replayed, and no output body is duplicated into that audit event. Access receipts do not prove that a person or model understood the output; meaningful verification remains necessary. Restart the Python suite server after updating to enable these receipts.
+
+**Quality baseline** in Commands & results captures and compares failures in the loaded session audit, with report import/export and an unsent AI comparison draft. Historical failures remain recorded after retries; changing sessions is not evidence of a fix. See the [suite guide](../shared-suite/README.md#quality-baselines).
+
+Saved command snippets include **Check snippet syntax**. It uses the saved directory and timeout to invoke allowed `sh -n`, while preserving the current command draft/settings. It records the parser command in the audit but never executes the saved script body. The normal Run action remains separate; syntax success does not verify runtime behavior.
+
+The shared workspace bar below the header provides **Virtual disk**, **Share between PCs**, **Workspace** and **Content hub**. Workspace (also Ctrl/Cmd+K) opens a searchable action dialog for working directory, saved sessions, execution settings, snippets, history and session downloads. Opening it or navigating to an editor does not run a command. Existing busy/permission checks remain in effect.
+
+
+## Single-window terminal
+
+Requests, AI plans/questions and command responses share one chronological terminal transcript. **Input mode** selects either the shell prompt or the AI goal input; only one is shown at a time. Shell commands are echoed immediately with a running indicator, then their recorded stdout/stderr and exit status appear in the same transcript. AI mode keeps the existing iterative shell agent and its optional activity trace.
+
+While a command or agent operation runs, command entry, the AI input, mode switching and execution settings are blocked. Repeated submissions are ignored, not queued. The prompt is enabled and focused again after completion or cancellation cleanup. If a previously running server tool is still active, it stays blocked until the runtime reports that operation finished. **Stop** and Ctrl+C (when no text is selected) remain available during execution. Ctrl+L clears the visible transcript while retaining the saved session.
+
+The unified display does not add interactive stdin or a persistent PTY. Set **Working directory** to retain the starting directory between commands; a `cd` inside one `sh -c` command affects only that command.

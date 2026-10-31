@@ -369,3 +369,266 @@ fn new_user_event_invalidates_reserved_response() -> Result<()> {
     assert!(agent.next(&session)?["step"].as_u64().unwrap() > previous["step"].as_u64().unwrap());
     Ok(())
 }
+
+#[test]
+fn scoped_project_guidance_refreshes_without_granting_permissions() -> Result<()> {
+    let w = Workspace::new()?;
+    fs::create_dir(w.0.join("src"))?;
+    fs::write(w.0.join("AGENTS.md"), "Root rules")?;
+    fs::write(w.0.join("src/AGENTS.md"), "Fallback rules")?;
+    fs::write(w.0.join("src/AGENTS.override.md"), "Nested override")?;
+    fs::write(w.0.join("src/source.rs"), "fn main() {}")?;
+    let mut agent = Agent::new(&w.0, &[])?;
+    let id = agent.start("Inspect scoped guidance", &RunOptions::default())?;
+    let request = agent.next(&id)?;
+    assert_eq!(
+        request["projectInstructions"]["documents"][0]["content"],
+        "Root rules"
+    );
+    agent.submit(&id, json!({"sessionId":id,"step":request["step"],"status":"act","plan":"Inspect nested source","action":{"tool":"read_file","args":{"path":"src/source.rs"}}}))?;
+    fs::write(w.0.join("AGENTS.md"), "Refreshed root")?;
+    let next = agent.next(&id)?;
+    let docs = &next["projectInstructions"]["documents"];
+    assert_eq!(docs[0]["content"], "Refreshed root");
+    assert_eq!(docs[1]["path"], "src/AGENTS.override.md");
+    assert_eq!(docs[1]["scope"], "src");
+    assert_eq!(docs[1]["sha256"].as_str().unwrap().len(), 64);
+    assert_eq!(next["permissions"]["allowCommands"], false);
+    assert_eq!(next["permissions"]["allowEdits"], false);
+    agent.submit(&id,json!({"sessionId":id,"step":next["step"],"status":"act","plan":"Read guidance explicitly","action":{"tool":"read_project_instructions","args":{"path":"src/new.rs"}}}))?;
+    fs::write(w.0.join("src/AGENTS.override.md"), "  \n")?;
+    let next = agent.next(&id)?;
+    assert_eq!(
+        next["projectInstructions"]["documents"][1]["content"],
+        "Fallback rules"
+    );
+    agent.close()?;
+    Ok(())
+}
+
+#[test]
+fn instruction_budget_and_symlinks_are_explicit() -> Result<()> {
+    let w = Workspace::new()?;
+    fs::create_dir(w.0.join("src"))?;
+    fs::write(w.0.join("AGENTS.md"), "🧪".repeat(1000))?;
+    fs::write(w.0.join("src/AGENTS.md"), "x".repeat(32768))?;
+    let mut agent = Agent::new(&w.0, &[])?;
+    let id = agent.start("Inspect budget", &RunOptions::default())?;
+    let result=agent.dispatch(json!({"op":"tool","session":id,"tool":"read_project_instructions","callId":"guidance-budget","args":{"path":"src"}}))?;
+    assert_eq!(result["result"]["complete"], false);
+    assert_eq!(result["result"]["bytes"], 4000);
+    assert_eq!(result["result"]["warnings"][0]["reason"], "byte_budget");
+    let denied=agent.dispatch(json!({"op":"tool","session":id,"tool":"read_project_instructions","callId":"guidance-traversal","args":{"path":"../outside"}}))?;
+    assert_eq!(denied["ok"], false);
+    #[cfg(unix)]
+    {
+        fs::remove_file(w.0.join("AGENTS.md"))?;
+        std::os::unix::fs::symlink("src/AGENTS.md", w.0.join("AGENTS.md"))?;
+        let result=agent.dispatch(json!({"op":"tool","session":id,"tool":"read_project_instructions","callId":"guidance-link","args":{}}))?;
+        assert_eq!(result["result"]["documents"].as_array().unwrap().len(), 0);
+        assert_eq!(result["result"]["complete"], false);
+    }
+    agent.close()?;
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn verification_binds_source_and_blocks_changes_after_planning() -> Result<()> {
+    let w = Workspace::new()?;
+    let mut agent = Agent::new(&w.0, &["/bin/sh"])?;
+    let id = start(&mut agent, true, true)?;
+    assert_eq!(
+        tool(
+            &mut agent,
+            &id,
+            "write_file",
+            "write-source",
+            json!({"path":"source.txt","content":"one","expectedHash":"missing"})
+        )?["ok"],
+        true
+    );
+    let result = tool(
+        &mut agent,
+        &id,
+        "run_command",
+        "verify-one",
+        json!({"command":"/bin/sh","args":["-c","cat source.txt"]}),
+    )?;
+    assert_eq!(result["result"]["verificationBinding"]["stable"], true);
+    let request = agent.next(&id)?;
+    assert_eq!(request["verificationFreshness"]["status"], "current");
+    fs::write(w.0.join("source.txt"), "external edit")?;
+    let rejected=agent.submit(&id,json!({"sessionId":id,"step":request["step"],"status":"done","plan":"Premature completion","action":null,"summary":"Old checks passed"}))?;
+    assert_eq!(rejected["status"], "retry");
+    assert!(rejected["error"]
+        .as_str()
+        .unwrap()
+        .contains("Verification inputs changed"));
+    let request = agent.next(&id)?;
+    assert_eq!(request["verificationFreshness"]["status"], "stale");
+    agent.submit(&id,json!({"sessionId":id,"step":request["step"],"status":"act","plan":"Verify changed source","action":{"tool":"run_command","args":{"command":"/bin/sh","args":["-c","test \"$(cat source.txt)\" = 'external edit'"]}}}))?;
+    let request = agent.next(&id)?;
+    assert_eq!(request["verificationFreshness"]["status"], "current");
+    assert_eq!(agent.submit(&id,json!({"sessionId":id,"step":request["step"],"status":"done","plan":"Fresh verification observed","action":null,"summary":"Verified current tracked source"}))?["status"],"complete");
+    assert_eq!(fs::read_to_string(w.0.join("source.txt"))?, "external edit");
+    agent.close()?;
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn mutating_commands_and_unavailable_inputs_cannot_certify_completion() -> Result<()> {
+    let w = Workspace::new()?;
+    let mut agent = Agent::new(&w.0, &["/bin/sh"])?;
+    let id = start(&mut agent, true, true)?;
+    tool(
+        &mut agent,
+        &id,
+        "write_file",
+        "tracked",
+        json!({"path":"source.txt","content":"one","expectedHash":"missing"}),
+    )?;
+    let result = tool(
+        &mut agent,
+        &id,
+        "run_command",
+        "format",
+        json!({"command":"/bin/sh","args":["-c","printf two > source.txt"]}),
+    )?;
+    assert_eq!(result["result"]["verificationBinding"]["stable"], false);
+    let request = agent.next(&id)?;
+    assert_eq!(request["verificationFreshness"]["status"], "stale");
+    agent.submit(&id,json!({"sessionId":id,"step":request["step"],"status":"act","plan":"Verify after formatting","action":{"tool":"run_command","args":{"command":"/bin/sh","args":["-c","cat source.txt"]}}}))?;
+    fs::remove_file(w.0.join("source.txt"))?;
+    std::os::unix::fs::symlink("/etc/passwd", w.0.join("source.txt"))?;
+    let request = agent.next(&id)?;
+    assert_eq!(request["verificationFreshness"]["status"], "unavailable");
+    assert_eq!(request["verificationFreshness"]["passed"], false);
+    let done=agent.submit(&id,json!({"sessionId":id,"step":request["step"],"status":"done","plan":"Explain limitation","action":null,"outcome":"partial","summary":"Input replaced; fresh verification unavailable"}))?;
+    assert_eq!(done["outcome"], "partial");
+    agent.close()?;
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn managed_script_verification_binding_survives_restart() -> Result<()> {
+    let w = Workspace::new()?;
+    let mut agent = Agent::new(&w.0, &["/bin/sh"])?;
+    let id = start(&mut agent, true, true)?;
+    assert_eq!(
+        tool(
+            &mut agent,
+            &id,
+            "write_script",
+            "script",
+            json!({"path":"check.sh","content":"exit 0\n","expectedHash":"missing"})
+        )?["ok"],
+        true
+    );
+    let checked = tool(
+        &mut agent,
+        &id,
+        "run_script",
+        "check",
+        json!({"path":"check.sh","command":"/bin/sh","args":[]}),
+    )?;
+    assert_eq!(checked["result"]["verificationBinding"]["boundFiles"], 1);
+    assert_eq!(
+        checked["result"]["verificationBinding"]["inputs"][0]["kind"],
+        "script"
+    );
+    assert_eq!(
+        checked["result"]["verificationBinding"]["inputDigest"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+    agent.close()?;
+    fs::write(
+        w.0.join(".codingagentlib-rust")
+            .join(format!("{id}-scripts/check.sh")),
+        "exit 1\n",
+    )?;
+    let mut restored = Agent::new(&w.0, &["/bin/sh"])?;
+    restored.dispatch(json!({"op":"resume","session":id}))?;
+    let request = restored.next(&id)?;
+    assert_eq!(request["verificationFreshness"]["status"], "stale");
+    assert_eq!(
+        request["verificationFreshness"]["changed"][0]["kind"],
+        "script"
+    );
+    restored.close()?;
+    Ok(())
+}
+
+#[test]
+fn structured_edit_batch_is_all_or_nothing_and_hash_guarded() -> Result<()> {
+    let w = Workspace::new()?;
+    let original = "one two\r\n🧪 unchanged\r\n";
+    fs::write(w.0.join("source.txt"), original)?;
+    let mut agent = Agent::new(&w.0, &[])?;
+    let id = start(&mut agent, true, false)?;
+    let source = tool(
+        &mut agent,
+        &id,
+        "read_file",
+        "read",
+        json!({"path":"source.txt"}),
+    )?;
+    let old = source["result"]["hash"].clone();
+    let bad = tool(
+        &mut agent,
+        &id,
+        "apply_edits",
+        "bad",
+        json!({"path":"source.txt","expectedHash":old,"edits":[{"find":"one","replacement":"ONE"},{"find":"missing","replacement":"bad"}]}),
+    )?;
+    assert_eq!(bad["ok"], false);
+    assert_eq!(fs::read_to_string(w.0.join("source.txt"))?, original);
+    assert!(!w
+        .0
+        .join(".codingagentlib-rust")
+        .join(format!("{id}-backups"))
+        .exists());
+    let result = tool(
+        &mut agent,
+        &id,
+        "apply_edits",
+        "good",
+        json!({"path":"source.txt","expectedHash":old,"edits":[{"find":"one","replacement":"two"},{"find":"two","replacement":"three"}]}),
+    )?;
+    assert_eq!(result["ok"], true);
+    assert_eq!(result["result"]["replacements"], 2);
+    assert_eq!(
+        fs::read_to_string(w.0.join("source.txt"))?,
+        "two three\r\n🧪 unchanged\r\n"
+    );
+    let stale = tool(
+        &mut agent,
+        &id,
+        "apply_edits",
+        "stale",
+        json!({"path":"source.txt","expectedHash":old,"edits":[{"find":"two","replacement":"lost"}]}),
+    )?;
+    assert_eq!(stale["ok"], false);
+    let readonly = start(&mut agent, false, false)?;
+    assert_eq!(
+        tool(
+            &mut agent,
+            &readonly,
+            "apply_edits",
+            "denied",
+            json!({"path":"source.txt","expectedHash":result["result"]["hash"],"edits":[{"find":"two","replacement":"bad"}]})
+        )?["ok"],
+        false
+    );
+    assert_eq!(
+        fs::read_to_string(w.0.join("source.txt"))?,
+        "two three\r\n🧪 unchanged\r\n"
+    );
+    agent.close()?;
+    Ok(())
+}

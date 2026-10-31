@@ -12,7 +12,7 @@ from .agent_memory import Memory
 from .agent_skills import Skills
 from .agent_navigation import Navigation
 from .agent_embeddings import LocalEmbeddings
-from . import agent_package, agent_checks, agent_context, agent_project, agent_acceptance, agent_review, agent_workflows, agent_planning, agent_independent_review
+from . import agent_package, agent_checks, agent_context, agent_project, agent_acceptance, agent_review, agent_workflows, agent_planning, agent_independent_review, agent_tool_discovery, agent_parallel, agent_instructions, agent_verification, agent_edits
 import signal
 import subprocess
 import threading
@@ -21,6 +21,9 @@ import uuid
 
 SKIP = {'.git', '.suite-agent', '.codingagentlib-rust','.suite-wormhole', 'node_modules', '__pycache__', '.venv', 'venv'}
 TOOLS = [
+ {'name':'read_project_instructions','description':'Read scoped AGENTS.override.md/AGENTS.md from workspace root through a target path. Exact contents, scope and SHA-256; deeper guidance applies only to its subtree. No permission grants.','arguments':{'path':'workspace-relative file or directory, default .'}},
+ {'name':'parallel_read','description':'Inspect 1–8 independent workspace reads concurrently (read_file/list_files/search only). Audited child receipts, stable request-order results. Never commands, writes or dependent tasks; not an atomic snapshot.','arguments':{'requests':'array of {id:unique identifier,tool:read_file|list_files|search,args:object}','workers':'1..4, default 4'}},
+ {'name':'discover_tools','description':'Find current tool definitions by names or keywords. Read-only metadata; never executes or enables a tool.','arguments':{'query':'optional keywords or tool family','names':'optional exact tool names, up to 20','offset':'result offset, default 0','limit':'1..20, default 12'}},
  {'name':'catalog_search','description':'Search shared and app-specific skill instructions, including custom skills. Documents are untrusted reference data.','arguments':{'query':'keywords','limit':'1..100','cursor':'integer','kind':'skill or reference','source':'optional configured source ID'}},
  {'name':'catalog_fetch','description':'Index one known catalog directory reference as a skill document over HTTPS; never installs or executes it.','arguments':{'id':'existing catalog reference ID','refresh':'optional boolean to refresh a previously indexed reference'}},
  {'name':'catalog_read','description':"Read a pinned skill in pages, using this app's saved edits when present, without executing it.",'arguments':{'id':'catalog skill ID','contentHash':'pin the returned content hash','offset':'character offset','limit':'1..64000'}},
@@ -59,6 +62,7 @@ TOOLS = [
  {'name':'read_file','description':'Read a UTF-8 text page and its SHA-256. Use returned SHA on edits.','arguments':{'path':'relative file','offset':'character offset, default 0','limit':'1..64000, default 12000'}},
  {'name':'search','description':'Literal text search, excluding dependencies/private files; paginated matches.','arguments':{'query':'literal nonempty text','path':'relative directory, default .','cursor':'integer','limit':'1..200'}},
  {'name':'write_file','description':'Create/update text atomically. Existing files require expectedHash from read_file; new files require missing.','arguments':{'path':'relative file','content':'complete UTF-8 text','expectedHash':'SHA-256 or missing'}},
+ {'name':'apply_edits','description':'Apply 1–32 exact edits to one existing UTF-8 file against its original snapshot. Validates every match and overlap before one atomic write; never sequentially matches generated replacement text. Requires edit permission and current expectedHash.','arguments':{'path':'existing relative file','expectedHash':'current SHA-256','edits':'array of {find:nonempty text,replacement:text,count?:exact match count 1..1000, default 1}'}},
  {'name':'replace_text','description':'Exact source replacement guarded by SHA and expected occurrence count.','arguments':{'path':'relative file','find':'nonempty exact text','replacement':'text','expectedHash':'SHA-256','count':'expected occurrences, default 1'}},
  {'name':'delete_file','description':'Delete one file after reading it; creates a recovery copy. No directory deletion.','arguments':{'path':'relative file','expectedHash':'SHA-256'}},
  {'name':'list_scripts','description':'List this session’s managed working scripts.','arguments':{}},
@@ -67,7 +71,7 @@ TOOLS = [
  {'name':'delete_script','description':'Remove a managed script in this session.','arguments':{'path':'relative script name'}},
  {'name':'run_command','description':'Run an allowlisted executable with literal argv in a workspace subdirectory; returns real exit status and output log IDs.','arguments':{'command':'allowlisted name','args':'array of strings','cwd':'relative directory, default .','stdin':'optional text','timeout':'milliseconds, 100..600000'}},
  {'name':'run_script','description':'Execute a managed script using an allowlisted interpreter.','arguments':{'path':'managed script name','command':'allowlisted interpreter','args':'array','cwd':'relative directory','timeout':'milliseconds'}},
- {'name':'read_command_output','description':'Read full stdout/stderr logs in pages; previews are not complete logs.','arguments':{'jobId':'returned command job ID','stream':'stdout or stderr','offset':'character offset','limit':'1..64000'}},
+ {'name':'read_command_output','description':'Read full stdout/stderr logs in pages; previews are not complete logs. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes.','arguments':{'jobId':'returned command job ID','stream':'stdout or stderr','offset':'character offset','limit':'1..64000'}},
  {'name':'changes','description':'Compare current project files with the initial manifest, including command-created changes.','arguments':{}},
  {'name':'restore_file','description':'Restore a file changed through file tools from its original session recovery copy; expectedHash guards the current content. Command-only edits have no automatic copy.','arguments':{'path':'relative file','expectedHash':'current SHA-256 or missing'}},
 ]
@@ -84,21 +88,35 @@ def integer(v, default, low, high):
     if isinstance(v, bool) or not isinstance(v, int) or not low <= v <= high: raise ValueError('Integer is outside its supported range')
     return v
 
+class FileRevisionConflict(ValueError):
+    """A guarded edit used a revision other than the current file contents."""
+    def __init__(self,path,expected,actual):
+        super().__init__('File changed or was not read first. Read it and supply its current expectedHash (or missing for a new file)')
+        self.conflict={'path':path,'expectedHash':expected if isinstance(expected,str) else None,'actualHash':actual,'requiresRead':True}
+
+def command_allowlist(commands):
+    commands=list(commands);allowed={}
+    if '*' in commands:
+        allowed['*']='*'
+        commands=[name for name in ('python3','python','node','npm','git','sh') if shutil.which(name)]
+    for name in commands:
+        executable=shutil.which(name)
+        if not executable:raise ValueError('Agent executable not found: '+name)
+        for alias in {name,Path(name).name,str(Path(executable).resolve())}:allowed[alias]=str(Path(executable).resolve())
+    return allowed
+
 class Runtime:
     def __init__(self, workspace=None, commands=(), embedding_dir=None, navigation_dir=None):
         self.root = Path(workspace).expanduser().resolve() if workspace else None
         if self.root and not self.root.is_dir(): raise ValueError('Agent workspace must be an existing directory')
-        self.allowed = {}
-        for name in commands:
-            executable = shutil.which(name)
-            if not executable: raise ValueError('Agent executable not found: '+name)
-            for alias in {name, Path(name).name, str(Path(executable).resolve())}: self.allowed[alias] = str(Path(executable).resolve())
+        self.allowed = command_allowlist(commands)
         if self.allowed and not self.root: raise ValueError('--agent-workspace is required with --agent-allow-command')
         self.shared_skills=None
         self.private_paths=set()
         self.sessions = {}
         self._context_cache=None
         self.lock = threading.RLock()
+        self._file_edit_lock = threading.RLock()
         self.slots = threading.BoundedSemaphore(2)
         self.state = self.root/'.suite-agent' if self.root else None
         if self.state and self.state.is_symlink(): raise ValueError('Agent state directory cannot be a symlink')
@@ -110,7 +128,7 @@ class Runtime:
         self.skills=Skills(self.state/'skills.sqlite3') if self.state else None
         self.workflows=agent_workflows.Workflows(self.state/'workflows.sqlite3') if self.state else None
     def health(self):
-        return {'sharedSkills':{'available':bool(self.shared_skills),'scope':'all suite apps','backend':'SQLite vector catalog'},'workflows':{'scope':'workspace','storage':'local SQLite revision library','format':'suite-tool-workflow/v1'},'skills':{'scope':'workspace','storage':'local SQLite revision library','format':'Markdown'},'navigation':self.navigation.health(),'memory':{**(self.memory.health() if self.memory else {}),'embeddingBackend':self.memory.health().get('backend') if self.memory else None,'backend':'sqlite','storage':'sqlite','scope':'session'},'enabled':bool(self.root),'workspace':str(self.root) if self.root else None,'commands':sorted(set(self.allowed)), 'tools':TOOLS,'protocol':'suite-coding-agent/v1','acceptanceVersion':1,'changeReviewVersion':1,'inspectVersion':1,'workflowVersion':1,'planningVersion':1,'independentReviewVersion':1,'commandIsolation':'OS permissions of the relay process; not sandboxed','fileRecovery':'File-tool edits only; command-side edits require your own backups/version control'}
+        return {'sharedSkills':{'available':bool(self.shared_skills),'scope':'all suite apps','backend':'SQLite vector catalog'},'workflows':{'scope':'workspace','storage':'local SQLite revision library','format':'suite-tool-workflow/v1'},'skills':{'scope':'workspace','storage':'local SQLite revision library','format':'Markdown'},'navigation':self.navigation.health(),'memory':{**(self.memory.health() if self.memory else {}),'embeddingBackend':self.memory.health().get('backend') if self.memory else None,'backend':'sqlite','storage':'sqlite','scope':'session'},'enabled':bool(self.root),'workspace':str(self.root) if self.root else None,'commands':sorted(set(self.allowed)-{'*'}),'commandPolicy':'all' if '*' in self.allowed else 'allowlist','commandPolicyNote':'All resolvable executables allowed; commands lists installed starter examples, not a restriction.' if '*' in self.allowed else 'Only listed executable names are allowed.', 'tools':TOOLS,'protocol':'suite-coding-agent/v1','acceptanceVersion':1,'changeReviewVersion':1,'inspectVersion':1,'workflowVersion':1,'planningVersion':1,'independentReviewVersion':1,'commandIsolation':'OS permissions of the relay process; not sandboxed','fileRecovery':'File-tool edits only; command-side edits require your own backups/version control'}
     def enabled(self):
         if not self.root: raise PermissionError('Coding agent is disabled. Start the server with --agent-workspace /path/to/project')
     def path(self, value='.', directory=False, base=None, private=False):
@@ -211,7 +229,7 @@ class Runtime:
         return {'path':args.get('path'),'text':''.join(parts),'offset':offset,'nextOffset':min(total,offset+limit),'totalCharacters':total,'done':offset+limit>=total,'hash':hasher.hexdigest(),'bytes':size}
     def guard(self,p,expected):
         actual=file_hash(p) if p.exists() else 'missing'
-        if expected!=actual: raise ValueError('File changed or was not read first. Read it and supply its current expectedHash (or missing for a new file)')
+        if expected!=actual: raise FileRevisionConflict(str(p.relative_to(self.root)),expected,actual)
     def backup(self,s,p):
         key=str(p.relative_to(self.root))
         if key not in s['backups']:
@@ -230,10 +248,18 @@ class Runtime:
         for path in sorted(set(current)|set(initial)):
             if current.get(path)!=initial.get(path):result.append({'path':path,'status':'added' if path not in initial else 'deleted' if path not in current else 'modified','hash':current.get(path,{}).get('hash','missing'),'bytes':current.get(path,{}).get('bytes',0),'recoverable':path in s['backups']})
         return {'changes':result}
+    def resolve_command(self,name):
+        if not isinstance(name,str) or not name or '\0' in name:return None
+        if '*' in self.allowed:
+            executable=shutil.which(name)
+            return str(Path(executable).resolve()) if executable else None
+        return self.allowed.get(name)
     def command(self,s,args,script=None):
         if not s['allowCommands']: raise PermissionError('Commands were not enabled for this session')
-        executable=self.allowed.get(args.get('command'))
-        if not executable: raise PermissionError('Executable is not on --agent-allow-command allowlist')
+        executable=self.resolve_command(args.get('command'))
+        if not executable:
+            if '*' in self.allowed:raise FileNotFoundError('Executable not found: '+str(args.get('command')))
+            raise PermissionError('Executable is not on --agent-allow-command allowlist')
         argv=args.get('args',[]);stdin=args.get('stdin','')
         if not isinstance(argv,list) or len(argv)>200 or any(not isinstance(a,str) or '\0' in a for a in argv) or not isinstance(stdin,str): raise ValueError('Use literal text argv and stdin')
         timeout=integer(args.get('timeout'),30000,100,600000);cwd=self.path(args.get('cwd','.'),directory=True)
@@ -241,6 +267,7 @@ class Runtime:
         job=uuid.uuid4().hex;paths={stream:s['_dir']/'logs'/(job+'.'+stream) for stream in ('stdout','stderr')};proc=None
         try:
             self.check(s)
+            verification_before=agent_verification.capture(self,s)
             with paths['stdout'].open('wb') as out,paths['stderr'].open('wb') as err:
                 proc=subprocess.Popen([executable,*([str(script)] if script else []),*argv],cwd=cwd,stdin=subprocess.PIPE,stdout=out,stderr=err,shell=False,start_new_session=os.name!='nt')
                 with s['_lock']: s['_active']=proc
@@ -259,13 +286,20 @@ class Runtime:
                 if os.name!='nt': self.kill(proc)
             result={'jobId':job,'command':args['command'],'args':([str(script)] if script else [])+argv,'cwd':str(cwd.relative_to(self.root)),'exitCode':proc.returncode,'cancelled':s['_cancel'].is_set(),'timedOut':timed_out,'finishedAt':now()}
             for stream,p in paths.items():
-                with p.open('rb') as log:data=log.read(6000)
+                with p.open('rb') as log:
+                    hasher=hashlib.sha256()
+                    while chunk:=log.read(65536):hasher.update(chunk)
+                    digest=hasher.hexdigest()
+                    log.seek(0);data=log.read(6000)
+                result[stream+'Sha256']=digest
                 result[stream+'Bytes']=p.stat().st_size
                 decoder=codecs.getincrementaldecoder('utf-8')('replace')
                 result[stream]=decoder.decode(data,final=len(data)>=result[stream+'Bytes'])
                 result[stream+'NextOffset']=len(data)-len(decoder.getstate()[0])
             result['outputPaged']=any(result[stream+'Bytes']>result[stream+'NextOffset'] for stream in paths)
-            with s['_lock']:s['jobs'][job]=result;self.persist(s)
+            with s['_lock']:
+                agent_verification.record(self,s,verification_before,result)
+                s['jobs'][job]=result;self.persist(s)
             return result
         finally:
             if proc and proc.poll() is None:self.kill(proc)
@@ -288,11 +322,12 @@ class Runtime:
         try:return self.perform(s,name,args,call_id,checks)
         finally:
             with s['_lock']:s['_running']=False;s['_activeCall']=None;s.pop('_taskId',None)
-    def perform(self,s,name,args,call_id,checks=None):
-        task_id=s.get('_taskId')
+    def perform(self,s,name,args,call_id,checks=None,parent_call_id=None):
+        task_id=s.get('_taskId');parent={'parentCallId':parent_call_id} if parent_call_id else {}
         try:
-            self.event(s,'action',{'id':call_id,'tool':name,'args':args,**({'taskId':task_id} if task_id else {}),**({'checks':checks} if checks else {})})
-            result=self.execute(s,name,args);response={'ok':True,'result':result}
+            self.event(s,'action',{'id':call_id,'tool':name,'args':args,**parent,**({'taskId':task_id} if task_id else {}),**({'checks':checks} if checks else {})})
+            result=agent_parallel.run(self,s,args,call_id) if name=='parallel_read' else self.execute(s,name,args);response={'ok':True,'result':result}
+            if name=='parallel_read' and not result['allSucceeded']:response.update(ok=False,error='One or more independent reads failed or were cancelled; inspect individual receipts without replaying successful reads')
             if name in {'workflow_run','workflow_continue'} and result['status'] in {'failed','cancelled','interrupted'}:response.update(ok=False,error=result['reason'])
             if checks:response['checks']=agent_checks.evaluate(result,checks)
             if name in {'read_file','read_script','read_context','read_history','search','run_command','run_script','read_command_output'}:
@@ -300,16 +335,19 @@ class Runtime:
                 if text.strip():
                     try:response['memory']=self.memory.store(s['id'],text,source=name+':'+str(args.get('path',result.get('jobId',''))),collection='observations',document=call_id,metadata={'tool':name,'callId':call_id,'hash':result.get('hash'),'snapshot':result.get('snapshot'),'jobId':result.get('jobId'),'offset':result.get('offset'),'outputPaged':result.get('outputPaged',False)})
                     except (sqlite3.Error,OSError,ValueError):response['memory']={'error':'Working-memory indexing is unavailable; the actual tool result remains in the audit log.'}
-            self.event(s,'observation',{'id':call_id,'tool':name,**response});return response
+            self.event(s,'observation',{'id':call_id,'tool':name,**parent,**response});return response
         except (ValueError,PermissionError,OSError,UnicodeError,KeyError,TypeError) as error:
             result={'ok':False,'error':str(error)}
+            if isinstance(error,FileRevisionConflict):result.update(code='file_revision_conflict',conflict=error.conflict)
             if isinstance(error,agent_context.SnapshotMissing):result.update(code='context_snapshot_missing',snapshot=error.snapshot)
-            self.event(s,'observation',{'id':call_id,'tool':name,**result});return result
+            self.event(s,'observation',{'id':call_id,'tool':name,**parent,**result});return result
     def package(self,s,allow_active=False):
         with s['_lock']:
             if s['_running'] and not allow_active:raise ValueError('Wait for the active tool to finish before packaging')
             return agent_package.build(self,s)
     def execute(self,s,name,a):
+        if name=='read_project_instructions':return agent_instructions.read(self,a.get('path','.'))
+        if name=='discover_tools':return agent_tool_discovery.search(TOOLS,a)
         if name in {'code_symbols','code_definition','code_references','code_diagnostics'}:return self.navigation.run(self,name.removeprefix('code_'),a)
         if name in {'catalog_search','catalog_read','catalog_fetch'}:
             if not self.shared_skills:raise ValueError('Shared skill catalog is unavailable on this runtime')
@@ -387,27 +425,37 @@ class Runtime:
                     if cursor<=total<cursor+limit:matches.append({'path':relative,'line':i+1,'excerpt':line[:500]})
                     total+=1
             return {'matches':matches,'nextCursor':min(total,cursor+limit),'total':total,'done':cursor+limit>=total}
-        if name in {'write_file','replace_text','delete_file','restore_file'}:
-            self.edits(s);p=self.path(a['path']);self.guard(p,a.get('expectedHash'))
-            if p.is_dir():raise ValueError('File tools do not replace or delete directories')
-            if name=='restore_file':
-                entry=s['backups'].get(str(p.relative_to(self.root)))
-                if not entry:raise ValueError('No file-tool recovery copy exists for this path')
-                if entry['existed']:self.write(p,(s['_dir']/'backups'/entry['id']).read_bytes())
-                else:p.unlink(missing_ok=True)
-            else:
-                content=a.get('content')
-                if name=='replace_text':
-                    find=a.get('find');replacement=a.get('replacement');count=integer(a.get('count'),1,1,100000)
-                    if not isinstance(find,str) or not find or not isinstance(replacement,str):raise ValueError('Provide literal find and replacement strings')
-                    content=p.read_text(encoding='utf-8')
-                    if content.count(find)!=count:raise ValueError('Exact match occurrence count differs; read the file again')
-                    content=content.replace(find,replacement)
-                if name!='delete_file' and (not isinstance(content,str) or '\0' in content or len(content.encode('utf-8'))>2000000):raise ValueError('File-tool writes must be UTF-8 text under 2 MB')
-                self.backup(s,p)
-                if name=='delete_file':p.unlink()
-                else:self.write(p,content.encode('utf-8'))
-            return {'path':a['path'],'hash':file_hash(p) if p.exists() else 'missing','bytes':p.stat().st_size if p.exists() else 0,'recoverable':True}
+        if name in {'write_file','replace_text','apply_edits','delete_file','restore_file'}:
+            with self._file_edit_lock:
+                self.check(s)
+                self.edits(s);p=self.path(a['path']);self.guard(p,a.get('expectedHash'))
+                if p.is_dir():raise ValueError('File tools do not replace or delete directories')
+                if name=='restore_file':
+                    entry=s['backups'].get(str(p.relative_to(self.root)))
+                    if not entry:raise ValueError('No file-tool recovery copy exists for this path')
+                    if entry['existed']:self.write(p,(s['_dir']/'backups'/entry['id']).read_bytes())
+                    else:p.unlink(missing_ok=True)
+                else:
+                    content=a.get('content')
+                    if name=='apply_edits':
+                        if set(a)-{'path','expectedHash','edits'}:raise ValueError('apply_edits accepts only path, expectedHash and edits; no preview/dryRun mode. No changes applied.')
+                        with p.open('rb') as source:raw=source.read(agent_edits.MAX_BYTES+1)
+                        if len(raw)>agent_edits.MAX_BYTES:raise ValueError('apply_edits source exceeds 2 MB')
+                        if hashlib.sha256(raw).hexdigest()!=a.get('expectedHash'):raise FileRevisionConflict(a['path'],a.get('expectedHash'),file_hash(p))
+                        content,replacements=agent_edits.apply(raw.decode('utf-8'),a.get('edits'))
+                        self.guard(p,a.get('expectedHash'))
+                    if name=='replace_text':
+                        find=a.get('find');replacement=a.get('replacement');count=integer(a.get('count'),1,1,100000)
+                        if not isinstance(find,str) or not find or not isinstance(replacement,str):raise ValueError('Provide literal find and replacement strings')
+                        content=p.read_text(encoding='utf-8')
+                        if content.count(find)!=count:raise ValueError('Exact match occurrence count differs; read the file again')
+                        content=content.replace(find,replacement)
+                    if name!='delete_file' and (not isinstance(content,str) or '\0' in content or len(content.encode('utf-8'))>2000000):raise ValueError('File-tool writes must be UTF-8 text under 2 MB')
+                    self.backup(s,p)
+                    if name=='apply_edits':self.check(s)
+                    if name=='delete_file':p.unlink()
+                    else:self.write(p,content.encode('utf-8'))
+                return {'path':a['path'],'hash':file_hash(p) if p.exists() else 'missing','bytes':p.stat().st_size if p.exists() else 0,'recoverable':True,**({'edits':len(a['edits']),'replacements':replacements} if name=='apply_edits' else {})}
         if name=='list_scripts':return {'scripts':[str(p.relative_to(s['_dir']/'scripts')) for p in (s['_dir']/'scripts').rglob('*') if p.is_file() and not p.is_symlink()]}
         if name in {'write_script','read_script','delete_script','run_script'}:
             p=self.path(a['path'],base=s['_dir']/'scripts',private=True)
@@ -490,8 +538,10 @@ class Runtime:
                 expected=data.get('expectedUserRevision')
                 if expected is not None and integer(expected,-1,-1,2**31)!=current:return {'steeringChanged':True}
                 latest=max((e['value'].get('step',0) for e in s['events'] if e['kind'] in {'turn','assistant','protocol_error'} and isinstance(e.get('value'),dict) and isinstance(e['value'].get('step'),int) and not isinstance(e['value']['step'],bool)),default=0)
-                step=latest+1;self.event(s,'turn',{'step':step,'userRevision':current})
-                return {'step':step,'userRevision':current}
+                step=latest+1;guidance=agent_instructions.current(self,s['events'])
+                provenance={'target':guidance['target'],'sources':[{k:d[k] for k in ('path','scope','sha256','bytes')} for d in guidance['documents']],'complete':guidance['complete'],'warnings':guidance['warnings']}
+                self.event(s,'turn',{'step':step,'userRevision':current,'projectInstructions':provenance})
+                return {'step':step,'userRevision':current,'projectInstructions':guidance,'verificationFreshness':agent_verification.freshness(self,s)}
         if operation=='feedback':
             with s['_lock']:
                 self.check(s)
@@ -522,6 +572,14 @@ class Runtime:
                 return {'state':'not_found','message':'No recorded call was found. Do not assume the action is safe to replay.'}
         if operation=='cancel':return self.cancel(s)
         if operation=='resume':return self.resume(s)
+        if operation in {'handoff_event','collaboration_event'}:
+            value=data.get('value')
+            expected=('codingagentlib/model-collaboration/v1',{'model_collaboration_policy','model_collaboration_round'}) if operation=='collaboration_event' else ('codingagentlib/model-handoff/v1',{'model_handoff_policy','model_handoff_decision','model_handoff'})
+            if not isinstance(value,dict) or value.get('format')!=expected[0] or value.get('status') not in expected[1]:raise ValueError('Invalid model metadata event')
+            with s['_lock']:
+                self.check(s)
+                if s['_running']:raise ValueError('Wait for the active tool before model handoff')
+                return self.event(s,'user',value)
         if operation=='event':
             value=data.get('value')
             if isinstance(value,dict) and 'tasks' in value:value={**value,'tasks':agent_planning.validate(value['tasks'])}
@@ -556,7 +614,7 @@ class Runtime:
                 last_edit=-1;last_command=-1;latest_command=None
                 for index,event in enumerate(s['events']):
                     value=event.get('value',{})
-                    if event['kind']=='observation' and value.get('ok') and value.get('tool') in {'write_file','replace_text','delete_file','write_script','delete_script','restore_file','apply_project'}:last_edit=index
+                    if event['kind']=='observation' and value.get('ok') and value.get('tool') in {'write_file','replace_text','apply_edits','delete_file','write_script','delete_script','restore_file','apply_project'}:last_edit=index
                     if event['kind']=='user_action' and value.get('operation') in {'script_write','script_delete','restore_file'}:last_edit=index
                     if event['kind']=='observation' and value.get('tool') in {'run_command','run_script'}:last_command=index;latest_command=value
                 command_result=latest_command.get('result',{}) if latest_command else {}
@@ -564,6 +622,8 @@ class Runtime:
                 needs_verification=last_edit>=0 and (last_command<last_edit or not verified)
                 if outcome=='complete' and s['allowCommands'] and self.allowed and needs_verification:raise ValueError('Completion review: run successful verification after the latest edit, or finish partial/blocked with the limitation')
                 check_history=agent_checks.history(s['events']);last_checks={'passed':check_history['passed']} if check_history['passed'] is not None else None
+                freshness=agent_verification.freshness(self,s)
+                if outcome=='complete' and freshness['status'] in {'stale','unavailable'}:raise ValueError('Completion review: verification inputs changed or could not be checked. Inspect verificationFreshness and run fresh verification, or finish partial/blocked.')
                 if outcome=='complete' and last_checks and not last_checks['passed']:raise ValueError('Completion review: action checks remain failed: '+', '.join(str(item['id'] or item['tool']) for item in check_history['unresolved'])+'. Rerun corrected checks or finish partial/blocked with the limitation')
                 acceptance=agent_acceptance.evaluate(s.get('acceptanceRules'),s['events'])
                 if outcome=='complete' and not acceptance['passed']:raise ValueError('Completion review: acceptance rules remain unmet; perform required checks or finish partial/blocked')

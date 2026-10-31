@@ -1,0 +1,8 @@
+'use strict';
+const defaults=require('../prompt-workflows.json');
+const keys=['task','scope','verification'];
+function catalogue(value=defaults){if(!Array.isArray(value))throw Error('Prompt workflows must be an array.');const ids=new Set();return value.map(item=>{if(!item||typeof item!=='object'||Array.isArray(item)||Object.keys(item).some(k=>!['id','title','description','prompt'].includes(k))||typeof item.id!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(item.id)||ids.has(item.id)||typeof item.title!=='string'||!item.title.trim()||typeof item.prompt!=='string'||!item.prompt.trim()||item.description!==undefined&&typeof item.description!=='string')throw Error('Each prompt workflow needs a unique id, title and prompt, with an optional description.');ids.add(item.id);const tokens=[...item.prompt.matchAll(/\{\{([^{}]+)\}\}/g)].map(m=>m[1]);if(tokens.some(k=>!keys.includes(k))||item.prompt.replace(/\{\{(task|scope|verification)\}\}/g,'').match(/\{\{|\}\}/))throw Error('Supported prompt placeholders: {{task}}, {{scope}}, {{verification}}.');return {...item};});}
+function fields(item){catalogue([item]);return keys.filter(key=>item.prompt.includes('{{'+key+'}}'));}
+function render(item,values={}){catalogue([item]);for(const key of fields(item))if(typeof values[key]!=='string'||!values[key].trim())throw Error('Enter a value for '+key+'.');const text=item.prompt.replace(/\{\{(task|scope|verification)\}\}/g,(_,key)=>values[key].trim());return '# Reusable AI prompt workflow: '+item.title+'\n\n'+text;}
+function exported(items){return JSON.stringify({format:'codingagentlib/prompt-workflows/v1',workflows:catalogue(items)},null,2)+'\n';}
+module.exports={catalogue,fields,render,exported};

@@ -221,3 +221,54 @@ cargo run --manifest-path codingagentlib/rust/Cargo.toml --example dynamic_conte
 ```
 
 On restoring a saved agent session, re-register source/tool callbacks and bind the current host environment. Source data and functions are not persisted as executable configuration in agent snapshots. Resumed turns resolve current context again; permissions still require explicit restoration grants.
+## Progressive tool definitions
+
+The JavaScript suite loop accepts toolDiscovery:true (default false). The toolRouting.select helper uses the current host catalogue to advertise essential and relevant definitions. LocalRuntime exposes the same option:
+
+    const {LocalRuntime} = require('./codingagentlib/javascript');
+    const runtime = new LocalRuntime({workspace: projectDirectory, commands: ['python3']});
+    try {
+      await runtime.run({goal: 'Inspect this codebase', model: myModelTransport, toolDiscovery: true});
+    } finally { await runtime.close(); }
+
+The Python workspace runtime provides audited, read-only discover_tools. Arguments are query (optional text), names (up to 20 exact names), offset and limit (1–20, default 12). Its codingagentlib/tool-discovery-v1 result includes descriptors, totalMatches, nextOffset, done and unavailableNames. Descriptions grant no execution permission.
+
+The JavaScript package exports toolRouting; browser scripts expose SuiteAgentTools. Custom browser hosts load javascript/tool-routing.js before javascript/loop.js. Only the JavaScript suite loop and LocalRuntime automatically prune schemas. Python's direct Agent and native Rust/EmbeddedAgent loops retain their existing catalogues unless the host supplies routing. Embedded hosts can compose this with dynamic context and availability policies. See the [suite behavior and limitations](../shared-agent/README.md#progressive-tool-discovery).
+
+## Review evidence references
+
+Python independent_prepare responses include evidenceIndex entries. An entry has an id and kind: instruction (goal or instruction:N), observation (call:ID with callId/tool), change (change:N with path/status/hash), or browser-context (app-context with snapshot). Corresponding source observations and collected file views carry evidenceId where available. Reviewer findings can include evidenceIds, an array of 1–10 unique current-checkpoint IDs.
+
+The JavaScript independentReview helper requires references for findings when the request supplies an index. independent_submit validates supplied references against the server-owned checkpoint and stores the index with the verdict. Legacy submissions can omit evidenceIds; old servers without an index keep the previous client behavior. These references do not replace freshness checks, declarative acceptance rules or native validation. See the [review behavior and limitations](../shared-agent/README.md#evidence-linked-independent-review).
+
+## Parallel read integration
+
+The Python workspace runtime (including JavaScript LocalRuntime backed by it) accepts an audited tool request:
+
+```json
+{
+  "op": "tool",
+  "sessionId": "YOUR_SESSION",
+  "callId": "inspect_sources_1",
+  "tool": "parallel_read",
+  "args": {
+    "workers": 2,
+    "requests": [
+      {"id": "source", "tool": "read_file", "args": {"path": "main.py"}},
+      {"id": "listing", "tool": "list_files", "args": {"path": "."}}
+    ]
+  }
+}
+```
+
+Use the usual session, permission and unique-call-ID rules. The observation contains `codingagentlib/parallel-read-v1`, ordered `results`, `allSucceeded` and `cancelled`. Each result carries its request ID, tool, child callId, started and ok flags, plus the normal observation result or error. Reads cancelled before starting have a null callId. Partial failure makes the parent observation unsuccessful without discarding successful reads.
+
+Only 1–8 literal independent read_file/list_files/search requests and 1–4 workers are allowed. IDs must start with a letter and contain at most 50 letters, digits, underscores or hyphens. No commands, writes, dependent reads or nested batches are allowed. Child audit events carry parentCallId; consumers must avoid double-counting these as separate planning turns. This is not an atomic snapshot. Native Rust/EmbeddedAgent hosts must implement and advertise their own equivalent if desired; they do not gain this runtime tool automatically.
+
+## Concurrent guarded file edits
+
+The Python workspace runtime serializes `write_file`, `replace_text`, `delete_file` and `restore_file` within one Runtime instance, including the expectedHash check, recovery backup and mutation. Concurrent sessions editing the same original revision cannot both overwrite it successfully. A queued edit checks cancellation after acquiring the lock.
+
+A rejected stale edit returns `ok:false`, `code:file_revision_conflict` and `conflict:{path,expectedHash,actualHash,requiresRead:true}` in its audited observation. No recovery backup or mutation is performed for that rejected edit. Read the current file, reconcile the requested change with its contents, then submit a fresh action using the observed hash. The returned actualHash is diagnostic metadata, not evidence of having read the changed contents.
+
+The shared JavaScript loop classifies this as stale_revision and includes revisionConflict in its recovery guidance. This is in-process coordination of file tools, not an OS file lock or transaction across commands, editors, other processes or other Runtime instances. External writers may still race; use isolated workspaces or host-level coordination when needed. Native Rust file operations retain their existing implementation. Restart the Python server to enable the new runtime behavior.

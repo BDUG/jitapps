@@ -12,6 +12,8 @@ const {chromium}=require('playwright');
   await route.fulfill({json:{text:JSON.stringify({requestId:request.requestId,documentDigest:request.documentDigest,answer:'Architecture explained.',summary:'Rename architecture',proposal})}});
  });
  await page.goto((process.env.BASE_URL||'http://localhost:8000')+'/architex/');
+ // This mock speaks the direct chat contract; paging envelopes have separate tests.
+ await page.evaluate(()=>SuiteChatPaging.configure({mode:'off'}));
  assert.equal(await page.locator('#openChat').count(),0);await page.locator('#sai-launch').click();await page.locator('#sai-panel').waitFor({state:'visible'});
  async function send(text){await page.locator('#sai-prompt').fill(text);await page.locator('#sai-send').click();await page.waitForFunction(()=>!document.querySelector('#sai-send').disabled);}
  await send('Explain the architecture');
@@ -51,7 +53,7 @@ const {chromium}=require('playwright');
  assert.equal(await page.locator('#projectLabel').textContent(),request.document.metamodel.name);
  assert.deepEqual(errors,[]);
  // Shared integration remains compatible with a synchronous document adapter.
- await page.goto((process.env.BASE_URL||'http://localhost:8000')+'/textiX/');propose=false;await page.locator('#sai-launch').click();await send('Explain document');assert.equal(await page.locator('#sai-status').textContent(),'Complete');
+ await page.goto((process.env.BASE_URL||'http://localhost:8000')+'/textiX/');await page.evaluate(()=>SuiteChatPaging.configure({mode:'off'}));propose=false;await page.locator('#sai-launch').click();await send('Explain document');assert.equal(await page.locator('#sai-status').textContent(),'Complete');
  console.log('PASS: shared launch, models/rules/schemas/template context, follow-up/reset, reviewed apply/undo, invalid reference rejection and textiX compatibility.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

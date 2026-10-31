@@ -78,3 +78,17 @@ Select **PDF document → Export** to save an A4 PDF to the selected computer or
 Conversion runs locally using bundled PDF.js 3.11.174 (Apache-2.0; dynamic evaluation disabled) and html2pdf.js 0.10.2 (MIT, including its bundled dependencies). Licenses are in `vendor/`. No AI provider or external conversion service is used.
 
 Run `node textiX/pdf-browser-test.cjs` with the suite server on port 8027 (or set `BASE_URL`) to check independent multipage text import, rendered export and reimport, corrupt-file rejection and Undo.
+
+## Document templates and layout catalogue
+
+Open **Templates & layouts** from the shared app toolbar, or **Workspace → Templates**. The built-in catalogue provides eight native documents: project brief, meeting notes, business report, proposal, decision record, business letter, professional résumé and standard operating procedure. Bracketed fields are placeholders to replace; no facts or credentials are supplied for you.
+
+- **Preview replace** prepares the template as a replacement document. **Preview extend** appends its content to the current document, preserving the current document name. Inspect the native change review and apply selected changes explicitly. Appended internal element IDs and anchor links are renamed when necessary to avoid collisions.
+- **Save editable copy** creates a browser-local template in the saved list. Use **Edit template content** to preview that copy in the document editor; apply it, edit the text and formatting, then choose **Update selected template with current content**. This updates only the selected saved entry. **Save current as new template** creates a separate variant.
+- Saved templates also support reviewed extension, metadata edits, export/import and deletion. Built-ins stay unchanged; extend or fork them as saved copies.
+
+The layout catalogue offers Professional report, Editorial reading and Compact notes. Layouts restyle the existing document using native paragraph/heading typography and table colors; they do not replace its text, links, image bytes or page-break content. Choose **Edit layout** to adjust font family, body size (12–24 px), line height (1.1–2), heading accent and table colors. Save as a new layout, update a selected saved layout, or export/import its `suite-office-layout/v1` JSON. Imported layouts populate the layout editor only; saving or applying is explicit. A sheetiX layout cannot be imported as a textiX layout.
+
+These are native rich-text styles, not a new print-margin or multi-column page engine. Use the existing document tools for further editing. Export fidelity still depends on the chosen format. Templates/layouts persist on this browser origin; export important variants for backup or transfer. Applying changes uses the existing review and recovery workflow.
+
+The catalogue separates **Built-in templates**, **Layouts** and **My templates** into keyboard-accessible tabs. Arrow keys switch between them; search counts and empty states reflect the active built-in/layout view. **Duplicate saved template** creates an independent stored copy without replacing the open document. Existing Workspace → Templates navigation opens the saved-template view.

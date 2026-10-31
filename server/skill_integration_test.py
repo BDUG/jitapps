@@ -1,5 +1,6 @@
 import io
 import json
+import re
 from pathlib import Path
 import tempfile
 import threading
@@ -35,6 +36,20 @@ class IntegrationTests(unittest.TestCase):
                 with patch.object(relay.urllib.request,'build_opener',return_value=provider):
                     result=post('/api/chat',{'app':'colabriX','messages':[{'role':'system','content':'native whiteboard schema'},{'role':'user','content':'Cluster brainstorming notes into workshop frames'}]})
                 self.assertEqual(result['text'],'OK');context=json.loads(provider.messages[-2]['content'])['retrievedSkillContext'];self.assertEqual(context['app'],'colabriX');self.assertTrue(context['skills'])
+                app_source=(ROOT/'shared-suite/apps.js').read_text()
+                app_ids=re.findall(r"[\"']?id[\"']?\s*:\s*[\"']([^\"']+)[\"']",app_source)
+                self.assertEqual(len(app_ids),18)
+                with patch.object(relay.urllib.request,'build_opener',return_value=provider):
+                    for app in app_ids:
+                        with self.subTest(app=app):
+                            messages=[{'role':'system','content':'preserve native proposal contract'},{'role':'user','content':'Create native editable work for '+app}]
+                            result=post('/api/chat',{'app':app,'messages':messages})
+                            self.assertEqual(result['text'],'OK')
+                            self.assertEqual(provider.messages[0],messages[0])
+                            self.assertEqual(provider.messages[-1],messages[-1])
+                            context=json.loads(provider.messages[-2]['content'])['retrievedSkillContext']
+                            self.assertEqual(context['app'],app)
+                            self.assertTrue(context['skills'])
                 session=post('/api/agent',{'op':'start','goal':'Inspect skills','tool':'architex'})['id']
                 profile=catalog.profile('architex');custom='custom:integration';profile['selected'].append(custom);profile['overrides']={custom:{'name':'Workspace verification','description':'Review workspace changes','content':'# Verification\nInspect nebula changes and verify results.'}};catalog.save_profile('architex',profile)
                 custom_read=post('/api/agent',{'op':'tool','session':session,'tool':'catalog_read','args':{'id':custom},'callId':'read-custom'})

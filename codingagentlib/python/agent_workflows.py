@@ -10,7 +10,7 @@ import uuid
 from . import agent_checks
 from .agent_skills import page_int
 
-STEP_TOOLS={'list_files','read_file','search','write_file','replace_text','delete_file','restore_file','list_scripts','write_script','read_script','delete_script','run_command','run_script','read_command_output','changes'}
+STEP_TOOLS={'list_files','read_file','search','write_file','replace_text','apply_edits','delete_file','restore_file','list_scripts','write_script','read_script','delete_script','run_command','run_script','read_command_output','changes'}
 TYPES={'string':lambda v:isinstance(v,str),'number':lambda v:isinstance(v,(int,float)) and not isinstance(v,bool),'boolean':lambda v:isinstance(v,bool),'object':lambda v:isinstance(v,dict),'array':lambda v:isinstance(v,list)}
 def identifier(value):
     if not isinstance(value,str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}',value):raise ValueError('Use an ID with letters, digits, underscores or hyphens (1–80 characters)')
@@ -143,7 +143,7 @@ def prepare_inputs(definition,provided):
 
 def preflight(runtime,s,args):
     definition=validate(args.get('definition'));inputs=prepare_inputs(definition,args.get('inputs',{}));steps=[]
-    edit_tools={'write_file','replace_text','delete_file','restore_file','write_script','delete_script'}
+    edit_tools={'write_file','replace_text','apply_edits','delete_file','restore_file','write_script','delete_script'}
     for step in definition['steps']:
         issues=[];dynamic=False
         def has_result(v):
@@ -156,7 +156,7 @@ def preflight(runtime,s,args):
             value=step['args'].get(key)
             if not has_result(value):
                 executable=resolve(value,inputs,{})
-                if not isinstance(executable,str) or executable not in runtime.allowed:issues.append('Executable is not on the runtime allowlist: '+str(executable))
+                if not runtime.resolve_command(executable):issues.append('Executable is not on the runtime allowlist: '+str(executable))
             else:issues.append('Executable depends on an earlier result; allowlist checked at execution')
         steps.append({'id':step['id'],'tool':step['tool'],'usesEarlierResults':dynamic,'issues':issues})
     return {'inputs':inputs,'steps':steps,'permissionsReady':not any(step['issues'] for step in steps),'note':'No steps executed. Static permission/allowlist review only; paths, hashes, program availability and dynamic arguments must still be checked during execution.'}

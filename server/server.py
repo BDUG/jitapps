@@ -199,7 +199,7 @@ def main(default_port=8000, shutdown_event=None):
     parser.add_argument('--agent-workspace', default=str(ROOT), help='Coding-agent workspace directory (default: suite repository)')
     parser.add_argument('--disable-agent', action='store_true', help='Disable the coding-agent runtime')
     parser.add_argument('--agent-no-commands', action='store_true', help='Disable coding-agent command execution')
-    parser.add_argument('--agent-allow-command', action='append', default=None, metavar='EXECUTABLE', help='Override default installed Python, node, npm, git and sh commands; allow this executable; repeat for interpreters/build/test tools. Commands use relay OS permissions, not a sandbox.')
+    parser.add_argument('--agent-allow-command', action='append', nargs='?', const='*', default=None, metavar='EXECUTABLE', help='Without EXECUTABLE allow all commands; with EXECUTABLE replace defaults with an allowlist; repeat for interpreters/build/test tools. Commands use relay OS permissions, not a sandbox.')
     parser.add_argument('--agent-navigation-dir', default=os.environ.get('SUITE_AGENT_NAVIGATION_DIR'), help='Trusted code-navigation service directory with its installed TypeScript dependency')
     parser.add_argument('--agent-embedding-dir', default=os.environ.get('SUITE_AGENT_EMBEDDING_DIR'), help='Prepared local MiniLM ONNX model directory; enables learned session memory embeddings (optional dependencies required)')
     parser.add_argument('--server-config', help='Private persistent server settings JSON (default: server-settings.json beside provider configuration)')

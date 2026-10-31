@@ -8,7 +8,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[2]
 DESKTOP=ROOT/'desktop-tauri'
-APPS=('shelliX','colabriX','designiX','architex','graphiX','textiX','sheetiX','codeiX','appiX','automatextiX','reportiX','presentiX','sketchiX','mindiX','projectiX','vidiX','photiX')
+APPS=('mockiX','shelliX','colabriX','designiX','architex','graphiX','textiX','sheetiX','codeiX','appiX','automatextiX','reportiX','presentiX','sketchiX','mindiX','projectiX','vidiX','photiX')
 PUBLIC=APPS+('codingagentlib/javascript','shared-suite','shared-ai','shared-agent','assets')
 EXTENSIONS={'.html','.js','.mjs','.css','.json','.svg','.png','.jpg','.jpeg','.gif','.webp','.ico','.icns','.woff','.woff2','.ttf','.otf','.wasm','.txt','.md','.xml','.drawio','.yaml','.yml','.rst','.mp4','.webm','.ogg','.mp3','.wav'}
 

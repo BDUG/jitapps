@@ -4,7 +4,7 @@
 
 # TLAL OS · Agentic Desktop Tool Suite
 
-Seventeen local-first apps for architecture, graphics, images, video, documents, presentations, spreadsheets, mind maps, collaborative whiteboards, project planning, code, app generation, automation, research, and shell commands. Use the searchable desktop launcher, share files through a virtual disk, and refine each app’s content with AI chat or the coding agent.
+Eighteen local-first apps for architecture, graphics, images, video, documents, presentations, spreadsheets, mind maps, collaborative whiteboards, project planning, code, app generation, automation, research, and shell commands. Use the searchable desktop launcher, share files through a virtual disk, and refine each app’s content with AI chat or the coding agent.
 
 Every document app includes shared, Unicode-aware whole-word search, field-scoped replacement previews, paged results and full search-report export under **Workspace → Find & replace**. shelliX offers matching command-history filters and filtered history export. See the [shared workspace guide](shared-suite/README.md#search-and-review-across-apps).
 
@@ -13,6 +13,10 @@ Document apps also offer read-only **Document preflight** under **Workspace → 
 Use **Workspace → Templates** to save, search, import/export and review reusable native documents across sessions. shelliX has a command snippet library that fills inputs without automatic execution. Template libraries are separate from rolling recovery checkpoints.
 
 Shared workspace change reviews support per-field selection, full paging and selected-change exports. Native validation, stale-document checks and recovery remain in place. shelliX can prepare earlier commands for inspection with **Use command**, without executing them.
+
+Document apps include additional native editing actions for layout, typography, project structure and source provenance, all through reviewed changes and recovery. shelliX adds syntax checking for saved snippets. [Native action catalogue](shared-suite/README.md#additional-native-editing-actions).
+
+Every app supports **Quality baselines** to compare advisory findings before and after changes, export/import baseline reports, and prepare unsent AI review drafts. [Quality baseline guide](shared-suite/README.md#quality-baselines).
 
 Every AI chat and coding-agent goal supports reusable **Prompt workflows** with explicit placeholders, per-app or shared libraries, editable metadata and import/export. The structured task-brief builder adds goal, scope, constraints and success criteria with app-specific guidance and edit/review/plan/explain modes. Preview and insertion prepare a draft only; they never send or execute it automatically.
 
@@ -24,7 +28,7 @@ Load and save app contents through local disk or the shared virtual disk, includ
 
 Run the suite in your browser with a single Python server, or build the optional **Tauri 2 desktop application**. Basic editing works without an AI account. AI features use providers configured on your local relay; generative image editing has its own image-provider configuration.
 
-[Get started](#get-started) · [Apps](#the-17-apps) · [Screenshots](#screenshots) · [AI workflows](#ai-chat-and-image-tools) · [Coding agent](#workspace-coding-agent) · [Native desktop](#optional-tauri-2-desktop) · [Verification](#development-and-verification)
+[Get started](#get-started) · [Apps](#the-18-apps) · [Screenshots](#screenshots) · [AI workflows](#ai-chat-and-image-tools) · [Coding agent](#workspace-coding-agent) · [Native desktop](#optional-tauri-2-desktop) · [Verification](#development-and-verification)
 
 ## Project disclosure and license
 
@@ -173,7 +177,7 @@ python3 server/server.py \
   --allow-workflow-command python3
 ```
 
-The named programs must be installed. The explicit agent allowlist replaces its auto-detected defaults; add `--agent-allow-command node` and `--agent-allow-command npm` if needed and installed. Workflow commands use a separate allowlist and are disabled unless explicitly enabled. These commands use your OS account's permissions, not a sandbox. On Windows, use your installed Python command and absolute configuration/workspace paths in PowerShell or Command Prompt; the POSIX shell syntax above is not a PowerShell script.
+Use `--agent-allow-command` without a value to allow all executables. Omitting the flag keeps the defaults. The named programs must be installed. The explicit agent allowlist replaces its auto-detected defaults; add `--agent-allow-command node` and `--agent-allow-command npm` if needed and installed. Workflow commands use a separate allowlist and are disabled unless explicitly enabled. These commands use your OS account's permissions, not a sandbox. On Windows, use your installed Python command and absolute configuration/workspace paths in PowerShell or Command Prompt; the POSIX shell syntax above is not a PowerShell script.
 
 `--skills-offline` prevents remote **skill catalog refresh only**; omit it for online source refresh and ensure `SUITE_SKILLS_OFFLINE` is not `1`. CLI origins and JSON `allowedOrigins` combine. The example's remote origin can use chat/image relay calls if it can reach this server, but cannot administer providers or use local-only agent/workflow/research/catalog endpoints. Loopback binding makes the server reachable only on this machine.
 
@@ -190,7 +194,7 @@ For a restricted variant, append `--agent-no-commands` to disable agent terminal
 
 **5. Verify and use:** open [the desktop](http://127.0.0.1:8000/), configure/test the active provider at [AI relay settings](http://127.0.0.1:8000/relay), and use **Check runtime** in the coding-agent tab. `/api/health` checks relay availability; `/api/agent/health` additionally requires a same-local-origin request with `X-Architex-Request: 1`. Provider tests and AI calls may incur charges. Run startup without making a provider call to verify local configuration first. Restart after hand-editing startup-loaded provider files or changing flags; `/relay` applies its own saved profile changes live.
 
-## The 17 apps
+## The 18 apps
 
 [shelliX](shelliX/) is an AI shell: run allowlisted server commands manually or describe a goal in chat, inspect stdout/stderr and continue with follow-up instructions. See its [setup guide](shelliX/README.md).
 
@@ -209,6 +213,7 @@ For a restricted variant, append `--agent-no-commands` to disable agent terminal
 | **[sheetiX](sheetiX/README.md)** | [/sheetiX/](sheetiX/) | Formulas, multiple sheets, formatting, sorting, formula-aware fill and transpose; XLSX/CSV/JSON interchange. |
 | **[vidiX](vidiX/README.md)** | [/vidiX/](vidiX/) | Layered timelines, clips, drawing frames, editable design scenes, motion presets and brand colors. Animated GIF/SVG and browser-supported silent video export. |
 | **[appiX](appiX/README.md)** | [/appiX/](appiX/) | Generate SPAs, design screens and logic without code, edit HTML/CSS/JS, preview safely, and export standalone apps, a UI SDK, deployment packages or a Rust Cargo project. |
+| **[mockiX](mockiX/README.md)** | [/mockiX/](mockiX/) | Wireframes, multi-selection/layout tools, reusable component instances, user-flow maps, clickable prototypes, SVG/HTML exports and reviewed AI edits. |
 | **[shelliX](shelliX/README.md)** | [/shelliX/](shelliX/) | Goal-driven AI chat, allowlisted server commands, retained stdout/stderr, follow-ups, stopping and saved shell sessions. |
 | **[codeiX](codeiX/README.md)** | [/codeiX/](codeiX/) | Project files, code search/editing, local-workspace integration, AI changes, coding-agent execution and source ZIP or Tauri 2 project ZIP export. |
 | **[automatextiX](automatextiX/README.md)** | [/automatextiX/](automatextiX/) | Connect transforms, AI calls, virtual-disk files, web requests, branching and allowed local commands. Pass step results onward and inspect execution logs. |
@@ -261,17 +266,17 @@ These are prompts to try, not recorded live-provider results. Normal chat edits 
 
 ## Shared workspace and virtual disk
 
-Open **Workspace** or press **Ctrl/Cmd+K** in an editor. The same tools also support sketchiX’s separate sketch and shape editors—**16 editor pages** in total.
+Open **Workspace** or press **Ctrl/Cmd+K** in an editor. The same tools also support sketchiX’s separate sketch and shape editors—**18 editor pages** in total.
 
 - **Commands and navigation:** search by multiple words, pin frequent actions, filter recently opened commands, and navigate results with the keyboard. Search the app-specific editing catalog and open an action’s controls without applying it. Shortcuts also open project ZIPs, disk backups and the coding-agent window. Preferences persist per editor.
 - **Find/replace and Bulk edit:** filter supported fields, prepare typed batch changes or import edit sets, and review a native-document diff before applying.
 - **Project ZIP:** export/import the complete native project from every app, using local or virtual disk. Review before applying; embedded media stays with the project. See the [ZIP guide](shared-suite/PROJECT-ZIP.md).
 - **Recovery:** named versions, rolling automatic checkpoints, comparisons and portable backups. Applying reviewed workspace changes first saves a recovery point.
-- **Tool actions:** app-specific layout, formatting, cleanup, productivity and structural-copy operations. Export inventories, schemas and inspection reports.
+- **Tool actions:** app-specific layout, formatting, cleanup, productivity and structural-copy operations. Search inventory, select the visible page or every matching item across pages, invert just the matching selection, and export all, filtered or selected items. Export schemas and inspection reports as well.
 - **Saved presets and workflows:** retain action settings, order selected steps and save an independent named workflow. Each step validates against the previous result; failure leaves the live document unchanged. Import/export libraries and apply one combined reviewed result.
 - **AI handoffs:** download native content, schemas, context and a spec-driven editing template, or draft app-specific follow-up prompts without sending automatically.
 
-**Virtual disk** is a shared browser IndexedDB file store. Load from computer or virtual disk through supported import controls. Choose **Destination: Computer / Virtual disk** in the relevant export controls, then save normally. The disk supports folders, uploads, folder uploads, ZIP downloads and app-specific import readers; complete folder trees are supported where the reader requires them.
+**Virtual disk** is a shared browser IndexedDB file store. Load from computer or virtual disk through supported import controls. Choose **Destination: Computer / Virtual disk** in the relevant export controls, then save normally. The disk supports folders, uploads, folder uploads, ZIP downloads and app-specific import readers; complete folder trees are supported where the reader requires them. Search the current folder by filename, MIME type or source app, sort naturally by name, reverse name, recent changes, size or type, then use **Select matching items** across every result page. Folders stay first and the sort preference is shared across apps. Hidden selections remain selected until cleared. In the disk dialog, **Ctrl/Cmd+F** focuses folder search, arrow keys and Home/End browse rows, **Ctrl/Cmd+A** on a file row selects all matches, and **Alt+Up** opens the parent folder. Inventory checkboxes support arrow navigation and Ctrl/Cmd+A for all matches. Search, paging and bulk selection reuse the loaded listing; destructive actions pause while a new folder loads.
 
 **Whole-disk backups:** open **Virtual disk → Disk ZIP backup · all folders** to export everything to ZIP or preview an imported archive. Restore can keep existing files, overwrite matching paths, or replace the entire disk with confirmation. Folders, binary files and backup metadata are preserved; restore is atomic and rejects stale previews. Ordinary folder ZIPs are also supported. See the [disk backup guide](shared-suite/README.md#whole-virtual-disk-zip-backup-and-restore) for limits and policies.
 
@@ -283,13 +288,16 @@ Chat and coding-agent requests also support [multimodal image/audio/PDF referenc
 
 ## Workspace coding agent
 
+Optional **multi-model collaboration** lets solver and critic profiles discuss approaches before the active model coordinates the next action. Configure it in **AI provider settings → Multi-model coding-agent collaboration**; it is off by default. Adaptive routing consults at planning, failure and verification checkpoints, with a configurable call budget and inspectable discussions. See the [configuration and integration guide](codingagentlib/MODEL_COLLABORATION.md).
+
 Advanced capabilities include [compiler/AST navigation, optional learned embeddings, independent review, task dependencies and real-model evaluations](shared-agent/TECHNIQUES.md). The guide also records the remaining technique gaps and setup requirements.
 
 Read the [step-by-step input → execution → workspace update guide](shared-agent/HOW-IT-WORKS.md) for the complete lifecycle, a flow diagram, review behavior and a worked example.
 
 Use the **Coding agent** tab for an iterative sense/plan/act loop over the open app project and a local server workspace. It can inspect files, edit code, maintain working scripts, call allowed local programs, observe results and iterate.
 
-- Live, foldable operation trace; task checklist; recorded command output and verification evidence.
+- Evidence-based next-step guidance prioritizes missing context, stale evidence, retained command output, failed checks and verification. Unchanged permission-denied actions pause without another execution; permitted alternatives remain available, and a new follow-up starts a fresh decision boundary.
+- Live, foldable operation trace; task checklist; recorded command output and verification evidence. Partial and blocked runs show unfinished tasks with **Prepare verification / remaining-work follow-up** and **Review files & results** actions. Preparing a follow-up preserves your draft; review it and use **Resume / send follow-up** to continue the existing run. A lack of command verification is shown as unverified work, not as a failed command.
 - Follow-up instructions, pause/stop/resume, pending questions and recorded-call recovery without blindly replaying side effects.
 - Aggressive context compression, paged source/result retrieval and local SQLite vector working memory.
 - Learned, versioned local skills and reusable tools/workflows shared across sessions in the same workspace.
@@ -337,7 +345,7 @@ Sources include obra/superpowers, VoltAgent/awesome-agent-skills, mattpocock/ski
 
 ## Optional Tauri 2 desktop
 
-The [`desktop-tauri/`](desktop-tauri/README.md) wrapper packages the desktop, all 17 apps, and a frozen Python server sidecar. End users do not need Python or Node just to launch a packaged build; coding-agent commands still require the tools they execute.
+The [`desktop-tauri/`](desktop-tauri/README.md) wrapper packages the desktop, all 18 apps, and a frozen Python server sidecar. End users do not need Python or Node just to launch a packaged build; coding-agent commands still require the tools they execute.
 
 Install the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS, Rust stable, Node.js 22+, and build-time Python:
 
@@ -409,12 +417,17 @@ node scripts/verify-suite.cjs
 node scripts/verify-suite.cjs --browser \
   --base-url http://127.0.0.1:8000 --report /tmp/suite-report.json
 
+# Local CPU benchmark for shared diff, review and replacement operations.
+node shared-suite/workspace-benchmark.cjs
+
 # Backend checks.
-python3 -m unittest discover -s server -p '*_test.py'
+python3 -m unittest discover -s server -t . -p '*_test.py'
 
 # Optional desktop staging and server lifecycle checks.
 npm run check --prefix desktop-tauri
 ```
+
+The workspace benchmark reports five timed samples and a median after warm-up. It measures local JavaScript work, excluding browser rendering, storage and AI-provider latency.
 
 Add `--rust` to the suite gate to verify an exported Rust project when Cargo is available. Desktop native builds need the separate Tauri toolchain. Some coding-agent tests execute commands in temporary workspaces. Automated AI tests use fixtures; passing them does not establish live-provider quality, lossless format fidelity, production performance or parity with commercial applications.
 
@@ -427,3 +440,24 @@ Chat and coding-agent inputs can optionally be rewritten into **ASD-STE100-style
 All apps now offer **Apps → Apps & display** (Alt+Shift+P): search the suite, pin favorite tools, and choose comfortable/compact controls or reduced interface motion. Preferences stay in this browser and leave documents, artwork and playback unchanged.
 
 In editors, **Workspace → Tool actions → Refresh inventory** opens a searchable, sortable, paginated browser of native document objects. Select items to export just that scope or draft a focused AI request; nothing is sent or applied automatically. Images, pages, slide objects and whiteboard discussions have richer inventories. shelliX adds search over loaded command/conversation output and a failed-command filter. See the [workspace usability guide](shared-suite/WORKSPACE-USABILITY.md).
+
+All apps include **Notes & tasks** via **Tasks → Current app notes** or the app’s Workspace panel: app-scoped planning notes and checklists, reviewed JSON imports from local/virtual disk, JSON/Markdown exports and unsent AI drafts from unfinished tasks. Notebooks persist in this browser separately from native project files; export them for backup or transfer.
+
+Coding agents optionally support [evidence-driven model handoff](codingagentlib/MODEL_HANDOFF.md): configure primary/continuation roles in the relay or standalone VS Code extension, evaluate readiness in shadow mode, then opt into one persistent switch after implementation and real execution feedback. Existing permissions and completion checks remain authoritative.
+
+architeX also provides [AI source import](architex/README.md#ai-source-importer-sketches-graphics-pdf-and-code) for sketches, graphics, PDFs, source code and archives, with explicit semantic merge options, proposal review and Undo.
+
+
+All 18 apps and the desktop now share **Tasks** (Alt+Shift+T): search saved notebook checklists across tools, filter unfinished work, update task status, export a Markdown work list, and append selected tasks to an unsent AI draft. Existing app documents and drafts remain separate. See the [task dashboard guide](shared-suite/README.md#tasks-across-all-apps).
+
+All apps also provide **Review**: app-specific, read-only checks for the current work, searchable advisory findings, JSON report export, and selected findings converted into existing notebook tasks. It checks content such as local HTML assets, workflow reachability, layout readability and prototype branches; it does not run or automatically repair projects. See the [work review guide](shared-suite/README.md#review-current-work).
+
+**Prompt workflows** includes app-specific creation, improvement and handoff starting points for all 18 apps. They supply editable goals, scope, constraints and success criteria, then build an unsent brief for the native chat/agent workflow. mockiX now includes persistent prompt workflows and its relay skill profile. Restart a running server after updating backend files. See the [AI starting-point guide](shared-ai/README.md#native-starting-points-for-every-app).
+
+Every app now supports selected-review follow-ups: Investigate, Improve or Verify. Draft a grounded request in the existing AI composer or export it as a standalone brief; drafts preserve existing text and remain unsent. See [review follow-ups](shared-suite/README.md#follow-up-on-review-findings).
+
+The coding agent's **Create specification** button opens a questionnaire and uses the configured LLM to prepare an editable spec-driven development draft. Requirements, acceptance criteria, implementation tasks, proposed checks and open questions stay separate from execution. Available in the browser agent and VS Code extension; see [specification preparation](shared-agent/TECHNIQUES.md#specification-preparation).
+
+The shared Tasks dashboard supports direct task creation for any app and editing existing tasks, including from the desktop. Saves preserve notes and completion flags and reject changed notebook versions. See [task capture and editing](shared-suite/README.md#capture-and-edit-tasks-from-any-app).
+
+All apps support portable selected-task JSON worklists, with reviewed cross-app imports, duplicate-text detection and destination conflict checks. See [portable worklists](shared-suite/README.md#portable-worklists-and-cross-app-handoffs).

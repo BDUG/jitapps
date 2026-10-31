@@ -26,7 +26,7 @@ async function scan(handle){
 }
 async function load(handle){
  const {next,disk,skipped}=await scan(handle);
- if(controller)controller.abort();checkpoint();project=next;active=next.files[0]?.path||null;tabs=active?[active]:[];
+ if(window.SuiteCodingAgent?.running())throw Error('Stop the coding agent before loading a workspace folder.');checkpoint();project=next;active=next.files[0]?.path||null;tabs=active?[active]:[];
  directory=handle;originals=disk;savedSignature=P.signature(project);save();render();update();
  toast('Opened '+next.files.length+' text files'+(skipped?' · '+skipped+' entries skipped':'')+'. Changes stay in the browser until Save to folder.');
 }

@@ -1,7 +1,7 @@
 """Run-level acceptance rules, evaluated only from recorded tool observations."""
 from . import agent_checks
 
-EDITS={'write_file','replace_text','delete_file','write_script','delete_script','restore_file','apply_project'}
+EDITS={'write_file','replace_text','apply_edits','delete_file','write_script','delete_script','restore_file','apply_project'}
 def validate(rules):
     if rules is None:return []
     if not isinstance(rules,list):raise ValueError('Acceptance rules must be an array')

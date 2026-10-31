@@ -38,7 +38,7 @@ Run `python3 server/server.py --help` for the installed version. The same flags 
 | `--agent-workspace DIRECTORY` | Repository root | Existing server-side workspace for coding-agent files and commands. Private run state is stored in its `.suite-agent/` directory. This is separate from the browser's codeiX/appiX project and virtual disk. |
 | `--disable-agent` | False | Disable the coding runtime and its commands. Hosting, relay, research and shared catalog remain available. No workspace directory is required for a disabled runtime. |
 | `--agent-no-commands` | False | Disable coding-agent terminal execution while keeping its other runtime capabilities available. File edits still depend on the session's permissions. Overrides any command allowlist. |
-| `--agent-allow-command EXECUTABLE` | Auto-detected Python interpreter plus installed `node`, `npm`, `git`, `sh` | Repeat to **replace**, not extend, the default coding-agent executable list. Every explicitly named executable must exist. When frozen, Python candidates are installed `python3`/`python`, not the sidecar binary. Ignored when commands/the agent are disabled. |
+| `--agent-allow-command [EXECUTABLE]` | Auto-detected Python interpreter plus installed `node`, `npm`, `git`, `sh` | With no value, allow every executable resolvable on PATH or by an explicit executable path. With a value, repeat to **replace**, not extend, the default coding-agent executable list. Every explicitly named executable must exist. When frozen, Python candidates are installed `python3`/`python`, not the sidecar binary. Ignored when commands/the agent are disabled. |
 | `--agent-navigation-dir DIRECTORY` | `SUITE_AGENT_NAVIGATION_DIR`, otherwise bundled `server/code-navigation/` | Trusted directory containing `service.cjs` and its installed `node_modules/typescript`. Python AST navigation is built in; full JS/TS analysis needs Node and `npm ci --prefix server/code-navigation`. CLI overrides the environment value. |
 | `--agent-embedding-dir DIRECTORY` | `SUITE_AGENT_EMBEDDING_DIR`, otherwise off | Prepared local `model.onnx`, `tokenizer.json`, `manifest.json` with matching hashes. Requires `server/requirements-agent.txt`. Enables learned session-memory embeddings; startup never downloads a model. The shared skill catalog remains a separate hashed lexical vector index. Ignored when the coding runtime is disabled. |
 | `--skills-db PATH` | `skills/catalog.sqlite3` beside `--config` | Private shared skill index, app skill profiles, edits and history. Its parent is created automatically. This is separate from learned workspace-local agent skills. |
@@ -157,3 +157,15 @@ The JSON uses the field names returned by `/api/admin/server-settings` (`action:
 ## Optional magic-wormhole sharing
 
 Install `server/requirements-wormhole.txt` in the server Python environment and restart to enable **Share between PCs** and colabriX **Work together**. The local-origin `/api/wormhole` endpoint manages private durable queues and isolated encrypted transport workers. See [installation, relay networking and validation](../shared-suite/WORMHOLE.md).
+
+To enable all agent executables, pass the flag without a value:
+
+```sh
+python3 server/server.py --agent-allow-command
+```
+
+Omitting the flag preserves the installed default list. Named values restrict commands to those names. A bare occurrence selects all-command mode even when mixed with named occurrences. `--agent-no-commands` and `--disable-agent` take precedence; session-level command approval still applies. Saved server configuration uses `"agent_allow_command": ["*"]` for all-command mode, `null` for defaults, and `[]` for no executables. Runtime settings changes retain the existing review/approval flow. The separate workflow-runner allowlist is unchanged. Health reports `commandPolicy: "all"`; its command list contains convenient installed starter names, not an exhaustive list. Programs still run with server OS permissions.
+
+## Coding-agent model roles
+
+The relay provider menu offers primary, continuation and optional readiness-evaluator roles with off/shadow/automatic handoff modes. Configuration is stored in `agentHandoff` alongside the provider profiles and included in normal imports/exports. Profile `inputModalities` declares text/image/audio/file support. Defaults preserve single-provider behavior until a continuation is configured. `/api/health` advertises non-secret role IDs and revisions; `/api/chat` can select a saved `profileId` and validate an expected `profileRevision`. Caller-supplied endpoints/keys are still rejected. See the [handoff guide](../codingagentlib/MODEL_HANDOFF.md). Restart the server after upgrading.

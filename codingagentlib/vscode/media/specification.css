@@ -1,0 +1,73 @@
+.ca-specification {
+  box-sizing: border-box;
+  width: 820px;
+  max-width: 94vw;
+  max-height: 90vh;
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--vscode-panel-border, #cbd2df);
+  border-radius: 10px;
+  background: var(--vscode-editor-background, #fff);
+  color: var(--vscode-foreground, #27334b);
+  font: 14px/1.5 var(--vscode-font-family, system-ui);
+}
+.ca-specification::backdrop {
+  background: #15213888;
+}
+.ca-specification h2 {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+.ca-specification p {
+  font-size: 12px;
+}
+.ca-specification label {
+  display: block;
+  margin: 12px 0;
+  font-weight: 600;
+}
+.ca-specification textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 5px;
+  padding: 9px;
+  resize: vertical;
+  border: 1px solid var(--vscode-input-border, #cbd2df);
+  border-radius: 5px;
+  background: var(--vscode-input-background, #f7f8fb);
+  color: inherit;
+  font: 13px/1.5 var(--vscode-editor-font-family, monospace);
+}
+.ca-spec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ca-specification button {
+  padding: 8px 12px;
+  border: 1px solid var(--vscode-button-border, #bfc8d7);
+  border-radius: 5px;
+  background: var(--vscode-button-secondaryBackground, #edf0f8);
+  color: var(--vscode-button-secondaryForeground, #263452);
+  cursor: pointer;
+}
+.ca-specification button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ca-specification :focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #6754bd);
+  outline-offset: 2px;
+}
+.ca-specification [hidden] {
+  display: none !important;
+}
+@media (max-width: 500px) {
+  .ca-specification {
+    padding: 12px;
+  }
+  .ca-spec-actions button {
+    flex: 1 1 auto;
+  }
+}

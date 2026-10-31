@@ -113,3 +113,59 @@ Archived-context paging reuses one decoded snapshot per runtime (up to 8,000,000
 Acceptance evaluation binds each observation to the action arguments already recorded at that point in history. A later action with a reused ID cannot relabel earlier evidence. Browser-only runs can use their immediately pending assistant action when no explicit runtime action exists; an observation consumes that fallback, and the tool must match. Assistant proposals without a corresponding observation never satisfy a rule. Shared Python/JavaScript fixtures cover wrong targets, reused IDs, missing provenance and explicit-action precedence; an actual browser-only loop regression checks successful completion from the required artifact.
 
 Command verification uses the latest recorded command attempt, including tool errors with no exit code. A failed launch after a passing check invalidates that earlier pass for completion after edits. Browser cycle assessment, the working brief, visible command evidence and the server completion gate follow this rule. Only an actual successful tool response with numeric exit code zero, without cancellation or timeout, verifies the latest edit. A subsequent successful rerun can restore verification; partial/blocked completion remains available. Regression coverage includes a real browser run and server restart persistence.
+
+
+Learned-memory retrieval streams only document IDs, part IDs and model-specific vector bytes while scoring. It retains the exact cursor-plus-page best candidates, then retrieves text and metadata only for the requested page inside the same SQLite read transaction. Scores, deterministic ties, zero/negative results, matched counts, model/session/collection filtering and incremental indexing remain unchanged. Dimension failures retain the explicit lexical fallback.
+
+A synthetic indexed workload of 5,000 chunks, 384 dimensions and an eight-result page measured median retrieval at 132 ms before and 68 ms after (about 1.9× faster). Peak Python allocations measured by tracemalloc fell from about 24.6 MB to 23.5 KB (99.9% reduction). This measures retrieval rather than embedding inference, model quality or complete agent latency. Dense-reference regression tests cover pagination, ties, negative scores, updates, deletes, partial legacy indexing and fallback.
+
+Cycle detection keeps the latest 24 matched action/observation references before serializing their signatures and normalized results. Earlier payloads and histories cleared by a follow-up do not need serialization. The pairing scan still checks receipt IDs, child-call boundaries and duplicate observations on every invocation; no history cache or relaxed guard is introduced. The main loop also evaluates a potential cycle once per proposed action instead of repeating the same scan when a cycle is found.
+
+A synthetic guard benchmark with 1,024 tool observations, 32,000-character previews and an eight-action cycle measured median detection at 67.6 ms before and 1.72 ms after (about 39× faster). This is cycle-detection latency, not complete agent latency or model quality. Regression coverage retains eight-action cycles, actual progress, changed checks, delayed/duplicate receipts, follow-up resets, long Unicode history and parallel-read result normalization.
+
+
+## Specification preparation
+
+**Create specification** beside the goal opens a shared questionnaire and editable LLM draft. It works in the browser coding agent and the VS Code extension. Questions cover outcome/users, scope, constraints, acceptance criteria, proposed verification and unresolved decisions. Only the command and answers are sent to the configured provider; no project snapshot, files, attachments or agent tools are included. Preparing a spec does not start a run or execute terminal commands.
+
+The bounded specification protocol requires unique requirement/task IDs, observable acceptance criteria and task/check coverage for every requirement. These are structural checks, not evidence of implementation correctness. The output retains the original input and answers independently of the model's reformulation. Unknowns and assumptions remain visible for review. **Use specification** explicitly replaces the unchanged command field with the edited draft; the normal run/permission controls still apply. Changing answers invalidates a prior result. Closing cancels generation; invalid or incomplete output leaves the command intact. The browser uses its existing relay and a 60-second request timeout; VS Code uses its configured primary provider and stored key with one request and a bounded timeout. No worker/runtime is needed for specification preparation. Standard provider charges apply.
+
+Core and questionnaire UI are shared from `codingagentlib/vscode/media/specification*.js`, allowing the packaged extension to use the same protocol without a suite server. Input/output bounds protect the draft UI; source field limits still apply when replacing the command.
+
+### VS Code history preparation overhead
+
+The VS Code controller's compacted history path copies only selected events instead of copying and then discarding the full audit. Request-scoped event serialization is reused during budget selection and retained-event cloning. The edit/command/failure ledger scans backwards to find the latest evidence. Full native history, exact retrieval offsets, pinned constraints/reference snapshots and over-budget disclosures remain unchanged. A 1,001-event synthetic benchmark measured about 2.1× faster preparation; inference and tool latency are outside that measurement. See the extension README for the reproducible baseline comparison.
+
+### Browser context packing overhead
+
+Browser model turns now index the audit once per `pack()` call. The initial and tighter context views reuse that index for action/receipt pairing, latest successful retrieval, file hashes, workflow states and pinned history. No index persists between calls, so new edits and workflow updates are reflected on the next turn. When the latest retained retrieval text alone is larger than the fallback threshold, packing goes directly to the existing tighter view; JSON escaping can only increase that lower bound. The full retrieved result remains intact, even when it exceeds the soft target.
+
+A synthetic 10,001-event history measured median packing time of 11.2 ms before and 7.7 ms after (about 1.46× faster). This measures context packing, not inference, network or tool execution. The reproducible benchmark compares payloads and metrics across 600 mode/snapshot cases:
+
+```sh
+git show 6c304d6:codingagentlib/javascript/context.js > /tmp/context-baseline.cjs
+node --expose-gc scripts/benchmark-agent-context.cjs /tmp/context-baseline.cjs
+```
+
+The full audit, compression presets, source retrieval pointers, latest evidence, user constraints and Off mode retain their existing behavior. Large retained evidence is still reported as over target; the optimization does not silently truncate it.
+
+### Attachment-heavy planning turns
+
+Coding-agent reference preparation no longer constructs JSON deduplication keys containing full attachment bodies for ordinary native references. Exact per-call tuple lookups preserve content/media/caption/detail identity, first occurrence order and unique output names. Legacy field shapes retain their former JSON equality. Media descriptor numbering is linear in the number of attachments. Full text and inline media remain available through the same provider and context paths; this changes preparation overhead, not the amount of evidence delivered. See the shared AI README and `scripts/benchmark-agent-attachments.cjs` for scope and reproducible stress measurements.
+
+### Progress evidence aggregation
+
+Command-evidence reporting now counts outcomes in one pass and materializes only the latest command receipt. It no longer builds full intermediate command/failure arrays or filters those arrays again. Failed tool invocations with an apparent zero exit remain failures; unknown exits, timeouts, cancellations and edits after the latest command retain their existing classifications. Counters summarize observed receipts and do not certify that task requirements were tested.
+
+A synthetic 50,000-event audit measured median evidence aggregation at 6.6 ms before and 2.9 ms after (about 2.3× faster). This is summary overhead, not total model/run latency. The benchmark checks 800 evidence/display-summary comparisons. Reproduce from the repository root:
+
+```sh
+git show 6c304d6:codingagentlib/javascript/loop.js > /tmp/loop-baseline.cjs
+node --expose-gc scripts/benchmark-agent-evidence.cjs /tmp/loop-baseline.cjs
+```
+
+### Demand-driven receipt formatting
+
+The browser activity log now defers action/observation JSON formatting as well as receipt DOM rendering. Collapsed receipts retain a per-row formatter; opening a receipt or searching/filtering its full payload formats that text once and reuses it. Normal unfiltered log updates do not format hidden payloads. Full audit data, exact text search, failed-receipt classification and transcript exports retain their existing paths. This reduces display work without changing the model context or tool execution.
+
+The browser regression loads 100 large receipts and verifies zero receipt-formatting calls on initial display, one after inspecting the first receipt, and exactly 100 after searching all receipts. Repeated inspection/search reuses those results. Text remains literal, including HTML-like source, and the test executes no agent actions. This measures avoided formatting operations rather than end-to-end model latency.

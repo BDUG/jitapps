@@ -137,3 +137,26 @@ Open **Prompt workflows** beside any chat or coding-agent input and expand **Bui
 These modes express instructions to the model; they are not new permission gates. Existing tool permissions, proposal validation and human review remain authoritative. Building, previewing, saving and inserting briefs send no model request, start no agent run, execute no command and change no native document. Coding-agent briefs additionally request current workspace evidence, respect for approval gates and verification after edits. Reuse an app-specific brief in another app only after reviewing its guidance.
 
 The headless helper `SuitePromptLibraryCore.brief(app, fields, isCodingAgent)` returns the same plain-text brief; `fields` contains `goal`, optional `scope`, `constraints`, `acceptance` and a `mode` of `edit`, `review`, `plan` or `explain`.
+
+## Native starting points for every app
+
+**Prompt workflows → Build a structured task brief** now offers three app-specific starting points for all 18 desktop apps: create a native result, improve the current result, or review it before handoff. Use **Use starting point** to fill the goal, scope, constraints and success criteria. Edit these fields for the actual task, choose **Build task brief**, then preview and insert the workflow when ready.
+
+Starting points describe supported native content: for example, mockiX screen/flow graphs, sheetiX formulas, reportiX cited evidence, architeX ports and instances, and editable design/video layers. They are editable instructions for the configured model, not deterministic generators or guarantees about the model's output. Existing proposal validation and review continue to govern document changes. shelliX creation/improvement starting points default to planning instructions; insertion does not change its execution permissions or run a command.
+
+Choosing a starting point leaves the current workflow text and AI composer unchanged. Building changes only the workflow editor; insertion appends to the existing composer and rejects read-only, unavailable or over-length targets. Nothing sends automatically. Native mockiX now includes the reusable workflow library, including browser persistence, JSON import/export and structured briefs. The existing file/virtual-disk routes remain available for workflow transfer.
+
+The relay skill-profile registry includes every desktop app, including mockiX. Restart an already running suite server after upgrading Python files so it recognizes the new registry entry. Integration tests exercise HTTP chat and contract-preserving skill augmentation for every app using a stub upstream provider; they do not call a live paid provider.
+
+### Attachment preparation performance
+
+Reference collection now deduplicates ordinary string/null identity fields with exact nested lookups, without serializing full text or inline-media payloads into JSON keys. Changed content, inline bytes, captions and image detail remain distinct snapshots; duplicate snapshots retain their original order and filename handling. Unusual legacy identity fields use the previous JSON tuple equality. Lookups are private to one collection call, so edits cannot reuse stale results.
+
+Descriptor media positions now use a running counter instead of repeatedly slicing and filtering each preceding attachment. Mixed text/media inputs and sparse arrays retain their original positions and metadata-only descriptors; text payloads and provider media parts remain complete.
+
+Synthetic stress measurements showed reference collection for 60 repeated text/image snapshots falling from about 65 ms to 0.14 ms, and descriptor construction for 3,000 mixed attachments from about 38 ms to 0.51 ms. These are helper timings, not end-to-end inference, network or agent execution improvements. Reproduce and compare 600 mixed operations against the previous implementation from the repository root:
+
+```sh
+git show 6c304d6:shared-ai/multimodal.js > /tmp/multimodal-baseline.cjs
+node --expose-gc scripts/benchmark-agent-attachments.cjs /tmp/multimodal-baseline.cjs
+```

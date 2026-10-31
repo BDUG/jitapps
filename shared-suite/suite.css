@@ -14,3 +14,12 @@
 #suite-wormhole button,#colabrix-wormhole button,#suite-wormhole input,#colabrix-wormhole input,#colabrix-wormhole select,#wh-history{box-sizing:border-box;max-width:100%;padding:8px 10px;border:1px solid #d9dde1;border-radius:7px;font:inherit;background:white;color:inherit}
 #suite-wormhole label,#colabrix-wormhole label{display:block;margin:12px 0}#suite-wormhole p,#colabrix-wormhole p{overflow-wrap:anywhere}#wh-history,#cw-role,#cw-code-input{display:block;width:100%}#wh-code,#cw-code{display:block;font-weight:700;overflow-wrap:anywhere}#suite-wormhole h2,#colabrix-wormhole h2{margin:0}#suite-wormhole button,#colabrix-wormhole button{cursor:pointer}#suite-wormhole :focus-visible,#colabrix-wormhole :focus-visible{outline:2px solid #3f6f98;outline-offset:2px}
 .desktop-header-links{flex-wrap:wrap;justify-content:flex-end;gap:12px}
+
+/* Shared browser controls: stable row geometry and readable narrow layouts. */
+#suite-disk-dialog #sd-search{flex:1 1 220px;min-width:0;max-width:100%}
+#suite-disk-dialog #sd-sort{flex:0 1 190px;min-width:0}
+#suite-disk-dialog .sd-keyboard-help{font-size:11px;color:#626a73;margin:0 0 10px}
+#suite-disk-dialog .sd-row{border-left:3px solid transparent}
+#suite-disk-dialog .sd-row.sd-selected{background:#f9eef1;border-left-color:#8b1e3f}
+@media(max-width:600px){#suite-disk-dialog .sd-row{flex-wrap:wrap}#suite-disk-dialog .sd-detail{flex-basis:100%;margin-left:25px;white-space:normal;overflow-wrap:anywhere}#suite-disk-dialog .sd-keyboard-help{line-height:1.6}}
+@media(max-width:600px){#suite-disk-dialog #sd-import-controls>label{min-width:0;max-width:100%;flex-wrap:wrap}#suite-disk-dialog #sd-import-controls select{min-width:0;max-width:100%;flex:1 1 180px}}

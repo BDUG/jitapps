@@ -71,4 +71,13 @@ class SettingsTest(unittest.TestCase):
         old=self.review(port=9001);self.review(port=9002)
         with self.assertRaisesRegex(ValueError,'expired'):self.apply(old)
 
+    def test_all_commands_can_be_reviewed_applied_and_disabled(self):
+        reviewed=self.review(agent_allow_command=['*']);self.apply(reviewed)
+        self.assertIn('*',self.server.agent_runtime.allowed)
+        reviewed=self.review(agent_no_commands=True);self.apply(reviewed)
+        self.assertEqual(self.server.agent_runtime.allowed,{})
+        reviewed=self.review(agent_no_commands=False,agent_allow_command=[sys.executable]);self.apply(reviewed)
+        self.assertNotIn('*',self.server.agent_runtime.allowed)
+        self.assertIn(sys.executable,self.server.agent_runtime.allowed)
+
 if __name__=='__main__':unittest.main()

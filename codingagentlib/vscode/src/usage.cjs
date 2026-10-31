@@ -1,0 +1,7 @@
+'use strict';
+const fields=['inputTokens','outputTokens','totalTokens','cachedInputTokens','reasoningTokens'];
+const count=n=>Number.isSafeInteger(n)&&n>=0?n:null;
+function normalize(raw){if(!raw||typeof raw!=='object')return null;const inputTokens=count(raw.prompt_tokens)??count(raw.input_tokens),outputTokens=count(raw.completion_tokens)??count(raw.output_tokens),reportedTotal=count(raw.total_tokens),sum=inputTokens!==null&&outputTokens!==null?count(inputTokens+outputTokens):null;const usage={inputTokens,outputTokens,totalTokens:reportedTotal??sum,cachedInputTokens:count(raw.prompt_tokens_details?.cached_tokens)??count(raw.input_tokens_details?.cached_tokens),reasoningTokens:count(raw.completion_tokens_details?.reasoning_tokens)??count(raw.output_tokens_details?.reasoning_tokens),totalDerived:reportedTotal===null&&sum!==null};return fields.some(f=>usage[f]!==null)?usage:null;}
+function empty(){return {calls:0,failures:0,retries:0,elapsedMs:0,fields:Object.fromEntries(fields.map(f=>[f,{tokens:0,reports:0}]))};}
+function record(previous,event){const next=JSON.parse(JSON.stringify(previous));next.calls++;if(event.attempt>1)next.retries++;if(event.ok===false)next.failures++;const elapsed=count(event.durationMs);if(elapsed!==null)next.elapsedMs=next.elapsedMs===null?null:count(next.elapsedMs+elapsed);for(const key of fields){const value=count(event.usage?.[key]);if(value===null)continue;const row=next.fields[key];row.reports++;row.tokens=row.tokens===null?null:count(row.tokens+value);}return next;}
+module.exports={normalize,empty,record};

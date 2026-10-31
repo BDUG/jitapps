@@ -62,3 +62,10 @@
 #sai-pending{display:flex;align-items:center;gap:10px;padding:9px 11px;margin:0 0 9px;background:#f5effb;border:1px solid #e1d2ee;border-radius:8px;font:11px/1.5 system-ui;max-height:100px;overflow:auto}#sai-pending[hidden]{display:none}#sai-pending span{flex:1;min-width:0;overflow-wrap:anywhere}#sai-pending button{flex-shrink:0}
 #sai-comparison{margin:14px 0}#sai-comparison>details{border:1px solid #e3d9ed;border-radius:8px;margin:8px 0;padding:10px}#sai-comparison summary{cursor:pointer;font-weight:600;color:#645074}.sai-compare-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.sai-compare-columns>div{min-width:0}.sai-compare-columns h4{margin:12px 0 6px;font-size:12px}.sai-compare-columns pre{margin:0;max-height:300px}.sai-review-actions{display:flex;flex-wrap:wrap;gap:8px;position:sticky;bottom:-24px;padding:12px 0;background:#fff;border-top:1px solid #e7dfef}
 @media(max-width:600px){.sai-compare-columns{grid-template-columns:minmax(0,1fr)}.sai-review-actions{bottom:-16px}#sai-pending{flex-wrap:wrap}}
+
+/* Keep reference controls usable without letting long filenames widen the panel. */
+.sai-file-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:6px 0;border-bottom:1px solid #ece3f3}
+.sai-file-row:last-child{border-bottom:0}
+.sai-file-label{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+.sai-file-row img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
+.sai-file-row button{margin-left:auto}

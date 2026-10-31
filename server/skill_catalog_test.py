@@ -15,6 +15,18 @@ class CatalogTests(unittest.TestCase):
         for app in APPS:
             profile=self.catalog.profile(app);self.assertGreaterEqual(len(profile['selected']),4)
             context=self.catalog.context(app,'Improve this document');self.assertTrue(context['skills']);self.assertTrue(all(x['kind']=='skill' for x in context['skills']))
+    def test_every_desktop_app_has_a_relay_profile(self):
+        import re
+        source=(Path(__file__).resolve().parent.parent/'shared-suite/apps.js').read_text()
+        apps=re.findall(r"[\"']?id[\"']?\s*:\s*[\"']([^\"']+)[\"']",source)
+        self.assertEqual(len(apps),18)
+        for app in apps:
+            with self.subTest(app=app):
+                self.assertIn(app,APPS)
+                context=self.catalog.context(app,'Create native editable work')
+                self.assertTrue(context['skills'])
+                self.assertEqual(context['app'],app)
+
     def test_shellix_relay_and_profile(self):
         messages=[{'role':'system','content':'shell response schema'},{'role':'user','content':json.dumps({'goal':'inspect sh commands'})}]
         updated,context=augment(self.catalog,{'app':'shelliX'},messages)

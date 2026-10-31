@@ -6,6 +6,7 @@ import hashlib
 import heapq
 import json
 import math
+from operator import mul
 from pathlib import Path
 import re
 import sqlite3
@@ -104,17 +105,42 @@ class Memory:
             remaining=db.execute('SELECT COUNT(*) FROM chunks c LEFT JOIN semantic_vectors s ON c.session=s.session AND c.document=s.document AND c.part=s.part AND s.model=? WHERE c.session=? AND s.model IS NULL',(self.semantic.model,session)).fetchone()[0]
         return {'model':self.semantic.model,'processed':len(rows),'remaining':remaining,'done':remaining==0}
     def semantic_search(self,session,query,limit,collection,cursor):
-        progress=self.reindex(session,limit=32);v=self.semantic.embed(query);sql='SELECT c.*,s.embedding AS learned_embedding FROM chunks c JOIN semantic_vectors s ON c.session=s.session AND c.document=s.document AND c.part=s.part WHERE c.session=? AND s.model=?';args=[session,self.semantic.model]
-        if collection:sql+=' AND c.collection=?';args.append(collection)
-        ranked=[]
+        progress=self.reindex(session,limit=32)
+        weights=self.semantic.embed(query)
+        sql=('SELECT c.document,c.part,s.embedding AS learned_embedding FROM chunks c '
+             'JOIN semantic_vectors s ON c.session=s.session AND c.document=s.document '
+             'AND c.part=s.part WHERE c.session=? AND s.model=?')
+        args=[session,self.semantic.model]
+        if collection:
+            sql+=' AND c.collection=?'
+            args.append(collection)
         with closing(self.connect()) as db:
-            for row in db.execute(sql,args):
-                values=array('f');values.frombytes(row['learned_embedding'])
-                if len(values)!=len(v):raise ValueError('Stored embedding dimensions do not match the configured model')
-                score=sum(a*b for a,b in zip(v,values));ranked.append((score,dict(row)))
-        ranked.sort(key=lambda r:(-r[0],r[1]['document'],r[1]['part']));results=[]
-        for score,row in ranked[cursor:cursor+limit]:results.append({'id':row['document'],'part':row['part'],'score':round(score,6),'collection':row['collection'],'source':row['source'],'text':row['content'],'metadata':json.loads(row['metadata']),'updatedAt':row['updated']})
-        return {'model':self.semantic.model,'dimensions':self.semantic.dimensions,'semantic':True,'matches':results,'matchedChunks':len(ranked),'nextCursor':cursor+len(results),'done':cursor+len(results)>=len(ranked),'indexing':progress,'note':'Learned local sentence embeddings; scores are cosine similarities, not confidence. Only vectors for this exact model are compared. Reindex remaining legacy chunks for full coverage.'}
+            # Scores and selected source records must describe the same database snapshot.
+            db.execute('BEGIN')
+            total=0
+            def candidates():
+                nonlocal total
+                for row in db.execute(sql,args):
+                    values=array('f')
+                    values.frombytes(row['learned_embedding'])
+                    if len(values)!=len(weights):
+                        raise ValueError('Stored embedding dimensions do not match the configured model')
+                    score=sum(map(mul,weights,values))
+                    total+=1
+                    yield (-score,row['document'],row['part'])
+            ranked=heapq.nsmallest(cursor+limit,candidates())
+            results=[]
+            for negative_score,document,part in ranked[cursor:cursor+limit]:
+                row=db.execute('SELECT * FROM chunks WHERE session=? AND document=? AND part=?',
+                               (session,document,part)).fetchone()
+                results.append({'id':document,'part':part,'score':round(-negative_score,6),
+                                'collection':row['collection'],'source':row['source'],
+                                'text':row['content'],'metadata':json.loads(row['metadata']),
+                                'updatedAt':row['updated']})
+        return {'model':self.semantic.model,'dimensions':self.semantic.dimensions,'semantic':True,
+                'matches':results,'matchedChunks':total,'nextCursor':cursor+len(results),
+                'done':cursor+len(results)>=total,'indexing':progress,
+                'note':'Learned local sentence embeddings; scores are cosine similarities, not confidence. Only vectors for this exact model are compared. Reindex remaining legacy chunks for full coverage.'}
     def list(self,session,cursor=0,limit=30):
         cursor=int(cursor);limit=int(limit)
         if cursor<0 or not 1<=limit<=100:raise ValueError('Invalid memory page')

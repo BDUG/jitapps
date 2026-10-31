@@ -90,3 +90,17 @@ intact. Cells outside the destination rectangle are retained, and empty source
 cells clear their destination. Invalid destination bounds or shifted references
 reject the whole operation. Undo/Redo restores previous cells. The Workspace
 transpose action offers an explicit native review preview.
+
+## Workbook templates and layout catalogue
+
+Open **Templates & layouts** from the shared app toolbar, or **Workspace → Templates**. Eight native workbook templates are included: Budget planner (with a linked Summary sheet), Expense log, Invoice worksheet, Project tracker, Sales summary, Inventory planner, Weighted gradebook and Decision comparison. Amounts, dates, tax rates, labels and scores are editable illustrative examples. Formulas use supported sheetiX functions and remain editable.
+
+- **Preview replace** prepares a replacement workbook. **Preview extend** appends the template's worksheets to the current workbook, preserving the existing workbook name and data. Colliding sheet names receive unique suffixes; references between appended worksheets are rewritten to those new names. Formula string literals and existing workbook references remain unchanged. Extensions exceeding 20 total sheets are rejected.
+- **Save editable copy** adds a native workbook to the saved template list. Choose **Edit template content**, apply its preview, edit cells/formulas/sheets in the native editor, then use **Update selected template with current content**. **Save current as new template** creates a separate variant. Saved templates can also be appended using **Preview extend template**.
+- Built-ins remain available unchanged. Saved variants support metadata editing, native template JSON import/export and deletion.
+
+Professional table, Financial table and High-contrast table layouts format the existing populated cells. The first populated row receives header colors; alternating body rows receive banding, and formula cells use the formula accent color. Values, formulas, sheet dimensions and existing number formats are preserved. This is cell styling, not merged cells, column-width or print-page layout.
+
+Select **Edit layout** to customize colors. Save a new variant or update a selected saved layout, then preview it on the current workbook before applying. Export/import `suite-office-layout/v1` JSON to transfer variants; textiX layout files are rejected. Import fills the layout editor without changing the workbook. Saved templates and layouts persist on this browser origin; export important variants for backup. Reviewed document changes retain the existing recovery workflow.
+
+The catalogue separates **Built-in templates**, **Layouts** and **My templates** into keyboard-accessible tabs. Arrow keys switch between them; search counts and empty states reflect the active built-in/layout view. **Duplicate saved template** creates an independent stored copy without replacing the open document. Existing Workspace → Templates navigation opens the saved-template view.

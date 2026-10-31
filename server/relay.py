@@ -120,7 +120,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/api/health':
             profile = self.server.store.active() if hasattr(self.server, 'store') else {}
-            self.send_json(200, {'service':'architex','chatRelay':True,'protocolVersion':2,'multimodalVersion':1,'providerDiagnosticsVersion':1,'providerConfigured':bool(profile.get('apiKey')) or profile.get('provider')=='litellm'})
+            self.send_json(200, {'service':'architex','chatRelay':True,'protocolVersion':2,'multimodalVersion':1,'agentHandoff':self.server.store.handoff() if hasattr(self.server,'store') else {},'agentCollaboration':self.server.store.collaboration() if hasattr(self.server,'store') else {'mode':'off'},'providerDiagnosticsVersion':1,'providerConfigured':bool(profile.get('apiKey')) or profile.get('provider')=='litellm'})
         elif self.path.startswith('/api/admin/'):
             if not self.local_admin() or self.headers.get('X-Architex-Admin')!='1':
                 self.send_json(403,{'error':'Provider administration is available only from the relay UI on its own local origin'})
@@ -172,9 +172,11 @@ class Handler(SimpleHTTPRequestHandler):
                 profile=self.server.store.active()
                 messages=[{'role':'user','content':'Reply with OK.'}]
             else:
-                if not isinstance(data,dict) or not {'messages'}<=set(data) or set(data)-{'messages','app','modalities','trace'}: raise ValueError('Send messages and an optional app ID; provider configuration belongs to the relay')
+                if not isinstance(data,dict) or not {'messages'}<=set(data) or set(data)-{'messages','app','modalities','trace','profileId','profileRevision'}: raise ValueError('Send messages and an optional app ID; provider configuration belongs to the relay')
                 if 'trace' in data and not isinstance(data['trace'],bool):raise ValueError('trace must be boolean')
-                profile=self.server.store.active()
+                if 'profileId' in data and (not isinstance(data['profileId'],str) or not data['profileId']):raise ValueError('Invalid provider profile ID')
+                profile=self.server.store.active(data.get('profileId'))
+                if 'profileRevision' in data and data['profileRevision']!=relay_config.profile_identity(profile):raise ValueError('Saved model profile changed. Reload policy or start a new session.')
                 messages=data['messages']
                 if hasattr(self.server,'skill_catalog'):
                     from server.skill_api import augment

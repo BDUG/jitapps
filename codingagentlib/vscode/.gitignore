@@ -2,3 +2,5 @@ node_modules/
 bin/*
 !bin/.gitkeep
 *.vsix
+
+src/handoff.cjs

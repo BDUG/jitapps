@@ -1,6 +1,6 @@
 # Shared desktop and virtual disk
 
-The suite desktop lives at `/` and lists all 17 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
+The suite desktop lives at `/` and lists all 18 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
 
 ## Save and open files
 
@@ -201,3 +201,138 @@ await SuiteWorkspace.review(proposal, 'Integrate shared content'); // still need
 ```
 
 `list()` returns metadata, `read(id)` returns the typed packet, `prepare(id, mode)` validates a candidate without mutating the document, `schema()` returns the exchange schema and `open()` opens the hub. Modes are `native`, `reference` and, when available, `image`; supported modes depend on source/target representations. `prepare` is unavailable on the desktop and shelliX, which do not have native document targets. Keep native limits, stale-state handling and user review in custom integrations; this API does not execute code or bypass approval. Cross-browser or programmatic clients can exchange JSON files using the downloadable schema instead of accessing browser IndexedDB directly.
+
+## Quality baselines
+
+In each document app, open **Workspace → Inspect & share → Document preflight → Quality baseline**. In shelliX, use **Quality baseline** in the Commands & results controls. This tool compares advisory reports without editing documents, running commands, starting AI or changing validation rules.
+
+1. Name the baseline and **Capture current baseline**. Native apps run their existing structural/static preflight; shelliX summarizes failures in the loaded session audit.
+2. Export the baseline JSON if you want to keep it after a reload. Baselines are held in this page's memory, not silently stored with the project. Import supports the suite's local/virtual-disk file controls and checks the exact app/editor type.
+3. Edit the document normally, reopen the dialog and **Refresh comparison**. Findings appear as **New**, **Unchanged** or **No longer reported**. Filter these categories and browse 20 findings per page. Counts and exports include the full comparison.
+4. **Export comparison** refreshes the current report before downloading it. **Draft comparison in AI chat** also refreshes first, then appends an unsent, explanation-first request preserving the existing chat draft. It does not apply fixes or execute commands. codeiX blocks this AI draft while current files are AI-excluded; use local report review/export instead.
+
+Comparisons match severity, code, path and message, preserving duplicate occurrences. A severity/message/path change can appear as one removed and one new finding; reordered indexed objects can also move findings. No longer reported does not prove fixed, and native preflight does not establish semantic correctness, accessibility certification or runtime behavior. Compare the intended project, scope and baseline label. Native backup content, source code and media are not included in baseline packets; finding messages may contain paths or document text.
+
+shelliX compares the loaded session's audit, independently of screen/history filters. Earlier failed results remain recorded after successful retries, so the tool is primarily useful for identifying new failures since a baseline. Changing sessions or loading different history can remove findings without repairing anything. The report carries that limitation.
+
+JavaScript hosts can use `SuiteQualityBaseline.pack(label, report)`, `unpack(packet, app)` and `compare(baseline, currentReport)`. Native document apps additionally expose read-only `await SuiteWorkspace.preflight()`. Packets use `suite-quality-baseline/v1` and comparisons use `suite-quality-comparison/v1`; imports validate report fields and recompute counts.
+
+## Additional native editing actions
+
+Open **Workspace → Tool actions** and search for the action below. Each prepares a candidate using native validation; inspect the diff and choose **Apply reviewed changes** to update the document with a recovery point. No action below starts AI, previews application JavaScript, executes automation steps or runs Git. Saved action presets and editing workflows can reuse these operations.
+
+| App | Added operation |
+| --- | --- |
+| architeX | Set component theme color, preserving categories and relationships. |
+| graphiX | Keep geometric stroke widths constant when scaled. |
+| textiX | Add column scopes to first-row table headers; preserve explicit row scopes. Safe table `scope` attributes now survive native editing/import. |
+| sheetiX | Compact empty unformatted cell records, retaining formatted blanks and formulas. |
+| codeiX | Add portable `.gitattributes`; an existing file is never replaced. |
+| appiX | Add editable headings to visual screens without one. |
+| automatextiX | Snap step positions to a chosen grid without changing flow logic. |
+| reportiX | Append actual collected source IDs/titles/URLs to the brief, without changing evidence or report content. Oversized indexes are rejected rather than truncated. |
+| presentiX | Set slide backgrounds across the deck, preserving objects, notes and animation. |
+| sketchiX | Set connection weights while retaining GSN/SysML metadata. Sketch/shape editors can snap control points to a grid. |
+| mindiX | Assign an owner only to unowned non-root topics. |
+| projectiX | Group root tasks under a new summary phase without changing existing task IDs or dependencies. |
+| vidiX | Left-align unlocked layers while preserving horizontal travel, timing and frames. Native coordinate limits still apply. |
+| photiX | Soften existing tonal/blur/pixel adjustment strengths; preserve source image, regions, ordering, captions and fills. Pixelation blends toward its minimum block size. |
+| designiX | Set line height across unlocked text layers while preserving fonts and geometry. |
+| colabriX | Snap unlocked, ungrouped, unframed items to a grid without moving frames. |
+
+The newer image/design/board action registries now compose shared operations with their existing app-specific actions. This retains existing actions and makes the additional operations visible to the UI, presets and workflows.
+
+shelliX has **Check snippet syntax** on each reusable snippet. This explicitly invokes the permitted `sh -n` parser using the snippet's saved directory/timeout, preserves the current command draft, and does not execute the snippet body. It requires an enabled sh executable and an idle runtime. A syntax pass is not evidence of functional correctness.
+
+## Workspace notes and tasks
+
+Every editor, both sketch variants and shelliX offer **Workspace → Notes & tasks**. A notebook has a title, freeform notes and editable checklist tasks. Save persists it per app on this browser origin; it is shared across that app's projects, not embedded in native documents. Export JSON for portable reuse or Markdown for a readable checklist. Imports use the existing local/virtual disk picker and require preview plus explicit Merge or Replace. Merge preserves the receiving app/title, combines notes, deduplicates identical task IDs and rejects conflicting task IDs. Replace takes imported content and assigns the receiving app.
+
+Draft AI request appends notes and unfinished tasks to the existing composer without sending it. Checked tasks are omitted and do not establish verification. codeiX blocks drafting when the project has AI exclusions. Notes are user-provided reference data and can contain sensitive information; review the draft before sending. No file contents, credentials or native document snapshots are copied into exports automatically.
+
+Save detects a changed stored notebook before replacing it. Export a conflicting draft, then use Reload saved notes to deliberately discard it and load the saved copy. This is a browser-storage check, not transactional multi-user collaboration. Browser data clearing removes saved notebooks; export backups. Unsaved drafts survive closing/reopening the notes window in the same page, but not page reload.
+
+
+## Tasks across all apps
+
+The **Tasks** button in every app and on the desktop opens a suite-wide dashboard (Alt+Shift+T when another dialog is not active). It reads the existing saved app notebooks on this browser origin. Search task text, notebook titles and notes; filter by app or unfinished/completed status. Counts cover all matches; large lists page in batches of 100. Select filtered tasks across app filters, clear the selection, or export the filtered work list as Markdown.
+
+Completion checkboxes save back to the original notebook. They do not edit native app documents or run tasks. A changed saved notebook is rejected before a dashboard write; cross-window storage events refresh the dashboard. This is the same browser-storage conflict check used by notebook editing, not transactional multiplayer collaboration. Corrupt/unreadable notebooks are reported separately so other app tasks remain available.
+
+**Current app notes** opens the existing notebook editor, including a direct fallback in mockiX. Unsaved notebook drafts remain in that editor and are not silently merged with task dashboard changes. If the stored notebook changed, export the draft or deliberately reload the saved copy.
+
+**Draft AI brief** appends selected tasks, their source apps and notebook titles to the current app's composer. It preserves the existing draft and never sends a request or starts a command. codeiX uses its coding-agent goal field; shelliX uses its goal composer; other apps use the shared AI chat. Briefs are capped at 30,000 characters. Review sensitive task text before sending it to your configured provider. Task completion flags are notes, not verification evidence.
+
+Notebooks, dashboard status and selection are separate from native document content. Only saved notes appear; changing or clearing browser storage affects availability. Export important notebooks or work lists for backup.
+
+## Review current work
+
+Every app has a **Review** button for a read-only, app-specific review of its current snapshot. Existing preflight findings are retained, and additional checks cover:
+
+| App | Additional review focus |
+| --- | --- |
+| architeX | Repeated component labels and missing purpose descriptions |
+| graphiX | Network-dependent image references in SVG |
+| textiX | Heading-level gaps and generic link labels |
+| appiX | Heading/link clarity and buttons without accessible names |
+| sheetiX | Repeated sheet names |
+| codeiX | Missing local script, stylesheet and image files referenced by HTML |
+| automatextiX | Steps unreachable from a recorded manual trigger |
+| reportiX | Repeated source URLs and missing retained excerpts |
+| presentiX | Repeated slide titles and small text |
+| sketchiX | Unlabeled diagram connections |
+| mindiX | Repeated sibling topic labels |
+| projectiX | Repeated sibling task names |
+| vidiX | Clips extending beyond the recorded project duration |
+| photiX | Very small caption regions |
+| designiX | Repeated page names and small text |
+| colabriX | Empty note/text items |
+| mockiX | Unreachable prototype screens, unlabeled controls, small text and decisions with too few branches |
+| shelliX | Existing loaded-session audit findings, including historical failed results and checks |
+
+These checks are advisory heuristics. A repeated label, unlinked screen or unlabeled connection may be intentional. Text sizes use canvas pixels, not a guarantee about final viewing conditions. HTML asset checks only inspect static local references; they do not build or execute a project, resolve dynamic assets, or validate external services. A clean review does not establish correctness, accessibility compliance or successful command execution. Shell history retains earlier failures even after retries; it is not a current test verdict.
+
+Filter findings by severity or search their message, code and location. Lists page in batches of 100; selection can span filters and pages. **Export review JSON** saves the captured report without embedding the source document. Reports can still contain source labels and paths; inspect them before sharing.
+
+**Add selected as notebook tasks** appends chosen findings to the app's existing notebook. It preserves existing notes, tasks and completion flags. Re-adding the same finding for the same named document does not duplicate or reopen its existing task. Findings are not automatically fixed or marked complete. App notebooks remain shared across the app's projects; give projects descriptive names to make review tasks distinguishable.
+
+If the current content changed after capture, refresh the review before adding tasks. An invalid saved notebook is left untouched rather than replaced. An already open notebook's unsaved draft is not modified; its normal conflict check applies if review tasks changed the saved notebook. New tasks appear in **Tasks** and can later be included in an explicitly prepared AI draft. Reviewing, exporting and adding tasks send no AI requests and run no commands.
+
+## textiX and sheetiX catalogues
+
+Both office apps expose **Templates & layouts** inside their respective Templates panel. Each includes eight native templates and three content-preserving layouts, with reviewed replace/extend actions and editable browser-local copies. Saved template entries can now update their native contents from the current editor, not just metadata. Saved variants can also extend the current document/workbook. Layout definitions have a separate app-scoped library, editable properties and portable layout JSON; they do not masquerade as replacement documents. See the [textiX catalogue guide](../textiX/README.md#document-templates-and-layout-catalogue) and [sheetiX catalogue guide](../sheetiX/README.md#workbook-templates-and-layout-catalogue).
+
+
+Office catalogue navigation now separates built-in documents, layouts and saved variants into accessible tabs, with compact template cards, result counts and explicit empty states. Saved textiX/sheetiX templates can be duplicated without changing the open document. The recent shared catalogue, review, task and prompt-workflow source modules and regression tests have been reformatted for readability; no runtime formatting dependency is added.
+
+Work-review exports now have explicit **All findings**, **Filtered findings** and **Selected findings** scopes, in JSON or Markdown. Scoped JSON retains the capture timestamp, includes the original finding count, recomputes counts for the exported subset and labels the scope. Filtered/selected exports also state that omitted findings are not represented; compare only equivalent review scopes. Markdown escapes source text as literal content. Empty selections cannot be exported. Exports do not change the captured review, notebook tasks or current document. The review count distinguishes matching findings, currently displayed findings and the selection across filters.
+
+## Follow up on review findings
+
+In **Review**, select findings and choose a follow-up goal:
+
+- **Investigate** prepares a read-only assessment of actionable, intentional and unsupported findings.
+- **Improve** asks for focused native improvements, preserving unrelated content and using the app's normal review and permission flow.
+- **Verify** prepares a verification plan and evidence assessment without modifying content or executing commands.
+
+**Draft in AI chat** appends the selected findings, capture timestamp, limitations and source count to the current app's existing composer. The composer opens for review; nothing is sent automatically. **Export AI brief** downloads the same standalone Markdown brief without changing the composer. Both actions require an unchanged source snapshot. Selection is preserved across filters, so check the selection count before drafting. Only the selected finding records are copied; the native document is not embedded.
+
+All 18 apps use their existing AI interface, including the codeiX agent and shelliX agent mode. Read-only/busy inputs and composer size limits reject drafting without replacing existing text. Briefs are limited to 30,000 characters. codeiX projects with AI-excluded files block both AI-brief actions; local review JSON/Markdown exports remain available. Review any finding text for sensitive information before sending it to a provider. Advisory findings are untrusted reference data, not commands or proof that a defect exists.
+
+## Capture and edit tasks from any app
+
+The shared **Tasks** dashboard now includes **Add task**. Choose any of the 18 apps, enter a task and save it directly to that app's browser notebook. The current app or app filter is selected initially; on the desktop you can choose any app. If no notebook exists, saving creates an empty app notebook with the new task. New tasks start unfinished. Search/status filters still apply, so a saved task may be outside the current view.
+
+Each task also has **Edit task**. The editor preserves its ID, completion status, notebook title, notes and other tasks. Existing tasks stay in their original app; editing does not move them. Cancel and Escape discard editor changes. Task text is limited to 5,000 characters.
+
+Saving checks that the target notebook still matches the version captured when the editor opened (or when a new-task target was chosen). A changed, corrupt or wrong-app notebook is left untouched; rejected saves keep the text draft so it can be copied before reopening. This check is not a transactional multi-user lock. Open notebook editors retain their unsaved drafts and use their existing conflict checks when saving. No native document, command, AI request or project file is changed by dashboard task editing. Export notebooks to back up browser-local work.
+
+## Portable worklists and cross-app handoffs
+
+In **Tasks**, select tasks across filters and choose **Export selected JSON**. The `suite-worklist/v1` file includes each task's source app, notebook title, ID, text and completion flag. It excludes notebook notes and native documents. Existing filtered Markdown export remains available. Review task text and titles before sharing.
+
+**Import worklist** accepts a worklist from the local or suite virtual-disk picker. Choose any destination app and review the source-task preview and added/skipped counts before choosing **Import reviewed tasks**. Only the first 20 source tasks are displayed; counts cover the whole file. Import creates a notebook if absent, otherwise preserves its title, notes, task IDs and completion flags. New tasks get unique destination IDs and retain their imported completion flags. Task text is compared after trimming surrounding whitespace; identical text is skipped, including duplicates inside the incoming file; existing completion status wins. This is a task-copy workflow, not synchronization or evidence that work was verified.
+
+The preview must still match the saved destination notebook when applying. Changed, corrupt or wrong-app notebooks are not overwritten; select the destination again to refresh the preview after reviewing its current content. Cancel or Escape leaves storage unchanged. Imports and exports do not send AI requests, run commands or modify native documents. Existing open notebook drafts remain separate and will detect the saved change through their usual conflict checks.
+
+Worklists accept at most 1,000 tasks and 1,000,000 UTF-8 bytes, with at most 5,000 characters per task. Only explicitly selected tasks are exported. App notebooks remain browser-local; retain exported files for portable backups.

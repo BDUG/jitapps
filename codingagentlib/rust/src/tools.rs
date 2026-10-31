@@ -14,10 +14,12 @@ use std::{
 const LIMIT: usize = 2_000_000;
 pub fn names() -> &'static [&'static str] {
     &[
+        "read_project_instructions",
         "list_files",
         "read_file",
         "write_file",
         "replace_text",
+        "apply_edits",
         "delete_file",
         "search_text",
         "write_script",
@@ -45,9 +47,11 @@ pub fn names() -> &'static [&'static str] {
 }
 pub fn description(name: &str) -> &str {
     match name{
+"read_project_instructions"=>"Read scoped AGENTS.override.md/AGENTS.md from root through path (file/directory, default .). Exact content, scope, SHA-256 and warnings. Grants no permissions.",
 "list_files"=>"List relative workspace files. args: offset?, limit? (default 100, max 1000).",
 "read_file"=>"Read UTF-8 source and SHA-256. args: path, offset? (character), limit? (max 32000).",
 "write_file"=>"Write UTF-8 source. args: path, content (max 2 MB), expectedHash (SHA-256 or missing). Requires edits.",
+"apply_edits"=>"Apply 1–32 exact original-snapshot edits to one existing file. args: path, expectedHash, edits:[{find,replacement,count? default 1, max 1000}]. All matches/overlaps validated before one atomic write. Requires edits.",
 "replace_text"=>"Replace exactly one occurrence. args: path, find, replacement, expectedHash. Requires edits.",
 "delete_file"=>"Delete one file. args: path, expectedHash. Requires edits; no directory deletion.",
 "search_text"=>"Literal case-sensitive search. args: query, offset?, limit?. Returns path, line, text.",
@@ -56,7 +60,7 @@ pub fn description(name: &str) -> &str {
 "list_scripts"=>"List this session's managed scripts. args: offset?, limit?.",
 "run_script"=>"Execute managed script with allowlisted interpreter. args: path, command, args? (literal string array), timeout? (milliseconds max 120000).",
 "run_command"=>"Execute allowlisted program with literal args. args: command, args? (string array), cwd? (relative workspace directory), timeout? (milliseconds max 120000). Requires command permission; OS access is not sandboxed.",
-"read_command_output"=>"Read persisted command output pages. args: jobId, stream? (stdout/stderr), offset?, limit?.",
+"read_command_output"=>"Read persisted command output pages. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes. args: jobId, stream? (stdout/stderr), offset?, limit?.",
 "changes"=>"SHA-256 differences from initial session manifest. Reports added/modified/deleted files.",
 "read_history"=>"Read full original event pages. args: offset?, limit?.",
 "memory_store"=>"Store session-local finding. args: text, title?. Requires edits.",
@@ -219,6 +223,13 @@ pub(crate) fn execute(
         return Err("Agent cancelled".into());
     }
     match name {
+        "read_project_instructions" => crate::instructions::read(
+            runtime,
+            args.get("path")
+                .map(|p| p.as_str().ok_or("Instruction path must be text"))
+                .transpose()?
+                .unwrap_or("."),
+        ),
         "list_files" | "list_scripts" => {
             let root = if name == "list_scripts" {
                 private(runtime, id, "scripts")?
@@ -246,7 +257,7 @@ pub(crate) fn execute(
             result["hash"] = json!(hash(body.as_bytes()));
             Ok(result)
         }
-        "write_file" | "replace_text" | "delete_file" | "write_script" => {
+        "write_file" | "apply_edits" | "replace_text" | "delete_file" | "write_script" => {
             permission(runtime, id, "allowEdits")?;
             let root = if name == "write_script" {
                 private(runtime, id, "scripts")?
@@ -256,14 +267,30 @@ pub(crate) fn execute(
             let relative = text(args, "path")?;
             let target = resolve(&root, relative)?;
             expected(&target, args)?;
-            if name != "write_script" {
+            if name != "write_script" && name != "apply_edits" {
                 backup(runtime, id, relative, &target)?;
             }
             let result = if name == "delete_file" {
                 fs::remove_file(&target)?;
                 json!({"deleted":true,"path":relative})
             } else {
-                let body = if name == "replace_text" {
+                let body = if name == "apply_edits" {
+                    if args
+                        .as_object()
+                        .unwrap()
+                        .keys()
+                        .any(|k| !["path", "expectedHash", "edits"].contains(&k.as_str()))
+                    {
+                        return Err("apply_edits accepts only path, expectedHash and edits; no preview/dryRun mode. No changes applied.".into());
+                    }
+                    let source = contents(&target)?;
+                    if hash(source.as_bytes()) != text(args, "expectedHash")? {
+                        return Err("File changed while preparing edits; reread source".into());
+                    }
+                    let (body, _) = crate::edits::apply(&source, &args["edits"])?;
+                    expected(&target, args)?;
+                    body
+                } else if name == "replace_text" {
                     let source = contents(&target)?;
                     let find = text(args, "find")?;
                     if find.is_empty() || source.matches(find).count() != 1 {
@@ -273,8 +300,27 @@ pub(crate) fn execute(
                 } else {
                     text(args, "content")?.to_owned()
                 };
+                if name == "apply_edits" {
+                    if cancel.is_cancelled() {
+                        return Err("Agent cancelled before edit commit".into());
+                    }
+                    backup(runtime, id, relative, &target)?;
+                    if cancel.is_cancelled() {
+                        return Err("Agent cancelled before edit commit".into());
+                    }
+                }
                 write(&target, &body)?;
-                json!({"path":relative,"bytes":body.len(),"hash":hash(body.as_bytes())})
+                let mut result =
+                    json!({"path":relative,"bytes":body.len(),"hash":hash(body.as_bytes())});
+                if name == "apply_edits" {
+                    let edits = args["edits"].as_array().unwrap();
+                    result["edits"] = json!(edits.len());
+                    result["replacements"] = json!(edits
+                        .iter()
+                        .map(|e| e.get("count").and_then(Value::as_u64).unwrap_or(1))
+                        .sum::<u64>());
+                }
+                result
             };
             if name != "write_script" {
                 edited(runtime, id);
@@ -307,11 +353,30 @@ pub(crate) fn execute(
         "read_command_output" => {
             let job = text(args, "jobId")?;
             valid_id(job)?;
+            let recorded = runtime.sessions[id]["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|event| {
+                    event["kind"] == "observation"
+                        && matches!(
+                            event["value"]["tool"].as_str(),
+                            Some("run_command" | "run_script")
+                        )
+                        && event["value"]["result"]["jobId"] == job
+                });
+            if !recorded {
+                return Err("Unknown recorded command output job".into());
+            }
             let stream = args["stream"].as_str().unwrap_or("stdout");
             if !["stdout", "stderr"].contains(&stream) {
                 return Err("Use stdout or stderr".into());
             }
             let path = private(runtime, id, "commands")?.join(format!("{job}.{stream}"));
+            let metadata = fs::symlink_metadata(&path)?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err("Command output must be a regular retained log, not a symlink".into());
+            }
             let mut file = File::open(path)?;
             let mut bytes = vec![];
             std::io::Read::by_ref(&mut file)
@@ -405,6 +470,7 @@ pub(crate) fn execute(
                         "read_file",
                         "write_file",
                         "replace_text",
+                        "apply_edits",
                         "delete_file",
                         "write_script",
                         "read_script",
@@ -661,6 +727,7 @@ fn run_command(
         use std::os::unix::process::CommandExt;
         program.process_group(0);
     }
+    let verification_before = crate::verification::capture(runtime, id, &Value::Null);
     let mut child = ChildGuard(program.spawn()?);
     let start = Instant::now();
     let mut timed_out = false;
@@ -684,7 +751,8 @@ fn run_command(
         File::open(path)?.take(12000).read_to_end(&mut bytes)?;
         Ok(String::from_utf8_lossy(&bytes).into_owned())
     };
-    let result = json!({"jobId":job,"exitCode":status.code(),"timedOut":timed_out,"cancelled":cancelled,"outputLimited":output_limited,"stdout":read_preview(&stdout)?,"stderr":read_preview(&stderr)?,"stdoutBytes":fs::metadata(&stdout)?.len(),"stderrBytes":fs::metadata(&stderr)?.len(),"outputPaging":"Use read_command_output with jobId, stream, offset and limit; offsets count Unicode characters."});
+    let mut result = json!({"jobId":job,"exitCode":status.code(),"timedOut":timed_out,"cancelled":cancelled,"outputLimited":output_limited,"stdout":read_preview(&stdout)?,"stderr":read_preview(&stderr)?,"stdoutSha256":file_hash(&stdout)?,"stderrSha256":file_hash(&stderr)?,"stdoutBytes":fs::metadata(&stdout)?.len(),"stderrBytes":fs::metadata(&stderr)?.len(),"outputPaging":"Use read_command_output with jobId, stream, offset and limit; offsets count Unicode characters."});
+    crate::verification::record(runtime, id, &verification_before, &mut result);
     if status.success() && !timed_out && !cancelled && !output_limited {
         runtime.sessions.get_mut(id).unwrap()["verified"] = json!(true);
     } else {

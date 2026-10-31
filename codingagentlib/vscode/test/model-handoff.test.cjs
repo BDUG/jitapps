@@ -1,0 +1,11 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),{Worker}=require('../src/worker.cjs'),{Controller}=require('../src/controller.cjs'),H=require('../../javascript/handoff.js');
+test('native turn survives durable one-way handoff, persisted resume and unchanged completion gates',async t=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'vscode-handoff-')),worker=new Worker(path.resolve(__dirname,'../bin/codingagent-worker'),root,[process.execPath]);t.after(async()=>{await worker.close();await fs.rm(root,{recursive:true,force:true});});let primary=0,cheap=0,detectors=0,sessionId,finish=false;
+ const policy={mode:'auto',primary:{id:'strong-v1'},continuation:{id:'cheap-v1'}};
+ const model=async(r,role)=>{const step=r.step;let action=null;if(role.id==='strong-v1'){primary++;action=step===1?{tool:'write_file',args:{path:'value.txt',content:'one',expectedHash:'missing'}}:{tool:'run_command',args:{command:process.execPath,args:['-e',"require('node:assert/strict').equal(require('node:fs').readFileSync('value.txt','utf8'),'one')"]}};}else cheap++;
+ return {sessionId:r.sessionId,step,status:action?'act':finish?'done':'ask',plan:'Continue with exact current protocol identifiers',action,question:'Any final adjustments?',summary:'Observed source verified'};};
+ const c=new Controller(worker,(r,signal)=>H.route(r,{policy,signal,model,detect:async probe=>{detectors++;const p=probe.brief.evidence;return {ready:true,reason:'Source exists and was exercised',artifactCallId:p.artifact.callId,feedbackCallId:p.feedback.callId,remainingWork:[{kind:'finalize',task:'Report checked source'}]};},record:value=>worker.dispatch({op:'handoff_event',session:r.sessionId,value})}));
+ assert.equal((await c.run('Implement source',{edits:true,commands:true},6)).status,'waiting');assert.equal(primary,2);assert.equal(cheap,1);assert.equal(detectors,1);sessionId=c.session;finish=true;
+ assert.equal((await c.run('',{},2,true)).status,'complete');assert.equal(primary,2);assert.equal(cheap,2);assert.equal(detectors,1);
+ const saved=await worker.dispatch({op:'session',session:sessionId});assert.equal(saved.events.filter(e=>e.value.status==='model_handoff').length,1);assert.equal(saved.verificationBinding.stable,true);
+});

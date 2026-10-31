@@ -16,7 +16,7 @@ TEMPLATES = {
 }
 def preset(provider):
     name, protocol, endpoint, model = TEMPLATES[provider]
-    return dict(id=provider, provider=provider, name=name, protocol=protocol, endpoint=endpoint, model=model, apiKey='', upstreamProvider='openai', maxTokens=4096, tokenLimitEnabled=True, temperature=0.2)
+    return dict(id=provider, provider=provider, name=name, protocol=protocol, endpoint=endpoint, model=model, apiKey='', upstreamProvider='openai', maxTokens=4096, tokenLimitEnabled=True, temperature=0.2,inputModalities=['text'])
 
 def normalize(data, previous=None):
     if not isinstance(data, dict) or data.get('format') not in {'architex-relay-providers','architex-provider-configs'} or data.get('version') != 1:
@@ -29,6 +29,9 @@ def normalize(data, previous=None):
         if not isinstance(raw,dict) or raw.get('provider') not in TEMPLATES:
             raise ValueError('Unknown provider')
         p = {k: raw.get(k) for k in preset(raw['provider'])}
+        p['inputModalities']=raw.get('inputModalities',['text'])
+        if not isinstance(p['inputModalities'],list) or not p['inputModalities'] or any(not isinstance(m,str) or m not in {'text','image','audio','file'} for m in p['inputModalities']):raise ValueError('Invalid provider input modalities')
+        p['inputModalities']=sorted(set(['text',*p['inputModalities']]))
         p['tokenLimitEnabled']=raw.get('tokenLimitEnabled',True)
         if type(p['tokenLimitEnabled']) is not bool:
             raise ValueError('Token limit enabled must be true or false')
@@ -53,7 +56,20 @@ def normalize(data, previous=None):
     origins=data.get('allowedOrigins',[])
     if not isinstance(origins,list) or len(origins)>30 or any(not isinstance(o,str) for o in origins):
         raise ValueError('Invalid allowed origins')
-    return dict(format='architex-relay-providers',version=1,activeProfileId=data['activeProfileId'],profiles=result,allowedOrigins=origins)
+    handoff=data.get('agentHandoff',{'mode':'shadow','primaryProfileId':'','continuationProfileId':'','detectorProfileId':''})
+    if not isinstance(handoff,dict) or set(handoff)-{'mode','primaryProfileId','continuationProfileId','detectorProfileId'} or handoff.get('mode','shadow') not in {'off','shadow','auto'}:raise ValueError('Invalid agent handoff configuration')
+    handoff={key:handoff.get(key,default) for key,default in [('mode','shadow'),('primaryProfileId',''),('continuationProfileId',''),('detectorProfileId','')]}
+    for key in ('primaryProfileId','continuationProfileId','detectorProfileId'):
+        if not isinstance(handoff[key],str) or handoff[key] and handoff[key] not in ids:raise ValueError('Unknown handoff provider profile')
+    if handoff['continuationProfileId'] and handoff['continuationProfileId']==(handoff['primaryProfileId'] or data['activeProfileId']):raise ValueError('Choose distinct primary and continuation profiles')
+    collaboration=data.get('agentCollaboration',{})
+    if not isinstance(collaboration,dict) or set(collaboration)-{'mode','members','maxConsultations','interval'}:raise ValueError('Invalid agent collaboration configuration')
+    collaboration={'mode':collaboration.get('mode','off'),'members':collaboration.get('members',[]),'maxConsultations':collaboration.get('maxConsultations',2),'interval':collaboration.get('interval',5)}
+    if not isinstance(collaboration['mode'],str) or collaboration['mode'] not in {'off','adaptive','always'} or type(collaboration['maxConsultations']) is not int or not 1<=collaboration['maxConsultations']<=8 or type(collaboration['interval']) is not int or not 1<=collaboration['interval']<=1000:raise ValueError('Invalid collaboration strategy or consultation budget')
+    members=collaboration['members']
+    if not isinstance(members,list) or any(not isinstance(member,dict) or set(member)!={'profileId','role'} or not isinstance(member['profileId'],str) or member['profileId'] not in ids or not isinstance(member['role'],str) or member['role'] not in {'solver','critic'} for member in members):raise ValueError('Choose saved solver or critic profiles')
+    if len({member['profileId'] for member in members})!=len(members):raise ValueError('Duplicate collaboration profile')
+    return dict(format='architex-relay-providers',version=1,activeProfileId=data['activeProfileId'],profiles=result,allowedOrigins=origins,agentHandoff=handoff,agentCollaboration=collaboration)
 
 def endpoint(p):
     value=p['endpoint'].replace('{model}',urllib.parse.quote(p['model'],safe=''))
@@ -183,7 +199,19 @@ def response_content(p,data):
             if isinstance(partial,list):partial='\n'.join(x.get('text','') for x in partial if isinstance(x,dict) and isinstance(x.get('text'),str) and x.get('type')=='text')
         return {'text':'','media':media,'incomplete':True,'partialText':partial if isinstance(partial,str) else '', 'warning':'Provider reached its output limit. Returned media is retained; partial text is not an executable plan or accepted edit.'}
     if not text.strip() and not media:response_text(p,data)
-    return {'text':text,**({'media':media} if media else {})}
+    raw_usage=data.get('usage') if isinstance(data.get('usage'),dict) else data.get('usageMetadata',{})
+    if not isinstance(raw_usage,dict):raw_usage={}
+    usage={}
+    for key,aliases in [('prompt_tokens',('prompt_tokens','input_tokens','promptTokenCount')),('completion_tokens',('completion_tokens','output_tokens','candidatesTokenCount')),('total_tokens',('total_tokens','totalTokenCount'))]:
+        value=next((raw_usage[name] for name in aliases if type(raw_usage.get(name)) is int and raw_usage[name]>=0),None)
+        if value is not None:usage[key]=value
+    return {'text':text,**({'media':media} if media else {}),**({'usage':usage} if usage else {})}
+
+def profile_identity(profile):
+    import hashlib
+    keys=('id','endpoint','model','protocol','inputModalities','temperature','tokenLimitEnabled','maxTokens','upstreamProvider')
+    revision=hashlib.sha256(json.dumps({key:profile.get(key) for key in keys},sort_keys=True).encode()).hexdigest()
+    return profile['id']+'@'+revision
 
 class Store:
     def __init__(self,path):
@@ -196,8 +224,31 @@ class Store:
             for p in result['profiles']:
                 p['hasApiKey']=bool(p.pop('apiKey'))
         return result
-    def active(self):
-        with self.lock: return dict(next(p for p in self.data['profiles'] if p['id']==self.data['activeProfileId']))
+    def active(self,profile_id=None):
+        with self.lock:
+            selected=profile_id if profile_id is not None else self.data['activeProfileId']
+            profile=next((p for p in self.data['profiles'] if p['id']==selected),None)
+            if profile is None:raise ValueError('Unknown provider profile')
+            return dict(profile)
+    def handoff(self):
+        with self.lock:
+            value=self.data.get('agentHandoff',{});roles={}
+            for role,key in [('primary','primaryProfileId'),('continuation','continuationProfileId'),('detector','detectorProfileId')]:
+                identity=value.get(key) or (self.data['activeProfileId'] if role=='primary' else '')
+                profile=next((p for p in self.data['profiles'] if p['id']==identity),None)
+                if profile:
+                    roles[role]={'id':profile_identity(profile),'profileId':profile['id'],'modalities':profile.get('inputModalities',['text'])}
+                else:roles[role]=None
+            return {'mode':value.get('mode','shadow'),**roles}
+
+    def collaboration(self):
+        with self.lock:
+            value=self.data.get('agentCollaboration',{'mode':'off','members':[],'maxConsultations':2,'interval':5})
+            def reference(profile):
+                return {'id':profile_identity(profile),'profileId':profile['id'],'name':profile['name'],'modalities':profile.get('inputModalities',['text'])}
+            profiles={profile['id']:profile for profile in self.data['profiles']}
+            return {'mode':value['mode'],'maxConsultations':value['maxConsultations'],'interval':value['interval'],'coordinator':reference(profiles[self.data['activeProfileId']]),'members':[{**reference(profiles[member['profileId']]),'role':member['role']} for member in value['members']]}
+
     def save(self,data,keep_keys=True):
         with self.lock:
             normalized=normalize(data,self.data if keep_keys else None)

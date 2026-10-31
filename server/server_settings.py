@@ -9,7 +9,7 @@ import threading
 import time
 import shutil
 from server.relay import validate_origin
-from server import workflow_commands
+from server import workflow_commands, agent_runtime
 
 LIVE = {'allow_origin', 'agent_no_commands', 'agent_allow_command', 'allow_workflow_command', 'workflow_cwd'}
 BOOL = {'disable_agent', 'agent_no_commands', 'skills_offline'}
@@ -43,6 +43,7 @@ def normalize(data):
         if out[key] and not Path(out[key]).expanduser().is_dir(): raise ValueError(key + ' must be an existing directory')
     for key in ('allow_workflow_command','agent_allow_command'):
         for command in out[key] or []:
+            if key=='agent_allow_command' and command=='*':continue
             if not shutil.which(command): raise ValueError('Executable not found: ' + command)
     return out
 
@@ -85,10 +86,7 @@ class Settings:
             allowed = {}
             if changed & {'agent_no_commands','agent_allow_command'} and runtime.root and not proposal['agent_no_commands']:
                 commands = proposal['agent_allow_command'] if proposal['agent_allow_command'] is not None else self.default_commands
-                for command in commands:
-                    executable = shutil.which(command)
-                    if not executable: raise ValueError('Executable not found: '+command)
-                    for alias in {command,Path(command).name,str(Path(executable).resolve())}: allowed[alias] = str(Path(executable).resolve())
+                allowed = agent_runtime.command_allowlist(commands)
             self.path.parent.mkdir(parents=True,exist_ok=True)
             fd,name = tempfile.mkstemp(prefix='.server-settings-',dir=self.path.parent)
             try:

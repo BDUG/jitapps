@@ -7,3 +7,5 @@ fs.mkdirSync(path.join(root,'bin'),{recursive:true});fs.copyFileSync(path.join(r
 fs.chmodSync(path.join(root,'bin/codingagent-worker'+suffix),0o755);
 fs.writeFileSync(path.join(root,'bin/platform.json'),JSON.stringify({platform:process.platform,arch:process.arch},null,2)+'\n');
 console.log('Bundled native worker for '+process.platform+'-'+process.arch);
+
+fs.copyFileSync(path.join(root,'../javascript/handoff.js'),path.join(root,'src/handoff.cjs'));

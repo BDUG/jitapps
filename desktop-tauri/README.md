@@ -1,6 +1,6 @@
 # Optional TLAL OS desktop application (Tauri 2)
 
-This wraps the **complete desktop and all 17 apps** in a native Tauri 2 window. The existing browser deployment remains available. It is separate from codeiX’s export of an individual project to Tauri.
+This wraps the **complete desktop and all 18 apps** in a native Tauri 2 window. The existing browser deployment remains available. It is separate from codeiX’s export of an individual project to Tauri.
 
 The installer includes public SPA assets and a frozen Python server sidecar. End users do not need Node or Python to launch the suite. AI provider access still needs your configured provider and network connection. Coding-agent commands require the relevant Python/Node/npm/git or other tools installed on the user’s computer; the frozen backend is not a general Python interpreter.
 

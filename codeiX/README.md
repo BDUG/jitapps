@@ -1,6 +1,6 @@
 # codeiX
 
-A VS Code-style local code workspace with a review-driven coding agent. It provides a file explorer, tabs, line numbers, basic syntax highlighting, project search, history, import/export, and an AI chat connected to the existing Architex relay.
+A VS Code-style local code workspace with a review-driven coding agent. It provides a file explorer, tabs, line numbers, basic syntax highlighting, project search, history, import/export, and a coding-agent panel connected to the existing relay and workspace runtime.
 
 No build, account or Node runtime is required for editing. Open `codeiX/index.html` directly, or serve the repository with `python3 -m http.server 8000` and open `/codeiX/`. The existing `python3 server/server.py` command can serve this tool and supply its AI relay. ZIP support reuses the local JSZip asset in `../architex/vendor/`; keep the folders together when hosting.
 
@@ -10,7 +10,7 @@ Select a file in Explorer to open it. Tabs switch files; × closes a tab without
 
 The editor has line numbers, a syntax-color overlay, cursor position and byte count. Basic token highlighting recognizes comments, strings, keywords and numbers; it is not a language server or full grammar parser. Tab inserts two spaces. Ctrl/Command Z undoes, Ctrl/Command Shift Z redoes, and Ctrl/Command S saves the browser project and, when a workspace folder is connected, starts the folder save flow. Standard browser text selection, copy, paste and keyboard navigation work normally.
 
-Changes autosave in browser storage. Undo history is limited to the current session. Export important work: clearing browser data removes the saved project, and browser storage has a size limit. Documents are written to disk only through the explicit local workspace folder save described below; they are not synced, committed or pushed. There is no terminal, dependency installation, compiler, debugger, command execution or live language service.
+Changes autosave in browser storage. Undo history is limited to the current session. Export important work: clearing browser data removes the saved project, and browser storage has a size limit. Documents are written to disk only through the explicit local workspace folder save described below; they are not synced, committed or pushed. The browser editor itself has no compiler, debugger or language server. The separate coding-agent runtime can run approved commands on the server machine.
 
 ## Work on a local workspace directory
 
@@ -34,33 +34,23 @@ Directory permission and handles are session-only. Reloading the page restores t
 - Projects support up to 120 files, 1 MB per file and 2 MB total text. Project archives are limited to 8 MB. Paths must be relative, without traversal, backslashes or empty segments.
 - **HTML preview** displays only the active HTML file in a sandbox. Scripts, external resources, forms and navigation are disabled. It is a static visual check, not an application runner; neighboring CSS/JS files are not bundled into the preview.
 
-## Connect the coding agent
+## Use the coding agent
 
-1. Start the existing relay with `python3 server/server.py`. Follow [Architex relay setup](../architex/README.md) to configure a provider in the relay's own UI.
-2. Open **Relay settings** in codeiX. Set the relay origin, such as `http://127.0.0.1:8000`, save it and test the connection. HTTPS is required outside loopback HTTP. A health check confirms relay availability; configure and test the provider separately in **Provider settings**.
-3. If the app and relay run on different origins, allow the app origin shown in the settings dialog in the relay's allowed-origin configuration. Direct file opening uses the `null` origin; serving the app and relay together is simpler.
-4. Choose context: all files, the active file, or no file contents. The manifest of paths and byte counts is included in every request. The selected text is sent through the relay to its configured provider. Chat is retained only for the current page session; project text and the relay URL are stored locally.
-5. Ask a question, request a plan, or describe a change. The agent receives a structured request containing the task, project snapshot identifier, selected files, manifest, capabilities and response schema. The protocol and instructions live in the separate [agent-spec.js](agent-spec.js) file. **Download request** and **Download agent protocol**, below the chat, export the handover and schema.
-6. Read the answer and select **Review file changes** when edits are proposed. Inspect removed/added text and the complete new contents of each file. Uncheck changes you do not want, then apply the selected changes as one undoable transaction. A deleted file is shown as removed content. Large diffs use the complete-file viewer instead of an abbreviated line diff.
+codeiX has one **Coding agent** panel. The standalone AI chat and Chat tab have been removed. Use **Show agent** or the **Coding agent** button to open it; the panel can still be hidden, resized or floated.
 
-Agent responses cannot run commands or directly modify the workspace. Proposals require matching request/snapshot identifiers, valid paths and project limits. If the project changes after a request, applying its proposal is blocked; send a fresh request. Undo restores all files from before an applied change. If only part of a proposal is applied, ask for a new proposal for remaining changes.
+1. Start `python3 server/server.py --agent-workspace /absolute/path/to/workspace` and configure your provider in the relay settings. The runtime workspace is on the server machine; a browser workspace folder is a separate directory connection.
+2. Open the coding-agent panel and check the displayed runtime workspace and permissions. Describe a goal and optionally attach reference files.
+3. Review edit, command and current-project permissions, then choose **Start agent** and the takeover mode. The agent iterates through actual tool calls and observations. Commands require an enabled runtime and its executable allowlist.
+4. Answer questions through the goal/follow-up input and Resume. Pause finishes the current action; Stop interrupts it. Saved sessions, traces, prompt workflows, attachments, tools and result exports remain available.
+5. Review runtime changes using **Review changed files in codeiX**, or use the configured current-project takeover flow. Review and apply changes atomically; stale browser-project changes are rejected. Undo restores the previous browser project. Saving the browser workspace folder remains an explicit separate action.
 
-**Stop** cancels the browser request; requests time out after 90 seconds. Context/conversation payloads are limited to 600,000 characters; choose less context for larger projects. The raw agent output appears below the chat. Malformed proposals are shown as failures and never applied. Plain-text answers are displayed without interpreting HTML. Agent checks and commands are suggestions until you run them in your own development environment; codeiX does not claim to execute tests.
+Uncheck Explorer files to exclude them from coding-agent project context. Start a new agent run after changing exclusions so previous history is not reused. Attachments and project content may be sent to the configured model provider within the approved run.
 
 ## Verification
 
-Run `node codeiX/project-test.cjs` for project/proposal validation checks. Serve the repository with the Architex relay on port 8000, then run `node codeiX/browser-test.cjs` with Playwright and Chromium at `/usr/bin/chromium` (the same setup as the other tools).
+Run `node codeiX/project-test.cjs` for project/proposal validation checks. With the relay serving port 8000, run `node codeiX/browser-test.cjs` for editor operations, ZIP round-trip, static preview, relay health, absence of the old chat and preserved runtime-file review. Run `node shared-agent/context-paging-browser-test.cjs` for a real local runtime with mocked model requests, paging, file updates and cancellation.
 
-The browser test checks editing, history, persistence, search, files, ZIP round-trip, static preview, the real relay health endpoint and a mocked AI response through the full request/review/apply flow. It verifies atomic application, Undo and stale-response protection. It does not make a paid provider call or establish any configured provider's availability.
-
-
-## Tool-specific AI chat
-
-Reference files can now be attached below the native chat input. Use images, WAV/MP3 audio, PDFs or UTF-8 text without an application attachment count/size cap; duplicate names receive unique suffixes. Attachments and the active editor selection accompany the structured agent request without being added to the project. Existing reviewed file edits and stale-project protection remain in place.
-
-See the [shared AI chat guide](../shared-ai/README.md) for relay setup, context selection, attachments, review, Undo, request/schema downloads and troubleshooting.
-
-Run `node codeiX/workspace-browser-test.cjs` against the server on port 8000 for folder loading, explicit writes, conflicts, reload, renames, deletions and permission handling. This browser test uses directory API fixtures; native picker interaction requires a manual browser check.
+Run `node codeiX/workspace-browser-test.cjs` against port 8000 for folder loading, explicit writes, conflicts, reload, renames, deletions and permissions. Its directory API is a fixture; native picker interaction still requires a manual browser check. No paid provider call is required by these tests.
 
 ## Workspace extensions
 

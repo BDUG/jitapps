@@ -562,3 +562,59 @@ Modern observations are matched to actual pending call IDs. Delayed same-tool re
 The detector is a bounded heuristic, not proof that an approach is wrong: cycles longer than eight actions and changes in meaningful output may continue. No tools are replayed or permissions changed by the detector. Existing run budgets and cancellation remain available.
 
 Console output reads served through the runtime output API now produce `user_action` / `output_read` receipts with job, stream, byte cursors and `done`. The completion ledger accepts these only at the expected consecutive cursor, alongside agent tool-read observations. This prevents already-read shell console pages from remaining pending without rerunning commands. Restart the server to activate the receipt change.
+## Progressive tool discovery
+
+In **Agent tools → Run settings**, enable **Progressive tool discovery** to reduce tool-definition clutter in large runtime catalogues. It is off by default and saved per app in this browser. Existing sessions can use the setting on the next run/resume without changing permissions.
+
+The JavaScript planning loop keeps essential source/context/history readers, file/script editing tools, command verification and browser-project tools available when the host offers them. Deterministic keyword ranking uses up to 64 distinct goal/follow-up terms to select additional definitions; the original task text is not truncated. The soft target is 24 tools; explicit lookup results, acceptance-rule tools and active workflow controls can exceed it. The model receives a family directory and schema-count/character telemetry.
+
+The read-only discover_tools action accepts query keywords or exact names and returns paged current definitions (up to 20 per page). The next turn advertises known tools from the latest lookup, recent tools and required verification/workflow tools. Nothing discovered is executed automatically. Definition lookups do not count as fresh workspace verification. Calls are validated against that turn's advertised set, so an omitted definition must be loaded before use.
+
+The authoritative host catalogue supplies actual schemas. Lookup observations can pin known names but cannot replace schemas or introduce unknown tools. File, command, approval, revision and completion gates still apply. Follow-ups reset task-specific lookup pins. Disabled discovery, small catalogues and older runtimes use the full catalogue. Restart the Python suite server after updating to expose the lookup action.
+
+This is lexical routing and progressive disclosure, not learned semantic retrieval or plugin installation. Reduced schema characters do not guarantee lower total request cost: lookup/model turns add overhead. Full-catalogue mode remains available.
+
+## Evidence-linked independent review
+
+When **Independent model review before completion** is enabled, current Python runtimes include a checkpoint-specific evidence index in the fresh reviewer request. References identify the original goal, user instructions, supplied command/check/source observations, workspace changes and archived browser context when available. Full paged file/script collection still runs before the reviewer call; existing coverage notes identify unavailable originals, binary data and partial log previews.
+
+New JavaScript reviewer findings must include 1–10 unique evidenceIds from that request's index. Invented IDs, duplicate references and missing references trigger the existing bounded format repair. The server independently validates supplied references against its checkpoint whitelist and persists the evidence index with the accepted review. Caller changes to a returned index cannot alter that whitelist. Activity logs display each finding's evidence IDs so the referenced source can be found in the audit/index.
+
+References are scoped to the reviewId and sessionId, not globally reusable source identifiers. Existing workspace/instruction/context freshness checks and the prohibition on approvals with error findings remain authoritative. Citations establish a link to supplied data, not whether a finding is correct, a test is adequate, or a model understood the evidence. Approval with no findings remains possible; completion still has its separate verification and acceptance gates.
+
+Older runtimes without an evidence index use the previous reviewer format. The server accepts legacy findings without references for API compatibility, while rejecting unknown references when provided; those findings are not evidence-linked. Restart the Python suite server after updating to enable the index. This uses the existing optional reviewer call and does not add paid model calls when independent review is disabled.
+
+## Bounded parallel workspace reads
+
+The Python workspace runtime offers `parallel_read` for 1–8 independent `read_file`, `list_files` or `search` requests, using up to four workers. The agent can gather independent evidence in one planning turn. Arguments must be known before the batch starts; dependent reads belong in later turns. Commands, edits and nested batches are rejected before any child starts.
+
+Results retain request order and each started read has its own call ID, action and observation, linked to the parent through `parentCallId`. Normal audit persistence and memory indexing still occur. A partial failure retains successful results; inspect each result rather than replaying the batch. File hashes, paging flags and existing path/read limits remain authoritative. Concurrent reads are not an atomic snapshot of a changing workspace.
+
+Cancellation prevents queued reads from starting; reads already running may finish. Cycle detection treats the batch as one action while comparing its actual results. Child receipts inherit the parent's planning time for follow-up freshness checks, so a queued read cannot verify instructions received after its batch was planned. One batch consumes one planning action, while producing multiple audited reads. Restart the Python server to expose the tool. Native Rust and custom embedded hosts retain their own tool catalogues.
+
+## Targeted recovery of partial read batches
+
+After a failed parallel read, the planning request's `cycle.recovery.batch` supplies a per-read ledger: succeeded, failed, not_started or recovered. Successful results remain usable with their original freshness limitations. A later successful read resolves a failed member only when its actual call receipt matches the same tool, arguments and declared checks. Unrelated successes do not resolve it.
+
+The ledger lists unresolved request IDs and original receipt IDs, without automatically executing retries. The model must diagnose missing paths, respect cancellation and permissions, and choose a fresh targeted action instead of replaying successful reads. A new user follow-up resets this recovery context. Recovery is evidence bookkeeping, not proof of completion or an atomic workspace snapshot.
+
+## Failure retry circuit breaker
+
+The JavaScript suite loop pauses before a fourth execution of the same tool, arguments and declared checks after three observed failures. Unlike identical-result cycle detection, this also catches retries whose error messages or command output change every time. Failed tool observations, nonzero exits, timeouts, cancellation and failed declared checks count. The latest failure's `cycle.recovery.retryBudget` exposes the count and limit to the next planning turn.
+
+A matching successful retry, a recorded successful workspace edit, relevant manual script/file restoration action or a new user follow-up resets the recovery boundary. Different arguments remain a different action. Receipts are matched to actual calls and duplicates are ignored. The pause asks for a changed approach or environment correction, executes no fourth retry and does not grant permissions. Existing completion/verification gates remain unchanged.
+
+This is a bounded heuristic over the latest 24 matched top-level action receipts, not a lifetime quota or proof of a permanent failure. Old failures outside that window do not count. Nested parallel reads are governed through their parent action. Hosts using native Rust or Python loops must implement their own equivalent; this safeguard belongs to the shared JavaScript planning loop.
+
+## Concurrent file-edit conflicts
+
+Python-runtime sessions now serialize guarded file mutations so competing edits using one original hash cannot both pass before a write. Stale edits provide an audited file_revision_conflict with expected/current hashes and the affected path. The planning loop presents targeted guidance to reread and reconcile current contents, preserving other work instead of merely copying a newer hash into an old proposal. File-tool backups remain tied to actual successful edits. Restart the server after updating. This protects edits within one runtime instance; external processes and terminal commands do not participate in that lock.
+
+
+## Focused conversation UI
+
+The main panel keeps the goal, attachment picker/chips, permission summary, applicable run controls and current status visible. **Input options**, **Live trace** and **Filter activity** start folded. No empty task checklist is shown; a real checklist appears when the agent supplies tasks. Technical tool receipts show a short outcome and an **Inspect** disclosure with the complete underlying data. Questions and recovery notices remain directly accessible.
+
+Use **Agent tools → Run setup** for workspace/runtime details, saved sessions and run history, focus mode, permissions, verification and execution checkpoints. **Files & results** contains intermediate-file browsing, the run-file inspector and exports. Selected attachments remain visible outside advanced input settings. codeiX opens directly into its coding agent, with no redundant Chat-mode selector.
+
+These layout changes do not enable commands or start a run. Source inspection, permissions, approval flows, acceptance checks, interruption, trace capture and complete raw payload inspection keep their existing behavior.

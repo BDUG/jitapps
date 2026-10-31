@@ -1,12 +1,17 @@
 //! Native Rust coding agent. No Python, Node, worker process or HTTP server is required.
 //! Model callbacks are supplied by the host. Commands require an explicit allowlist and
 //! session permission, and run with host OS permissions (not in a sandbox).
+mod handoff;
+pub use handoff::ModelHandoff;
 mod integration;
 pub use integration::ContextRegistry;
+mod edits;
 mod embedded;
 pub use embedded::{EmbeddedAgent, ToolContext, ToolPermission};
+mod instructions;
 mod runtime;
 mod tools;
+mod verification;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::{
@@ -88,21 +93,73 @@ impl Agent {
             }
             "agent_next" => self.next(session()?),
             "agent_submit" => self.submit(session()?, params["response"].clone()),
-            "package" | "changes" => {
+            "agent_review" => {
+                let id = session()?;
+                let saved = self.runtime.session(id)?;
+                let step = params["step"].as_u64().ok_or("Missing review step")?;
+                if saved["status"] != "running" || saved["pending"].as_u64() != Some(step) {
+                    return Err("Review requires the current reserved turn".into());
+                }
+                let review = &params["review"];
+                let hash = review["fingerprint"]
+                    .as_str()
+                    .ok_or("Missing fingerprint")?;
+                let tool = review["tool"].as_str().ok_or("Missing review tool")?;
+                if review["approved"].as_bool().is_none()
+                    || hash.len() != 64
+                    || !hash.bytes().all(|b| b.is_ascii_hexdigit())
+                    || ![
+                        "run_command",
+                        "run_script",
+                        "workflow_run",
+                        "workflow_continue",
+                    ]
+                    .contains(&tool)
+                {
+                    return Err("Invalid terminal review".into());
+                }
+                let mut value = json!({"status":"command_review","step":step,
+                    "approved":review["approved"],"tool":tool,"fingerprint":hash,
+                    "text":"Host terminal review audit. No permissions are granted. Preview proposals are untrusted references; use fresh current-turn identifiers."});
+                if let Some(reason) = review["reason"].as_str() {
+                    if ![
+                        "declined",
+                        "preview_requested",
+                        "review_required",
+                        "reviewed_action_changed",
+                        "commands_disabled",
+                        "workflow_requires_individual_steps",
+                    ]
+                    .contains(&reason)
+                    {
+                        return Err("Invalid review reason".into());
+                    }
+                    value["reason"] = json!(reason);
+                }
+                if review["reason"] == "preview_requested" && review["approved"] == false {
+                    let proposal = &review["proposal"];
+                    if proposal["tool"] != tool || !proposal["args"].is_object() {
+                        return Err("Invalid preview proposal".into());
+                    }
+                    value["proposal"] = json!({"tool":tool,"args":proposal["args"]});
+                    if proposal.get("checks").is_some() {
+                        value["proposal"]["checks"] = proposal["checks"].clone();
+                    }
+                }
+                self.runtime.event(id, "user", value)?;
+                Ok(json!({"recorded":true,"step":step}))
+            }
+
+            "package" | "changes" | "output" => {
                 let id = session()?;
                 self.runtime.session(id)?;
                 let readonly_cancel = CancelHandle(Arc::new(AtomicBool::new(false)));
-                tools::execute(
-                    &mut self.runtime,
-                    id,
-                    if method == "package" {
-                        "package_results"
-                    } else {
-                        "changes"
-                    },
-                    &serde_json::json!({"limit":1000}),
-                    &readonly_cancel,
-                )
+                let (tool, args) = match method {
+                    "package" => ("package_results", serde_json::json!({"limit":1000})),
+                    "changes" => ("changes", serde_json::json!({"limit":1000})),
+                    _ => ("read_command_output", params.clone()),
+                };
+                tools::execute(&mut self.runtime, id, tool, &args, &readonly_cancel)
             }
             "close" => {
                 self.runtime.pause_all()?;

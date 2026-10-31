@@ -1,0 +1,231 @@
+#semanticImportDialog {
+  width: min(1040px, 96vw);
+  max-height: 94vh;
+  overflow: auto;
+  padding: 24px;
+  background: var(--tlal-surface, #fff);
+  color: var(--tlal-graphite, #343b43);
+  border: 1px solid var(--tlal-border, #d9dde1);
+  border-radius: 12px;
+}
+#semanticImportDialog::backdrop {
+  background: #343b4370;
+  backdrop-filter: blur(3px);
+}
+#semanticImportDialog section {
+  margin: 18px 0;
+}
+#semanticImportDialog h3 {
+  font-size: 16px;
+  margin: 12px 0;
+}
+.asi-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.asi-fields label {
+  min-width: 0;
+}
+#semanticImportDialog :is(input:not([type="checkbox"]), select, textarea) {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+  font: inherit;
+  padding: 9px;
+  border: 1px solid var(--tlal-border, #d9dde1);
+  border-radius: 7px;
+  background: white;
+  color: inherit;
+}
+#semanticImportDialog :is(label, small) {
+  display: block;
+}
+.asi-confirm {
+  display: flex !important;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  background: #f5f6f7;
+  border-radius: 8px;
+}
+.asi-confirm input {
+  flex: none;
+  margin-top: 4px;
+}
+.asi-source-actions,
+.asi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.asi-source-actions label {
+  flex: 1;
+  min-width: 180px;
+}
+.asi-source {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--tlal-border, #d9dde1);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.asi-source-heading label {
+  display: flex !important;
+  gap: 8px;
+}
+.asi-source img {
+  max-width: 160px;
+  max-height: 100px;
+  object-fit: contain;
+  margin: 8px 0;
+}
+.asi-source .suite-reference-option {
+  margin: 8px 0;
+  display: flex !important;
+}
+.asi-source .suite-reference-option input {
+  width: 300px !important;
+  max-width: 100%;
+}
+.asi-source .suite-reference-option select {
+  width: auto !important;
+}
+.asi-source small {
+  font-size: 11px;
+  color: var(--tlal-secondary, #626a73);
+}
+#semanticImportDialog pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 360px;
+  overflow: auto;
+  background: #f5f6f7;
+  padding: 12px;
+  font:
+    12px/1.6 ui-monospace,
+    monospace;
+}
+#asi-answer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#asi-diff table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#asi-diff :is(td, th) {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--tlal-border, #d9dde1);
+}
+.asi-question {
+  border-left: 3px solid var(--tlal-blue, #3f6f98);
+  padding: 12px;
+  background: #f5f6f7;
+}
+.asi-question button {
+  margin: 8px 8px 0 0;
+}
+#asi-status {
+  padding: 12px;
+  border: 1px solid var(--tlal-border, #d9dde1);
+  background: #fafafa;
+  overflow-wrap: anywhere;
+}
+.asi-error {
+  color: var(--tlal-maroon, #8b1e3f);
+}
+#semanticImportDialog [hidden] {
+  display: none !important;
+}
+@media (max-width: 650px) {
+  #semanticImportDialog {
+    padding: 16px;
+  }
+  .asi-fields {
+    grid-template-columns: 1fr;
+  }
+  .asi-source-actions label {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+}
+
+#semanticImportDialog .pg-panel {
+  background: #fafafa;
+  border-color: var(--tlal-border, #d9dde1);
+  color: inherit;
+}
+#semanticImportDialog .pg-panel small {
+  color: var(--tlal-secondary, #626a73);
+}
+
+#semanticImportDialog > details,
+#asi-review {
+  margin-top: 16px;
+  border-top: 1px solid var(--tlal-border, #d9dde1);
+  padding-top: 14px;
+}
+#semanticImportDialog > details > summary {
+  font-size: 16px;
+  font-weight: 600;
+}
+.asi-help,
+#asi-advanced {
+  margin: 12px 0;
+}
+.asi-muted {
+  color: var(--tlal-secondary, #626a73);
+  font-size: 12px;
+}
+.asi-source-toolbar,
+.asi-source-pages,
+.asi-source-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.asi-source-toolbar label {
+  flex: 1;
+  min-width: 140px;
+}
+.asi-source-heading {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.asi-source-heading label {
+  flex: 1;
+  min-width: 0;
+}
+.asi-source-heading button,
+.asi-source-toolbar button,
+.asi-source-pages button {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.asi-source-pages {
+  justify-content: flex-end;
+  font-size: 12px;
+}
+#asi-sources {
+  max-height: min(38vh, 420px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 8px 0;
+}
+.asi-source {
+  margin: 6px 0;
+  padding: 10px;
+}
+.asi-source-details {
+  margin: 6px 0 0;
+}
+#asi-options > .asi-fields > label:last-child {
+  grid-column: 1 / -1;
+}
+#semanticImportDialog .asi-source pre {
+  max-height: 200px;
+}

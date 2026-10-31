@@ -67,3 +67,7 @@ node evaluations/coding-agent/test.cjs
 ```
 
 This self-test supplies a local fixture provider through the real relay/runtime pipeline. It verifies a passing repair, independent review, held-out execution, detection of a deliberately modified public test, and baseline comparison. Its reports use **mode: replay** and are **not real-model evaluation results**. The negative tampering case is expected to print FAIL; the self-test passes only if that regression is detected.
+
+## Model handoff experiments
+
+Use `--handoff-mode off|continuation|shadow|auto` with configured relay roles to compare primary-only, continuation-only, shadow evaluation and one-way handoff. Detector requests count toward the model-call budget. Reports retain decisions and per-call role/model identity, duration and available usage; `costUsd` is null until priced externally using actual provider rates. See the [handoff guide](../../codingagentlib/MODEL_HANDOFF.md#evaluate-before-automatic-rollout). Fixture replay validates routing, not real-model quality or savings.

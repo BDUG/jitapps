@@ -203,3 +203,78 @@ node -e "require('fs').writeFileSync('codingagentlib/protocol.json',JSON.stringi
 JavaScript, Python and Rust now export `EmbeddedAgent` for registering application tools and injecting model callbacks, public progress events, approval hooks, context and cancellation. Questions and follow-up resumes share the same JSON protocol. See [cross-language integration examples and contracts](INTEGRATION.md), including a small [Rust browser UI](rust/examples/ui.rs) using actual native workspace tools.
 
 The JavaScript planning core exposes `loop.failureRecovery(events)` for structured, observation-based recovery guidance. The suite shows it in a foldable panel, offers an unsent follow-up draft and exports a linked JSON report. See the [agent recovery guide](../shared-agent/README.md#evidence-based-failure-recovery).
+Optional progressive tool discovery reduces current-turn definitions in the JavaScript loop/LocalRuntime, with audited read-only lookup in the Python runtime. It does not enable tools or change permissions. See the [integration guide](INTEGRATION.md#progressive-tool-definitions).
+
+
+## Scoped repository instructions
+
+Python and native Rust now refresh `projectInstructions` for every planning turn. The browser JavaScript loop forwards this runtime-provided context unchanged, including when history compression and progressive tool discovery are active. Native VS Code uses the same Rust implementation. Standalone JavaScript hosts can supply the additive `projectInstructions` field in `reserveTurn` results; without it, existing behavior is preserved.
+
+`read_project_instructions` is a read-only tool accepting a workspace-relative file/directory `path` (default `.`). It reads root-to-target `AGENTS.override.md` / `AGENTS.md`, choosing the first non-empty document at each level. Return fields include `documents` (`path`, `scope`, `sha256`, `bytes`, `content`), `complete`, `warnings`, `target`, and a 32 KiB aggregate byte budget. Hashes identify actual source bytes, not trust or correctness. Oversized/unreadable sources are reported rather than silently cut; unrelated subtrees and home-directory settings are not scanned. The next automatic discovery follows the most recent file or instruction-scope action. Use the tool before editing a new subtree.
+
+Turn audit events retain document paths, scopes, hashes and warnings, while full source bodies are supplied only in the current request or an explicit tool observation. Guidance remains subordinate to host/system and explicit user instructions and never grants permissions. Reading instruction metadata alone does not satisfy the browser loop's fresh-source-inspection completion requirement.
+
+Design references: [OpenAI: AGENTS.md discovery and scope](https://developers.openai.com/codex/guides/agents-md), [Anthropic: effective context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents). The implementation intentionally keeps local guidance exact while reducing redundant history. Automated checks use deterministic model callbacks and local runtimes; they do not establish comparative performance against live models.
+
+Validation: `python3 -m unittest codingagentlib.test_project_instructions`, `node shared-agent/project-instructions-test.cjs`, `node shared-agent/tool-discovery-browser-test.cjs`, and the native Rust/VS Code suites.
+
+
+## Source-bound verification
+
+New command receipts bind observed success to the known source inputs: files inspected or edited through file tools, and managed scripts. Python and native Rust hash these inputs before and after each command. Each result includes `verificationBinding` with exact input hashes, an aggregate SHA-256 `inputDigest`, the number of bound files, stability and warnings. Bindings are saved with the session and command receipt; they survive restarts. File contents are not copied into this metadata.
+
+Planning requests expose `verificationFreshness`:
+
+| Status | Meaning |
+| --- | --- |
+| `none` | No new binding has been recorded. Earlier receipts are not retroactively bound. |
+| `unbound` | The command succeeded but no known inputs were tracked; it does not certify the workspace. |
+| `current` | Successful command, stable tracked inputs during execution, and matching hashes now. |
+| `stale` | An input changed, disappeared, was newly tracked, or changed during the command. |
+| `unavailable` | The input snapshot could not be completed or read safely. |
+| `failed` | The latest command failed, timed out or was cancelled. |
+
+A `stale` or `unavailable` binding blocks a full completion claim in both runtimes. The browser loop also checks it before completion, keeping its copy separate from model-visible metadata. The runtime checks again at completion to catch changes made while the model was planning. Inspect current files and propose a fresh meaningful verification command, or report `partial`/`blocked`. Nothing replays a previous command automatically. The host may replan from a rejected completion or pause for explicit Resume.
+
+A formatter or other command that changes tracked inputs needs a separate verification command afterward. Newly inspected inputs can also require another command because the earlier receipt was not bound to them. A later read alone does not refresh test evidence.
+
+Snapshots cover at most 256 known files/scripts, each up to 2,000,000 bytes. Symlinks, non-regular/unreadable inputs and exceeded budgets produce explicit warnings and cannot certify completion. This is a bounded read/edit-set check, not a whole-workspace snapshot: unread dependencies, environment changes, files edited only by shell commands and browser-project state outside the runtime remain outside this binding. Matching hashes do not prove test adequacy, hermeticity or an atomic snapshot, and do not rule out transient changes that leave the same final bytes. Existing permissions, allowlists, approval and acceptance checks remain authoritative.
+
+This extends the evidence-oriented tool design discussed in [Anthropic's tool-engineering guidance](https://www.anthropic.com/engineering/writing-tools-for-agents). It adds no model calls for hashing and makes no comparative live-model performance claim.
+
+Checks: `python3 -m unittest codingagentlib.test_verification_binding`, `node shared-agent/verification-binding-test.cjs`, native Rust tests, and the VS Code native-worker integration suite. These exercise source drift after planning, mutation during a command, deletion, script changes, symlinks, persistence, model-metadata mutation, external-edit preservation and fresh re-verification.
+
+
+## Precise edit batches
+
+`apply_edits` applies several exact changes to **one existing UTF-8 file** with one whole-file `expectedHash` and one atomic file replacement. It is available in Python, native Rust, browser agents and VS Code. This consolidates related edits without asking the model to resend unchanged file contents.
+
+```json
+{
+  "tool": "apply_edits",
+  "args": {
+    "path": "src/example.py",
+    "expectedHash": "<actual SHA-256 returned by read_file>",
+    "edits": [
+      {"find": "def add(a,b):", "replacement": "def add(a, b):"},
+      {"find": "return a-b", "replacement": "return a+b"}
+    ]
+  }
+}
+```
+
+Every `find` is matched against the **original snapshot**, not earlier replacement text. By default exactly one match is required. Use a more specific anchor or an explicit `count` (1–1,000) when repeating the same change. Matches are checked for ambiguity and overlap, including self-overlapping anchors. Adjacent edits are allowed. Missing matches, wrong counts, overlapping edits, stale hashes, invalid fields or oversized results reject the whole batch before any source write. Unknown top-level arguments, including `dryRun`/preview flags, are rejected; this tool is a write operation and has no preview mode.
+
+A batch contains 1–32 edits and keeps the complete file within 2,000,000 UTF-8 bytes. Text replacements are literal; no regex evaluation or replacement-string expansion occurs. Unicode and original line endings outside changed text remain intact. Read current source first and use its real hash. New files still use `write_file`; changes across files require separate operations.
+
+Successful batches participate in edit permissions, normal file recovery, workflow preflight, scoped guidance, source-bound verification, acceptance-check freshness and changed-file inspection. A new batch invalidates earlier recorded verification just like another source edit. Results include `path`, final `hash`, byte count, edit count and replacement count. The agent must inspect failures and make a fresh plan; invalid batches are not partially applied or blindly replayed.
+
+Atomic means one file replacement after complete validation, not a multi-file transaction or isolation from arbitrary external writers. Python serializes file-tool edits within its runtime, and both implementations recheck the current hash before committing. External writers can still race the final filesystem operation; the usual source-bound verification and review remain necessary.
+
+Design reference: [Anthropic: writing effective tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents), particularly consolidating coherent operations and returning actionable validation failures. No live-model speed or accuracy improvement is claimed.
+
+Command receipts expose `stdoutSha256` and `stderrSha256` for complete raw log bytes, even when returned previews are paged. Python and Rust compute these with streaming reads. Consumers can compare the full outputs without loading them into the model context; these hashes certify neither command correctness nor the completeness of a program's own logging. The VS Code unchanged-cycle guard uses full digests and avoids equating incomplete legacy previews.
+
+## Optional model handoff
+
+[Evidence-driven model handoff](MODEL_HANDOFF.md) adds shadow evaluation and an opt-in one-time primary-to-efficient switch, configurable in the relay and VS Code and available through JavaScript, Python and native Rust APIs. Saved role state survives resume; existing permissions and verification gates still apply.

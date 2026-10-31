@@ -39,3 +39,33 @@ fn native_file_permissions_repair_and_loop() -> codingagentlib::Result<()> {
     fs::remove_dir_all(workspace)?;
     Ok(())
 }
+
+#[test]
+fn host_review_preserves_reserved_turn_without_granting_permissions() -> codingagentlib::Result<()>
+{
+    let workspace = env::temp_dir().join(format!(
+        "codingagent-review-{}",
+        SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
+    ));
+    fs::create_dir(&workspace)?;
+    let mut agent = Agent::new(&workspace, &[])?;
+    let id = agent.start("Review audit", &RunOptions::default())?;
+    let request = agent.next(&id)?;
+    let mut params = json!({"session_id":id,"step":request["step"],"review":{"approved":true,"tool":"run_command","fingerprint":"a".repeat(64)}});
+    params["step"] = json!(999);
+    assert!(agent.request("agent_review", params.clone()).is_err());
+    params["step"] = request["step"].clone();
+    params["review"]["fingerprint"] = json!("bad");
+    assert!(agent.request("agent_review", params.clone()).is_err());
+    params["review"]["fingerprint"] = json!("a".repeat(64));
+    assert_eq!(agent.request("agent_review", params)?["recorded"], true);
+    let saved = agent.dispatch(json!({"op":"session","session":id}))?;
+    assert_eq!(saved["pending"], request["step"]);
+    assert_eq!(saved["allowCommands"], false);
+    let response = json!({"sessionId":id,"step":request["step"],"status":"done","plan":"Audit complete","action":null,"summary":"No commands executed"});
+    assert_eq!(agent.submit(&id, response.clone())?["status"], "complete");
+    assert!(agent.submit(&id, response).is_err());
+    agent.close()?;
+    fs::remove_dir_all(workspace)?;
+    Ok(())
+}
