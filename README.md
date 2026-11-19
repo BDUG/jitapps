@@ -4,7 +4,7 @@
 
 # TLAL OS · Agentic Desktop Tool Suite
 
-Eighteen local-first apps for architecture, graphics, images, video, documents, presentations, spreadsheets, mind maps, collaborative whiteboards, project planning, code, app generation, automation, research, and shell commands. Use the searchable desktop launcher, share files through a virtual disk, and refine each app’s content with AI chat or the coding agent.
+Twenty-four local-first apps for architecture, cloud native landscapes, graphics, images, video, documents, presentations, spreadsheets, mind maps, collaborative whiteboards, project planning, code, app generation, automation, research, and shell commands. Use the searchable desktop launcher, share files through a virtual disk, and refine each app’s content with AI chat or the coding agent.
 
 Every document app includes shared, Unicode-aware whole-word search, field-scoped replacement previews, paged results and full search-report export under **Workspace → Find & replace**. shelliX offers matching command-history filters and filtered history export. See the [shared workspace guide](shared-suite/README.md#search-and-review-across-apps).
 
@@ -28,7 +28,7 @@ Load and save app contents through local disk or the shared virtual disk, includ
 
 Run the suite in your browser with a single Python server, or build the optional **Tauri 2 desktop application**. Basic editing works without an AI account. AI features use providers configured on your local relay; generative image editing has its own image-provider configuration.
 
-[Get started](#get-started) · [Apps](#the-18-apps) · [Screenshots](#screenshots) · [AI workflows](#ai-chat-and-image-tools) · [Coding agent](#workspace-coding-agent) · [Native desktop](#optional-tauri-2-desktop) · [Verification](#development-and-verification)
+[Get started](#get-started) · [Apps](#the-24-apps) · [Screenshots](#screenshots) · [AI workflows](#ai-chat-and-image-tools) · [Coding agent](#workspace-coding-agent) · [SDK Handbook](docs/coding-agent-book/HANDBOOK.md) · [Specs](specs/README.md) · [Native desktop](#optional-tauri-2-desktop) · [Verification](#development-and-verification)
 
 ## Project disclosure and license
 
@@ -67,6 +67,25 @@ python3 server/server.py --disable-agent
 ```
 
 The default bind address is loopback (`127.0.0.1`). `python3 -m server` is equivalent. A plain static server can host the editors but does not supply relay, research, skill-index or coding-runtime endpoints. Serve the apps over HTTP rather than opening files directly. See the [server guide](server/README.md) for configuration, command allowlists, exact allowed origins and compatibility launchers.
+
+### Server dependency and offline capabilities
+
+The suite is designed local-first. Pure editor workflows run entirely in your browser, while AI relays, terminal execution, and web research rely on the local Python server:
+
+| Capability / Feature | In Browser Alone | Requires Python Server (`server/server.py`) | Notes |
+| --- | :---: | :---: | --- |
+| **All 19+ Editor Apps** (architex, codeiX, textiX, etc.) | Yes | Static hosting | Works local-first. The server provides local HTTP hosting to prevent browser `file://` CORS and module limits. |
+| **Document Preflight & Quality Baselines** | Yes | Optional | 100% client-side validation and inspection. |
+| **Templates, Search & Workspace Recovery** | Yes | Optional | Stored locally in browser IndexedDB, localStorage, and virtual disk. |
+| **AI Provider Relay** (`/api/chat`, `/relay`) | No | **Required** | Protects API credentials on your local machine; relays requests to OpenAI, Gemini, LiteLLM, Eden AI, and OpenRouter. |
+| **Workspace Coding Agent** (`/api/agent/*`) | No | **Required** | Inspects workspace filesystem and executes allowlisted terminal commands (`git`, `node`, `npm`, `python3`, `sh`). |
+| **Web Research & Scraping** (`/api/research/*`) | No | **Required** | Powers reportiX Google Programmable Search integration and server-side web crawling without browser CORS restrictions. |
+| **photiX Generative Image API** (`/api/images`) | No | **Required** | Relays image generation and editing requests to OpenAI-compatible image endpoints. |
+| **Shared Cross-App Skill Catalog** (`/api/skills/*`) | No | **Required** | Local SQLite index and semantic skill retrieval. |
+| **AutomatextiX Workflow Commands** (`/api/workflow/*`) | No | **Required** | Safely executes allowlisted host CLI commands when explicitly permitted. |
+| **Magic Wormhole PC Sharing** | No | Optional Python package | Requires `server/requirements-wormhole.txt`. |
+| **Learned Sentence Embeddings** | No | Optional Python package | Requires `server/requirements-agent.txt` (local ONNX runtime). |
+
 
 The relay page also has a **Server settings** dialog. Review changes and explicitly approve them to update live origins and command permissions; listener, workspace and service changes are saved for restart. Settings are stored privately in `server-settings.json` beside the startup provider config, or at `--server-config PATH`. Explicit startup flags override saved settings. See the [server settings reference](server/README.md#approved-runtime-server-settings).
 
@@ -171,6 +190,8 @@ python3 server/server.py \
   --skills-offline \
   --allow-origin https://tools.example.com \
   --agent-workspace "$SUITE_WORKSPACE_DIR" \
+  --projects-root "$SUITE_CONFIG_DIR/projects" \
+  --agent-state-dir "$SUITE_CONFIG_DIR/agent-state/main" \
   --agent-allow-command python3 \
   --agent-allow-command git \
   --workflow-cwd "$SUITE_WORKSPACE_DIR" \
@@ -194,12 +215,36 @@ For a restricted variant, append `--agent-no-commands` to disable agent terminal
 
 **5. Verify and use:** open [the desktop](http://127.0.0.1:8000/), configure/test the active provider at [AI relay settings](http://127.0.0.1:8000/relay), and use **Check runtime** in the coding-agent tab. `/api/health` checks relay availability; `/api/agent/health` additionally requires a same-local-origin request with `X-Architex-Request: 1`. Provider tests and AI calls may incur charges. Run startup without making a provider call to verify local configuration first. Restart after hand-editing startup-loaded provider files or changing flags; `/relay` applies its own saved profile changes live.
 
-## The 18 apps
+File-count limit failures open a **File upload limit exceeded** dialog with the importer’s limit message. Choose fewer files or a smaller folder, close the dialog and retry. Existing importer limits remain unchanged; chat attachments do not gain a new file-count limit.
+
+### Persistent files and folders
+
+schematiX, mergiX and rstiX have **Server projects & files**. Changes autosave to the Python server; use **Save now**, **Save as new project**, or select a saved project and **Open project**. The file tree supports downloads, relative-path renames, deletion and empty folders. Apply/discard editor drafts before renaming source files. Native download/export buttons and browser recovery remain available.
+
+Each project has its own root under `--projects-root` (default: `projects/` beside the provider configuration). Editor state, full file bytes, folder paths and unapplied drafts are saved together. Writes create a revision before atomically advancing `HEAD.json`; older revisions remain on disk. A stale tab must reopen or save a copy rather than overwrite newer files. Back up the entire project root; retained revisions consume disk space.
+
+Server agent sessions now default to `agent-state/<workspace-hash>/` beside provider configuration, outside the editable workspace. Existing `<workspace>/.suite-agent/` data is copied on the first startup; the original is retained. Stop other servers using that workspace before migration. Use `--agent-state-dir` for an explicit persistent location. Keep the same workspace and storage paths across restarts. Python SDK callers can pass `state_dir` to `Runtime`; their default remains `.suite-agent/` for compatibility.
+
+Across the suite, **?** in the workspace bar opens keyboard help. **Alt+Shift+H** opens help and **Alt+Shift+D** opens the virtual disk; both leave an already-open dialog alone. In shared AI chat, **Ctrl/Cmd+Enter** sends the composer while **Enter** inserts a newline. **Escape** hides chat and returns focus to its launcher without stopping an in-flight request.
+
+The coding agent’s **tool errors** count opens a read-only list of recorded failures, including command/check failures and rejected model responses. Expand an entry for its request and receipt, or refresh the list from the saved session. Historical failures remain visible after a successful retry.
+
+Editor workspaces now exchange **selected change reviews**. Export selected fields from a preview, then use **Workspace → Recovery → Import change review** in a copy of the matching base project. Imports verify the app, SHA-256 base fingerprint and recorded original values, then open the native review flow; nothing applies on import. Native validation, stale-preview guards, selective application and automatic recovery still apply. The fingerprint detects conflicts, not the author’s identity. Older review exports without a fingerprint remain reference files and need re-exporting before import.
+
+mockiX now includes the shared Workspace panel with recovery points, search and reviewed changes. In shelliX, **Ctrl+R** from the command input opens history search; **Escape** returns to the unchanged command draft. Text composition does not submit an agent goal.
+
+## The 24 apps
 
 [shelliX](shelliX/) is an AI shell: run allowlisted server commands manually or describe a goal in chat, inspect stdout/stderr and continue with follow-up instructions. See its [setup guide](shelliX/README.md).
 
 | App | Open | Main capabilities |
 | --- | --- | --- |
+| **[cncfiX](cncfiX/README.md)** | [/cncfiX/](cncfiX/) | CNCF landscape diagram builder with categories, subcategories, maturity levels, built-in CNCF catalog, SVG/PNG/YAML/JSON export and reviewed AI proposals. |
+| **[markiX](markiX/README.md)** | [/markiX/](markiX/) | Visual and source editing for Markdown and reStructuredText, source-preserving blocks, outline, templates, reviewed AI proposals and MD/RST/HTML/project exports. |
+| **[formiX](formiX/README.md)** | [/formiX/](formiX/) | Formula notebooks with live LaTeX previews, templates and symbols, SVG/LaTeX export, editable JSON and reviewed AI proposals. |
+| **[schematiX](schematiX/README.md)** | [/schematiX/](schematiX/) | Derive schemas from examples, edit document ontologies and knowledge graphs, enrich with AI, and exchange JSON-LD, Turtle, SVG and native mind maps. |
+| **[mergiX](mergiX/README.md)** | [/mergiX/](mergiX/) | Compare text/binary files and folders, review line hunks, combine three-way changes, and use selected-file semantic AI comparison and merge proposals. |
+| **[rstiX](rstiX/README.md)** | [/rstiX/](rstiX/) | Browse/edit Sphinx-Needs and RST files, sketch dependencies, review missing links and cycles, and exchange project ontology/knowledge graphs. |
 | **[architeX](architex/README.md)** | [/architex/](architex/) | Metamodels and instance graphs, optional direct diagrams, nested components, directional ports, scripted validation, dependency layout and AI model editing. Exchange JSON, YAML, Markdown, draw.io, SVG, Mermaid, PlantUML, XLSX and Sphinx-Needs/RST projects. |
 | **[colabriX](colabriX/README.md)** | [/colabriX/](colabriX/) | Collaborative whiteboards with notes, shapes, connectors, frames, freehand, comments, voting, workshop timers and AI proposals. Export JSON, SVG, PNG, Markdown, CSV and project ZIP. |
 | **[designiX](designiX/README.md)** | [/designiX/](designiX/) | Multi-page graphic design with editable templates, shapes, typography, brand kits, embedded images, grouping, layers and AI proposals. Export SVG, PNG/JPEG/WebP, multi-page PDF and native project ZIPs. |
@@ -222,6 +267,9 @@ For a restricted variant, append `--agent-no-commands` to disable agent terminal
 Format support emphasizes each app’s editable model, not lossless reproduction of every feature from another product. For example, projectiX exchanges **Microsoft Project XML**, not native `.mpp`; textiX extracts PDF text into paragraphs or inserts image-only pages as images, and its direct PDF export renders page images. App guides document the details.
 
 ## AI chat and image tools
+
+Shared app chats display structured questions as choice cards or compact selection menus. Models can suggest `defaultAnswer` text or option labels (an array for multi-select). Defaults remain editable drafts: choose **Use answer**, then **Send** to submit. Lists with more than five single-choice options use a dropdown; `presentation: "cards"` or `"select"` overrides this. Custom answers, optional skips and revisions retain their source question IDs across turns. Suggested defaults never authorize edits or submit themselves.
+
 
 1. Start the suite server and open **Desktop → AI relay → Open provider settings**, or visit `/relay` directly.
 2. Configure and test a text provider: OpenAI, Gemini, Eden AI, LiteLLM, OpenRouter or a compatible gateway. Save the full endpoint, model and credentials on the relay.
@@ -248,6 +296,9 @@ These are prompts to try, not recorded live-provider results. Normal chat edits 
 | App | Try this | Expected workflow |
 | --- | --- | --- |
 | **architeX** | “Create Sensor, Gateway and Dashboard definitions and instances. Add compatible directional policies and temperature data-point ports, then connect Sensor → Gateway → Dashboard.” | Review both models, run validation, export JSON/YAML or draw.io. |
+| **cncfiX** | “Add a Service Mesh & Observability category with Istio, Cilium, Prometheus and OpenTelemetry. Preserve existing categories and item IDs.” | Review the landscape proposal, apply it, then export a standalone SVG, PNG or CNCF `landscape.yml`. |
+| **markiX** | “Draft a getting-started guide in the current format with setup, examples and troubleshooting. Preserve existing content and custom directives.” | Review the changes, edit visually or in source, then export .md or .rst. |
+| **formiX** | “Add a calculus reference sheet with derivatives, integrals, variable definitions and assumptions. Preserve my existing formulas.” | Review the notebook proposal, apply it, then export a selected SVG or complete LaTeX document. |
 | **graphiX** | “Draw a yellow smiley with dark eyes and a curved smile. Return editable SVG artwork.” | Apply the drawing, then ask “Make the smile wider and add rosy cheeks.” Export SVG. |
 | **colabriX** | “Cluster these notes into themes and add a next-steps frame with connected action items.” | Review the AI board proposal and apply it; share the board through a Google document for multi-party editing. |
 | **designiX** | “Create two coordinated launch posters for a coffee brand using our brand kit.” | Ask AI chat, review the editable page proposal and apply it; export artwork or a complete project. |
@@ -320,6 +371,8 @@ Installed apps are kept in this browser's IndexedDB for this origin, separately 
 
 ## Headless coding-agent library
 
+Read the [Coding Agent & SDK Handbook](docs/coding-agent-book/HANDBOOK.md) and the [Coding Agent How-to Book](docs/coding-agent-book/README.md) for interactive workflows, `ReactAgent`, beyond-ReAct orchestrators (Tree Search, CodeAct, Agentless + SDD gate, `StateGraph`, Planner–Executor, Multi-Agent, Reflexion), `uv` Python environments, `ScriptLibrary`, layered & graph memory architectures (`MemoryManager`, StructMem, egGENT, A-MEM, MAGMA, GAM), and Python, JavaScript, Rust and CLI integration. Formal specifications and status reports live in [specs/](specs/README.md).
+
 [`codingagentlib/`](codingagentlib/README.md) contains the extracted JavaScript planning core and Python workspace runtime. Reuse it without the desktop or HTTP server through a standalone Python package/CLI, a Node.js local adapter, or a Rust crate. The Rust crate has its own native runtime and tools, with no Python or worker dependency. Model calls are injected by the application; examples and tests run with deterministic callbacks and no paid provider. Existing browser/server integration and compatibility imports remain available.
 
 ```sh
@@ -343,9 +396,27 @@ Open **Skill set** from the desktop/chat, or **Agent tools → Skills**. Edit th
 
 Sources include obra/superpowers, VoltAgent/awesome-agent-skills, mattpocock/skills, addyosmani/agent-skills and Linkly’s skills index. Source availability and fetch failures are visible; cached content survives failed refreshes. Indexing Markdown does not install or run its scripts. Shared catalog skills are separate from the coding agent’s learned local skills. Use `--skills-offline` to stay with bundled/cached content. See [skill management and provenance](docs/SHARED-SKILLS.md).
 
+## Build scripts
+
+Use the root scripts to build the desktop application, VS Code extension and
+coding-agent SDK packages:
+
+```sh
+./build.sh desktop --install-deps
+./build.sh vscode --install-deps
+./build.sh sdks --install-deps
+./build.sh all --dry-run
+```
+
+On Windows use `.\build.ps1` with the same arguments, or run
+`python build.py TARGET` directly. Omit `--install-deps` once dependencies are
+installed. The VSIX lands in `dist/vscode/`, SDKs in `dist/`, and desktop
+installers in `desktop-tauri/src-tauri/target/release/bundle/`.
+See [build prerequisites, targets and artifacts](docs/BUILDING.md).
+
 ## Optional Tauri 2 desktop
 
-The [`desktop-tauri/`](desktop-tauri/README.md) wrapper packages the desktop, all 18 apps, and a frozen Python server sidecar. End users do not need Python or Node just to launch a packaged build; coding-agent commands still require the tools they execute.
+The [`desktop-tauri/`](desktop-tauri/README.md) wrapper packages the desktop, all 23 apps, and a frozen Python server sidecar. End users do not need Python or Node just to launch a packaged build; coding-agent commands still require the tools they execute.
 
 Install the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS, Rust stable, Node.js 22+, and build-time Python:
 
@@ -385,7 +456,7 @@ Provider APIs, source availability, DNS, TLS trust, quotas, image-model capabili
 
 Fresh browser sessions show the desktop and every app. photiX uses a locally drawn illustrative sample; screenshots do not call AI providers. Click an image for full size.
 
-[![TLAL OS desktop with 16 apps](assets/screenshots/desktop.png)](assets/screenshots/desktop.png)
+[![TLAL OS desktop application launcher](assets/screenshots/desktop.png)](assets/screenshots/desktop.png)
 
 | | |
 | --- | --- |
@@ -397,6 +468,10 @@ Fresh browser sessions show the desktop and every app. photiX uses a locally dra
 | **[sheetiX](sheetiX/README.md)**<br>[![sheetiX workspace](assets/screenshots/sheetiX.png)](assets/screenshots/sheetiX.png) | **[vidiX](vidiX/README.md)**<br>[![vidiX workspace](assets/screenshots/vidiX.png)](assets/screenshots/vidiX.png) |
 | **[appiX](appiX/README.md)**<br>[![appiX workspace](assets/screenshots/appiX.png)](assets/screenshots/appiX.png) | **[codeiX](codeiX/README.md)**<br>[![codeiX workspace](assets/screenshots/codeiX.png)](assets/screenshots/codeiX.png) |
 | **[automatextiX](automatextiX/README.md)**<br>[![automatextiX workspace](assets/screenshots/automatextiX.png)](assets/screenshots/automatextiX.png) | **[reportiX](reportiX/README.md)**<br>[![reportiX workspace](assets/screenshots/reportiX.png)](assets/screenshots/reportiX.png) |
+| **[markiX](markiX/README.md)**<br>[![markiX markup studio](assets/screenshots/markiX.png)](assets/screenshots/markiX.png) | **[formiX](formiX/README.md)**<br>[![formiX formula studio](assets/screenshots/formiX.png)](assets/screenshots/formiX.png) |
+| **[cncfiX](cncfiX/README.md)**<br>[![cncfiX CNCF landscape studio](assets/screenshots/cncfiX.png)](assets/screenshots/cncfiX.png) | **[mergiX](mergiX/README.md)**<br>[![mergiX compare and merge](assets/screenshots/mergiX.png)](assets/screenshots/mergiX.png) |
+| **[mockiX](mockiX/README.md)**<br>[![mockiX wireframe studio](assets/screenshots/mockiX.png)](assets/screenshots/mockiX.png) | **[rstiX](rstiX/README.md)**<br>[![rstiX RST and requirements](assets/screenshots/rstiX.png)](assets/screenshots/rstiX.png) |
+| **[schematiX](schematiX/README.md)**<br>[![schematiX schema studio](assets/screenshots/schematiX.png)](assets/screenshots/schematiX.png) | **[shelliX](shelliX/README.md)**<br>[![shelliX AI shell](assets/screenshots/shelliX.png)](assets/screenshots/shelliX.png) |
 
 Refresh the gallery with a running suite server, Playwright and Chromium:
 
@@ -404,6 +479,24 @@ Refresh the gallery with a running suite server, Playwright and Chromium:
 BASE_URL=http://127.0.0.1:8000 node scripts/capture-screenshots.cjs
 # Optional: ONLY=desktop,photiX and CHROMIUM_PATH=/path/to/chromium
 ```
+
+## Coding SDK, project knowledge and rstiX
+
+Optional **model mosaics** route planning, coding and review to saved models with one validated response per turn and an auditable call budget. The SDK exposes the same routing in JavaScript, Python and Rust. Graph memory supports bounded multi-hop retrieval, source provenance, revision-checked annotations and change history. The [graphical skill-flow editor](shared-suite/skill-flow/README.md) connects pinned skills and guarded tool steps on a sketch canvas and exchanges versioned agent workflows without executing them while editing.
+
+rstiX can scan up to eight GitHub repositories at pinned commits, preview all discovered RST/needs exports, and import selected repositories into a local source project. Access tokens are request-only. Duplicate need IDs require explicit repository namespaces or a narrower selection. rstiX and skill flows export static HTML/SVG results for embedding; native JSON remains available for continued editing.
+
+AI edits in rstiX retain imported GitHub base provenance. Skill-flow imports and exports validate typed defaults, result checks and step references against the runtime contract. Python graph memory resolves local package and relative imports, including `src/` layouts; ambiguous dependencies remain explicit references with warnings.
+
+The JavaScript, Python and Rust MCP stdio clients share JSON-RPC conformance checks, support interleaved server notifications, and reject unsupported client requests without dispatching host tools. Invalid replies close the connection, and notifications do not extend call deadlines.
+
+Graph retrieval now shares Unicode search and deterministic traversal tests across the SDKs. Search hosts can request empty results while automatic context keeps its inventory fallback. rstiX memory exchange pins project scope and reviewed revisions, rejects stale responses, and requires reconciliation after an uncertain save.
+
+rstiX keeps recoverable drafts for source files and need fields, validates combined edits atomically, and guards exports and Undo against omitted pending changes. Portable draft backups and raw source downloads remain available when local browser recovery fails.
+
+The [coding SDK](codingagentlib/README.md) separates provider-independent orchestration from guarded workspace execution. Coding agents build a bounded, source-provenanced project ontology and knowledge graph automatically. Download/load graphs and ontologies per project through Project memory; treat them as reference data, not verified facts. Parameterized Python scripts, a reusable recipe library, pinned targets, versioned skills and JSON-RPC/MCP shell transports are documented in the [Coding Guide](codingagentlib/CODING_GUIDE.md).
+
+[rstiX](rstiX/README.md) browses and edits RST/Sphinx-Needs documents with a sketch-style dependency graph and the common suite UX. Dependency edits update actual RST options, while graph dragging only updates layout. Native projects, RST ZIPs, needs.json and separate graph/ontology downloads make projects portable; no directives or configuration are executed.
 
 ## Development and verification
 
@@ -448,11 +541,11 @@ Coding agents optionally support [evidence-driven model handoff](codingagentlib/
 architeX also provides [AI source import](architex/README.md#ai-source-importer-sketches-graphics-pdf-and-code) for sketches, graphics, PDFs, source code and archives, with explicit semantic merge options, proposal review and Undo.
 
 
-All 18 apps and the desktop now share **Tasks** (Alt+Shift+T): search saved notebook checklists across tools, filter unfinished work, update task status, export a Markdown work list, and append selected tasks to an unsent AI draft. Existing app documents and drafts remain separate. See the [task dashboard guide](shared-suite/README.md#tasks-across-all-apps).
+All 23 apps and the desktop now share **Tasks** (Alt+Shift+T): search saved notebook checklists across tools, filter unfinished work, update task status, export a Markdown work list, and append selected tasks to an unsent AI draft. Existing app documents and drafts remain separate. See the [task dashboard guide](shared-suite/README.md#tasks-across-all-apps).
 
 All apps also provide **Review**: app-specific, read-only checks for the current work, searchable advisory findings, JSON report export, and selected findings converted into existing notebook tasks. It checks content such as local HTML assets, workflow reachability, layout readability and prototype branches; it does not run or automatically repair projects. See the [work review guide](shared-suite/README.md#review-current-work).
 
-**Prompt workflows** includes app-specific creation, improvement and handoff starting points for all 18 apps. They supply editable goals, scope, constraints and success criteria, then build an unsent brief for the native chat/agent workflow. mockiX now includes persistent prompt workflows and its relay skill profile. Restart a running server after updating backend files. See the [AI starting-point guide](shared-ai/README.md#native-starting-points-for-every-app).
+**Prompt workflows** includes app-specific creation, improvement and handoff starting points for all 23 apps. They supply editable goals, scope, constraints and success criteria, then build an unsent brief for the native chat/agent workflow. mockiX now includes persistent prompt workflows and its relay skill profile. Restart a running server after updating backend files. See the [AI starting-point guide](shared-ai/README.md#native-starting-points-for-every-app).
 
 Every app now supports selected-review follow-ups: Investigate, Improve or Verify. Draft a grounded request in the existing AI composer or export it as a standalone brief; drafts preserve existing text and remain unsent. See [review follow-ups](shared-suite/README.md#follow-up-on-review-findings).
 
@@ -462,6 +555,22 @@ The shared Tasks dashboard supports direct task creation for any app and editing
 
 All apps support portable selected-task JSON worklists, with reviewed cross-app imports, duplicate-text detection and destination conflict checks. See [portable worklists](shared-suite/README.md#portable-worklists-and-cross-app-handoffs).
 
-Every app now includes a searchable **App catalogue** with two new native templates and two layouts or view/output presets, plus editable saved copies. See the [all-app native catalogue](shared-suite/README.md#native-catalogues-in-all-apps).
+Built-in **App catalogues** provide two native templates and two layouts or view/output presets, plus editable saved copies. Newly registered apps can save and reuse native copies even when bundled starters are not yet available. See the [all-app native catalogue](shared-suite/README.md#native-catalogues-in-all-apps).
 
 The browser coding agent now offers Plan/Build/Review presets, and both browser and standalone VS Code agents offer persistent **Project memory**: categorized project notes, source references, pinning, expiry, archival, revision-safe editing, indexed search, exports and reviewed handoff drafts. Opt-in recall is scoped per project and cached within a run. See [project memory and task modes](shared-agent/TECHNIQUES.md#project-memory-and-task-modes); restart the Python relay after updating.
+
+
+textiX now supports **Embed content** for portable snapshots from every other
+suite app: visual/text previews plus retained native project data, source-app
+reopening, refresh/removal with undo, and complete HTML/JSON/ZIP round trips.
+See the [embedding guide](textiX/README.md#embed-content-from-other-apps).
+
+App catalogues now support favourites, recent successful previews, combined built-in/saved-template search, kind filters and paged rendering for larger libraries. Saved view preferences never modify native documents. See [catalogue browsing](shared-suite/README.md#catalogue-favourites-and-recent-previews).
+
+The shared Tasks dashboard now supports one-step **Undo** for task creation, text edits, completion changes and worklist imports in all registered apps and the desktop, with exact saved-notebook restoration and protection for newer changes. See [task dashboard undo](shared-suite/README.md#undo-task-dashboard-changes).
+
+All registered apps now recover unsaved **Notes & tasks** edits after refresh or app switching within the same browser tab, including incomplete checklist edits. Recovery preserves the saved-version conflict checks and leaves native documents untouched. See [notebook draft recovery](shared-suite/README.md#notebook-draft-recovery).
+
+**Apps** (Alt+Shift+P) now searches current-workspace actions alongside app names in all registered apps, with direct access to Tasks, Review, templates/layouts, Workspace and Virtual disk plus keyboard navigation. See [Apps & actions](shared-suite/README.md#find-apps-and-workspace-actions).
+
+**Review** now compares successive captures in all registered apps, highlights newly reported findings, preserves matching selections across refreshes, and exports complete comparisons. Historical findings remain separate from current tasks and AI follow-ups. See [successive work reviews](shared-suite/README.md#compare-successive-work-reviews).

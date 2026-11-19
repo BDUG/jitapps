@@ -1,0 +1,353 @@
+{
+  "protocol": "codingagentlib/sdk-v1",
+  "cases": [
+    {
+      "name": "malformed",
+      "responses": [
+        null,
+        null,
+        null
+      ],
+      "expected": {
+        "status": "waiting",
+        "calls": 0,
+        "reason": "invalid_response"
+      }
+    },
+    {
+      "name": "wrong-identity",
+      "responses": [
+        {
+          "sessionId": "wrong",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        },
+        {
+          "sessionId": "wrong",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        },
+        {
+          "sessionId": "wrong",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "waiting",
+        "calls": 0,
+        "reason": "invalid_response"
+      }
+    },
+    {
+      "name": "denied",
+      "permission": "edits",
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {}
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "complete",
+        "calls": 0
+      }
+    },
+    {
+      "name": "schema-denied",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {}
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "complete",
+        "calls": 0
+      }
+    },
+    {
+      "name": "valid-schema",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {
+              "text": "hello"
+            }
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "complete",
+        "calls": 1
+      }
+    },
+    {
+      "name": "duplicate-call",
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {},
+            "callId": "same-call"
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {},
+            "callId": "same-call"
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "complete",
+        "calls": 1
+      }
+    },
+    {
+      "name": "cancelled",
+      "cancel": true,
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {}
+          }
+        }
+      ],
+      "expected": {
+        "status": "paused",
+        "calls": 0,
+        "reason": "cancelled"
+      }
+    },
+    {
+      "name": "completion-gate",
+      "denyComplete": true,
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "waiting",
+        "calls": 0,
+        "reason": "completion_denied"
+      }
+    },
+    {
+      "name": "model-budget",
+      "budgets": {
+        "modelCalls": 1
+      },
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {}
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "paused",
+        "calls": 1,
+        "reason": "model_budget"
+      }
+    },
+    {
+      "name": "tool-budget",
+      "budgets": {
+        "toolCalls": 1
+      },
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {}
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "act",
+          "action": {
+            "tool": "echo",
+            "args": {}
+          }
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "paused",
+        "calls": 1,
+        "reason": "tool_budget"
+      }
+    },
+    {
+      "name": "resume",
+      "resume": true,
+      "responses": [
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "ask",
+          "action": null,
+          "question": "Continue?"
+        },
+        {
+          "sessionId": "$session",
+          "step": "$step",
+          "plan": "Conformance step",
+          "status": "done",
+          "action": null,
+          "summary": "Observed result"
+        }
+      ],
+      "expected": {
+        "status": "complete",
+        "calls": 0
+      }
+    }
+  ]
+}

@@ -9,10 +9,22 @@ function prepare(request, { enabled = true, budget = 80000 } = {}) {
   )
     throw Error("Invalid model-history budget");
   const original = request.events || [],
-    characters = JSON.stringify(original).length,
     canRead = (request.tools || []).some(
       (t) => t.name === "read_history" || t === "read_history",
     );
+  // Account one record at a time: never allocate the full archived-history string.
+  // Reuse only recent encodings, bounded by the selection window, within this call.
+  const encoded = new Map(), sizes = new Map();
+  let cachedCharacters=0;
+  let characters = 2 + Math.max(0, original.length - 1);
+  for (let index=0;index<original.length;index++) {
+    const text=JSON.stringify(original[index]) ?? 'null';
+    characters+=text.length;
+    if(enabled&&canRead&&index>=original.length-24){
+      sizes.set(index,text.length);
+      if(cachedCharacters+text.length<=budget){encoded.set(index,text);cachedCharacters+=text.length;}
+    }
+  }
   const base = {
     format: "codingagentlib/history-view/v1",
     originalEvents: original.length,
@@ -32,8 +44,7 @@ function prepare(request, { enabled = true, budget = 80000 } = {}) {
     };
   // Avoid parsing/copying records that will be omitted from the model view.
   // This cache is per request: mutable audit records are never reused across turns.
-  const source = copy({ ...request, events: [] }),
-    encoded = new Map();
+  const source = copy({ ...request, events: [] });
   const eventJSON = (index) => {
     if (!encoded.has(index))
       encoded.set(index, JSON.stringify(original[index]));
@@ -71,7 +82,7 @@ function prepare(request, { enabled = true, budget = 80000 } = {}) {
     i--
   ) {
     if (selected.has(i)) continue;
-    const size = eventJSON(i).length + 1;
+    const size = (sizes.get(i) ?? eventJSON(i).length) + 1;
     if (used + size <= budget) {
       selected.add(i);
       used += size;

@@ -1,5 +1,7 @@
 # codingagentlib
 
+Read the [Coding Agent How-to Book](../docs/coding-agent-book/README.md) for step-by-step usage, LLM request/response examples, result delivery and SDK integration.
+
 The suite's headless coding-agent components, reusable without the desktop, chat UI, relay or HTTP server. The original JavaScript planning loop and Python workspace runtime now live here. Provider/model transports are injected; the library never selects a paid model or starts an AI request on its own.
 
 | Interface | Entry point | Runtime requirements |
@@ -9,6 +11,46 @@ The suite's headless coding-agent components, reusable without the desktop, chat
 | Native Python API | `from codingagentlib import Agent, Runtime` | Python 3.10+, standard library for base features. No Node or web server required. |
 | Native Rust API | `rust/` crate, `codingagentlib::Agent` | Rust/Cargo to build; the compiled library requires no Python, Node, worker or web server. |
 | JSON-lines worker | `python3 -m codingagentlib --workspace PATH` | Python only. Protocol documented below; no listening TCP ports. |
+
+## ReAct Loop, `uv` Python Environments, Script Harness & Memory Manager
+
+- **`ReactAgent`** (`from codingagentlib import ReactAgent`): High-level ReAct driver with context compaction (`compactedHistory`), `workingBrief`, `decisionGuidance`, action-cycle/loop detection (`loopWarning`), structured invalid-reply repair (`repairHint`), optional multi-action turn batching (`actions: [...]`), and automatic `MemoryManager` recall/episode capture.
+- **`PythonEnvironments`** (`python_env` tool / `op: "python_env"`): Isolated virtual environments under `.suite-agent/pyenvs/<name>/.venv`, preferring `uv` (`uv venv` / `uv pip`) with automatic fallback to stdlib `venv` + `pip`, PEP 508 requirement validation, `freeze` lockfiles, and command-policy enforcement.
+- **`ScriptLibrary` & `script_run` harness** (`script_run`, `script_library` tools): Executes managed, inline, or library scripts inside a managed virtual environment with PEP 723 `# /// script` dependency bootstrap, structured JSON I/O (`agent_io.load_input()`, `agent_io.emit()`, `AGENT_ARTIFACT_DIR`), and automatic credential/path-screened capture into a versioned, searchable SQLite script library.
+- **`MemoryManager`** (`memory_remember`, `memory_recall`, `memory_forget`, `memory_manage`, `scratchpad`): Layered long-term memory (`fact`, `lesson`, `episode`, `preference`, `procedure`, `note`) with similarity + importance + recency decay + usage scoring, near-duplicate merging, TTL expiry, consolidation, pinning, per-session scratchpad, and automatic session episode/lesson capture on completion.
+- **Memory Architectures (`UnifiedMemorySuite`)**:
+  - **StructMem** (`memory_struct`): Typed, schema-validated structured records (`entity`, `file_summary`, `api_contract`, `error_pattern`, `decision`, `config`, `dependency`).
+  - **egGENT** (`memory_graph` `eggent_query`): Episodic Event-Graph (`State -> Action -> Observation -> Outcome`) with `PRECEDES` / `RESOLVED_BY` transitions.
+  - **A-MEM** (`memory_graph` `amem_add` / `amem_search`): Zettelkasten atomic notes with automatic bidirectional linking and dynamic neighbor evolution.
+  - **MAGMA** (`memory_graph` `magma_add` / `magma_link` / `magma_query`): Four-view multi-graph (`semantic`, `temporal`, `causal`, `entity`) with intent routing, spreading activation, and Reciprocal Rank Fusion (RRF).
+  - **GAM** (`memory_research`): Dual-module Memorizer (page store) + Researcher (iterative multi-hop retrieval & synthesis across all memory layers).
+- **CLI**: `python3 -m codingagentlib.cli --workspace PATH {react,env,scripts,memory} ...`
+- **ReAct Loop Protocols & Standards**:
+  - **Thought → Action (`providers.py`)**: Native JSON Schema tool-use adapters (`openai_tool_model`, `anthropic_tool_model`, `gemini_tool_model`, `tool_schemas`, `parse_provider_response`, `tool_use_to_react_model`) extracting reasoning tokens, `tool_calls`, normalized `stop_reason`, and token `usage`.
+  - **Action → Observation (`mcp_transports.py`, `rpc.py`)**: MCP stdio (`ShellMCP`, `MCPService`) and Streamable HTTP (`HttpMCPTransport`, `POST /api/mcp`).
+  - **Nested ReAct Loops (`a2a.py`)**: Agent2Agent (`agent_card`, `A2AServer`, `A2AClient`, `a2a_delegation_tool`) with `GET /.well-known/agent.json` and `POST /api/a2a` (`tasks/send`, `tasks/get`, `tasks/cancel`, `message/send`).
+  - **Loop → Editor / UI (`streaming.py`)**: SSE Data Streams (`format_sse`, `SSEStreamBridge`), AG-UI lifecycle events (`ag_ui_events`, `POST /api/agent/stream`), and Zed ACP (`ACPServer` `initialize`, `session/new`, `session/prompt`, `session/update`, `session/request_permission`).
+  - **Loop Observability (`otel_genai.py`)**: OpenTelemetry GenAI Semantic Conventions (`GenAITracer`, `ReactOtelObserver`, `TraceContext` W3C `traceparent`, OTLP JSON export via `export_otlp_json()` and `GET /api/agent/otel`).
+- **Hybrid Orchestration (`hybrid_agent.py`)**: `HybridPlanReflexionAgent` combines Plan-and-Execute (DAG task decomposition & adaptive `replanner`), Reflexion (mandatory post-failure self-critique + episodic memory capture), and ReAct execution.
+- **Handbook**: [Coding Agent & SDK Handbook](../docs/coding-agent-book/HANDBOOK.md)
+
+## Portable SDK v1
+
+The versioned generic `createAgent` / `create_agent` core supports registered host tools, policy, context, pluggable sessions, budgets, replay, streaming, MCP transports and scoped delegation without requiring a coding workspace. [Contracts, lifecycle, optional packages and compatibility](SDK.md). Existing coding APIs remain available.
+
+## Project knowledge, Python tools, skills and targets
+
+The optional **model mosaic** routes planning, coding and review turns to host-configured models with one provider call per turn, pinned routes, a model-call budget and an inspectable route history. JavaScript `createModelMosaic`, Python `create_model_mosaic` and Rust `mosaic::ModelMosaic` work with generic SDK agents and coding callbacks. Browser agents expose the option beside runtime settings; load saved model profiles before selecting routes. Errors return to normal orchestration without a fallback model. [Deterministic JavaScript example](examples/model-mosaic.cjs) · [Python example](examples/model_mosaic.py).
+
+Graph recall now follows bounded neighborhoods with explicit seeds, relation filters and direction. Python AST indexing adds qualified symbols, same-file inheritance and direct-call references; moving an unchanged Python declaration preserves its identity and annotations. Hosts can annotate entities, inspect change history and remove imported entities with revision guards. JavaScript's optional `@tlal/agent-memory` builds graphs from host-supplied source snapshots and supplies generic agent context providers. Python `ProjectKnowledge.context_provider` and Rust `graph_memory::ProjectGraphMemory`/`query` provide equivalent host integration. Imported annotations remain reference data.
+
+The [graphical skill-flow editor](../shared-suite/skill-flow/README.md) supports sketch-style editing, dependency validation, pinned skill prerequisites, workflow JSON exchange and revision-safe saves from an agent session. Saving never runs a workflow. rstiX additionally scans one or multiple GitHub repositories at pinned commits, merges RST and exported needs, and preserves repository provenance. Both editors export static embeddable illustrations.
+
+Coding sessions automatically derive project-local ontology/knowledge-graph references from bounded source inspection and include them in planning context. Graph and ontology can be exported separately or imported into a selected project with revision checks; they never grant permissions or count as verification. The browser agent and VS Code Project memory dialogs expose these operations. rstiX builds equivalent portable memory from its open RST document.
+
+Parameterized managed Python scripts are the standard reusable coding approach when Python is approved. Successful scripts with a `codingagent-tool` header can populate a private, versioned recipe library without overwriting existing tools. Skills and named targets remain explicit, revision/hash-pinned data. Preparing a recipe never executes it; normal script/command permissions still apply. Libraries are project-independent and portable, with an optional configured shared SQLite path.
+
+MCP supports injected JSON-RPC bridges and literal-argv shell/stdio transports in JavaScript, Python and Rust. The bundled `python3 -m codingagentlib.rpc --workspace PATH` service is read-only by default; writes and programs require explicit flags and the normal runtime guards. [Coding guide and working examples](CODING_GUIDE.md) · [rstiX app](../rstiX/README.md).
 
 ## Dynamic integrations
 
@@ -76,6 +118,16 @@ with Agent('/absolute/workspace', commands=['python3', 'git']) as agent:
 ```
 
 Executables must exist. File edits require `allow_edits`; commands require both the executable allowlist and `allow_commands`. The native driver returns `complete`, `waiting` or `paused`. Budget exhaustion returns a `sessionId`; explicitly resume with `agent.run(goal_or_followup, model, session_id=id)`. Existing session permissions remain fixed. `cancel_event` accepts a `threading.Event` checked around model calls and between steps; it cannot interrupt arbitrary blocking model callback code. To stop an active command from another application thread, use `agent.dispatch({'op':'cancel','session':id})` or the low-level runtime's cancel method.
+
+### Executable path fallback
+
+Python and native Rust resolve `run_command` programs and `run_script` interpreters before execution. A missing explicit path (for example `/old/install/python3`) falls back to searching `PATH` for its basename. This also works when registering an allowlisted executable and when its pinned installation disappears after startup. An approved alias is searched if a versioned canonical target is no longer available. Python uses the platform's `shutil.which` rules; Rust checks regular executable files in `PATH` order and considers `PATHEXT` suffixes on Windows. Both return the resolved absolute path as `resolvedExecutable` in command receipts, alongside the requested `command`.
+
+Fallback preserves permissions: a missing model-supplied path must name an approved executable, and an existing unapproved path is rejected even if its basename matches an approved command. Existing nonexecutable paths do not trigger substitution. Python's explicit `commands=['*']` policy permits any resolvable executable; restricted lists and disabled session command permissions remain enforced. The search uses the host process's environment, does not scan the filesystem, and does not install programs or enable unknown tool names. JavaScript LocalRuntime also resolves a relocated Python interpreter using its supplied `env`. The VS Code worker launcher applies the same search to its native executable; worker startup failures reject subsequent requests instead of leaving them pending. These launchers resolve before spawning and never retry a process that may already have started. On POSIX, an absent `PATH` uses `/usr/bin:/bin`, while an explicitly empty `PATH` retains current-directory lookup. Inaccessible or broken entries are skipped during `PATH` searches; errors at an explicit existing path remain errors. Hosts must supply a trusted `PATH`; commands run with host OS permissions, not in an OS sandbox.
+
+Failure after search produces an unsuccessful tool observation for the next model turn. The harness does not retry the command or replay side effects. Existing argument validation, timeouts, output paging, cancellation and verification apply to the resolved executable. JavaScript LocalRuntime and the suite server share the Python implementation; the VS Code native worker shares Rust's implementation.
+
+Checks: `python3 -m unittest codingagentlib.test_command_resolution` and `cargo test --locked --manifest-path codingagentlib/rust/Cargo.toml --test command_resolution` exercise stale paths, removed versioned targets, script interpreters, permission denials and failure observations with local executables and deterministic callbacks.
 
 For custom orchestration use `agent.start(...)`, `agent.next(session_id)` and `agent.submit(session_id, response)`. Each `next` reserves a fresh turn. Submitting the same turn twice does not replay its action. A question pauses the run. Use `Runtime.dispatch()` directly for session listing, follow-ups, guarded file tools, context archives, workflows, memory, inspection, acceptance reports and independent-review prepare/submit operations.
 
@@ -278,3 +330,67 @@ Command receipts expose `stdoutSha256` and `stderrSha256` for complete raw log b
 ## Optional model handoff
 
 [Evidence-driven model handoff](MODEL_HANDOFF.md) adds shadow evaluation and an opt-in one-time primary-to-efficient switch, configurable in the relay and VS Code and available through JavaScript, Python and native Rust APIs. Saved role state survives resume; existing permissions and verification gates still apply.
+
+## Recovering from concurrent file edits
+
+Python, JavaScript `LocalRuntime` and native Rust now return the same additive conflict receipt for guarded file edits. VS Code uses the native Rust implementation. Existing `ok:false` and `error` fields remain available:
+
+```json
+{
+  "ok": false,
+  "code": "file_revision_conflict",
+  "conflict": {
+    "path": "src/example.py",
+    "expectedHash": "<revision used by the proposal>",
+    "actualHash": "<current SHA-256, or missing>",
+    "requiresRead": true
+  },
+  "recovery": {
+    "strategy": "read_then_replan",
+    "automaticRetry": false,
+    "nextAction": {"tool": "read_file", "args": {"path": "src/example.py"}},
+    "note": "Read current contents and preserve concurrent edits before making a new proposal."
+  }
+}
+```
+
+This receipt means the stale edit was rejected. The recovery action is a suggestion for a new approved turn, not a scheduled operation. Read current contents, incorporate concurrent changes, then propose an adapted edit using its fresh hash and a new call ID. If the file was removed, inspect the parent folder before deciding whether to recreate it. Never fix a stale write by replacing only its hash. Managed-script conflicts in Rust suggest `read_script` instead. Permissions, validation and call-ID deduplication still apply; no write is retried automatically.
+
+The JavaScript loop exposes the supplied receipt as `loop.failureRecovery(events).recoveryPlan`, alongside `revisionConflict`, for browser or custom host recovery interfaces. Python callers inspect `Runtime.dispatch(...)`; Rust callers inspect `Agent::dispatch(...)`. All fields also remain in recorded observations for resumed sessions. Host code should treat paths and notes as untrusted data, render them as text and validate suggestions through its normal tool policy.
+
+VS Code shows a concise conflict explanation and **Draft recovery follow-up** beside the raw result. The button appends to the current draft after the run pauses or stops. Review it and choose Resume; drafting neither executes a tool nor changes permissions.
+
+Checks: `python3 -m unittest codingagentlib.test_revision_conflicts`, `node --test codingagentlib/javascript/revision-conflict-test.cjs`, Rust's `revision_conflict_recovery_preserves_external_work_and_receipts` test and the VS Code panel tests use local deterministic workspaces; no paid model calls.
+
+## Native task dependency validation
+
+Rust model submissions now use `codingagentlib::planning::validate` and `planning::action` to enforce the task DAG and ready-task binding already used by the JavaScript/Python coding drivers. `planning::latest` retrieves the latest accepted assistant checklist; new native requests expose it as `tasks`. The graph is limited to 30 tasks (IDs up to 80 characters, titles up to 300), unique known dependency IDs, one active task and no cycles. Active/done tasks require done prerequisites. With dependencies, use `action.taskId` for the ready active task. Invalid incoming plans/actions are rejected before tool execution and may be repaired using a fresh turn. A complete corrected task list can replace invalid archived metadata.
+
+Checklists without dependencies retain legacy unbound actions. This applies to model `submit` orchestration; low-level host-directed tool dispatch does not require task binding. Task statuses are planning claims, never execution proof or permission grants. Existing verification and completion gates remain authoritative.
+
+Shared fixtures in `rust/tests/fixtures/task-planning.json` exercise JavaScript, Python and Rust validation. Run `node --test codingagentlib/javascript/task-planning-test.cjs`, `python3 -m unittest codingagentlib.test_task_planning`, and the Rust/VS Code suites. Native integration tests cover rejection without side effects, repair, prerequisites and persisted plans after restart.
+
+## Native terminal retry guard
+
+Native Rust `Agent::submit` / `Agent::run` now pause before a fourth unchanged failed `run_command` or `run_script` invocation. Comparison uses the tool and literal arguments, independently of checks, task IDs or changing error output. Only unique native observations matched to accepted model actions count. Matching zero-exit success, a successful matching file-tool edit or a new explicit user follow-up resets the applicable counter; reads and Resume alone do not. The entire current follow-up segment is inspected rather than only a recent receipt window, and saved history survives restart.
+
+Results use `status: waiting`, `reason: repeated_terminal_failure` and a `recovery` object (`codingagentlib/terminal-recovery/v1`) containing the tool, failure count, last three call IDs with original `read_history` offsets, `automaticRetry:false` and guidance. No fourth action is executed; earlier side effects remain. Hosts can call the pure `codingagentlib::recovery::terminal_retry(&events, &action)` helper for one native session's audit. `recovery::policy()` is exposed as `terminalRetryPolicy` in native health and planning requests.
+
+Low-level host-directed tool dispatch remains explicit and is outside this guard. Workflow-internal invocations are not treated as separate matched model actions. Provider request retry policy, permissions, approvals and verification gates are unchanged. Changed invocations are evaluated separately, and successful matching file edits can reset counters; neither certifies a fix or prevents every possible repetition pattern. Recovery suggestions never execute themselves.
+
+Tests: native `recovery` tests cover failure/check variations, duplicate observations, unknown exit codes, reset boundaries, actual command side-effect counts and restart. VS Code tests also check the native fallback beyond its recent-window heuristic.
+
+## Current verification snapshots for host integrations
+
+Native Rust planning requests now add three fields to `verificationFreshness` when a command binding exists:
+
+| Field | Meaning |
+| --- | --- |
+| `inputDigest` | The latest command's recorded tracked-input digest (existing field). |
+| `currentInputDigest` | Digest of the currently captured known-input set. |
+| `currentComplete` | Whether current capture completed without coverage warnings. |
+| `currentTrackedFiles` | Number of entries in that current snapshot. |
+
+Hosts with several required checks can compare each receipt's `result.verificationBinding.inputDigest` with `currentInputDigest`, requiring stable, complete command input capture and complete current coverage. A later command pass does not refresh an earlier check's binding. VS Code now enforces this for every configured command and exposes stale/unavailable results. The snapshot reuses the native freshness capture; it does not add another filesystem read pass. With no previous command binding, status remains `none` and these additive snapshot fields are absent.
+
+Known inputs, limits and non-atomic coverage remain as documented under source-bound verification. An empty known-input set remains unbound, not proof of whole-workspace correctness. Host-directed policy is separate from native permissions and the native completion recheck. No verification commands are run automatically by comparing digests.

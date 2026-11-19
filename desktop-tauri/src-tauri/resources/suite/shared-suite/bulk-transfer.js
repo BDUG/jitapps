@@ -1,0 +1,22 @@
+/* Portable typed edit sets and spreadsheet parsing; no document execution. */
+(function(root){'use strict';
+function parse(text,separator=','){
+ const rows=[];let row=[],cell='',quoted=false,closed=false; text=text.replace(/^\uFEFF/,'');
+ for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'){if(text[i+1]==='"'){cell+='"';i++;}else{quoted=false;closed=true;}}else cell+=c;continue;}
+ if(c==='"'){if(cell||closed)throw Error('Unexpected quote in spreadsheet data.');quoted=true;}
+ else if(c===separator){row.push(cell);cell='';closed=false;}
+ else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell='';closed=false;}
+ else {if(closed)throw Error('Unexpected text after a quoted cell.');cell+=c;}}
+ if(quoted)throw Error('Unclosed quoted spreadsheet cell.');if(cell||row.length||closed){row.push(cell);rows.push(row);}return rows;
+}
+const encode=rows=>rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+async function digest(doc){if(!root.crypto?.subtle)throw Error('Edit-set transfer needs HTTPS or localhost for revision verification.');const bytes=new TextEncoder().encode(JSON.stringify(doc));return [...new Uint8Array(await root.crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');}
+async function pack(tool,doc,edits){return {format:'suite-field-edits-v2',tool,baseline:await digest(doc),edits};}
+async function check(data,tool,doc){if(data.format!=='suite-field-edits-v2'||data.tool!==tool)throw Error('Use a version 2 edit set exported by this tool. Re-export older edit sets.');if(data.baseline!==await digest(doc))throw Error('This edit set belongs to a different document revision. Refresh and export a new edit set.');if(!Array.isArray(data.edits))throw Error('Missing edits array.');return data.edits;}
+function csv(data){return encode([['format','tool','baseline','path','type','valueJSON'],...data.edits.map(e=>[data.format,data.tool,data.baseline,JSON.stringify(e.path),typeof e.value,JSON.stringify(e.value)])]);}
+function fromCSV(text){const rows=parse(text),header=rows.shift();if(JSON.stringify(header)!==JSON.stringify(['format','tool','baseline','path','type','valueJSON']))throw Error('Use an exported edit-set CSV with its header unchanged.');if(!rows.length)throw Error('No edit rows.');const [format,tool,baseline]=rows[0];return {format,tool,baseline,edits:rows.map(r=>{if(r.length!==6||r[0]!==format||r[1]!==tool||r[2]!==baseline)throw Error('Inconsistent CSV edit-set metadata.');const path=JSON.parse(r[3]),value=JSON.parse(r[5]);if(!Array.isArray(path)||typeof value!==r[4])throw Error('CSV path or value type is invalid.');return {path,value};})};}
+function convert(row,text){if(row.type==='string')return text;if(!text.trim()||!Number.isFinite(Number(text)))throw Error('Enter a finite number for '+row.path.join('.'));return Number(text);}
+function batch(rows,operation,value,find=''){return rows.map(row=>{let result;if(operation==='set')result=convert(row,value);else if(operation==='scale'){if(row.type!=='number')throw Error('Scale requires numeric fields only.');result=row.value*Number(value);if(!value.trim()||!Number.isFinite(Number(value))||!Number.isFinite(result))throw Error('Enter a finite multiplier.');}else{if(row.type!=='string')throw Error('Text operations require text fields only.');if(operation==='prefix')result=value+row.value;else if(operation==='suffix')result=row.value+value;else if(operation==='replace'){if(!find)throw Error('Enter text to find.');result=row.value.split(find).join(value);}else throw Error('Unknown batch operation.');}return {path:row.path,value:result};});}
+function schema(data){return {$schema:'https://json-schema.org/draft/2020-12/schema',title:data.tool+' revision-specific bulk edits',description:'Preserve format, tool, baseline and paths. Edit values only. Import rejects stale revisions, duplicate paths and protected fields; native review validates domain constraints.',type:'object',additionalProperties:false,required:['format','tool','baseline','edits'],properties:{format:{const:data.format},tool:{const:data.tool},baseline:{const:data.baseline},edits:{type:'array',items:data.edits.length?{oneOf:data.edits.map(e=>({type:'object',additionalProperties:false,required:['path','value'],properties:{path:{const:e.path},value:{type:typeof e.value}}}))}:false}}};}
+const api={parse,encode,digest,pack,check,csv,fromCSV,convert,batch,schema};root.SuiteBulkTransfer=api;if(typeof module==='object')module.exports=api;
+})(globalThis);

@@ -1,7 +1,7 @@
 /* Portable app-scoped planning notes. No document edits or tool execution. */
 (function (root) {
   "use strict";
-  function validate(raw) {
+  function validateDocument(raw, allowIncomplete = false) {
     if (
       !raw ||
       raw.format !== "suite-notebook/v1" ||
@@ -20,7 +20,7 @@
         !t.id ||
         ids.has(t.id) ||
         typeof t.text !== "string" ||
-        !t.text.trim() ||
+        (!allowIncomplete && !t.text.trim()) ||
         typeof t.done !== "boolean"
       )
         throw Error(
@@ -36,6 +36,45 @@
       notes: raw.notes,
       tasks,
     };
+  }
+  function validate(raw) {
+    return validateDocument(raw);
+  }
+  const draftLimit = 1000000;
+  function readDraft(raw, tool) {
+    if (
+      typeof raw !== "string" ||
+      new TextEncoder().encode(raw).length > draftLimit
+    )
+      throw Error("Notebook recovery copies are limited to 1 MB.");
+    const value = JSON.parse(raw);
+    if (
+      !value ||
+      value.format !== "suite-notebook-draft/v1" ||
+      (value.baseRaw !== null && typeof value.baseRaw !== "string") ||
+      typeof value.updatedAt !== "string" ||
+      !Number.isFinite(Date.parse(value.updatedAt))
+    )
+      throw Error("Invalid notebook recovery copy.");
+    const doc = validateDocument(value.doc, true);
+    if (doc.tool !== tool)
+      throw Error("Notebook recovery copy belongs to another app.");
+    return {
+      format: value.format,
+      baseRaw: value.baseRaw,
+      updatedAt: value.updatedAt,
+      doc,
+    };
+  }
+  function draft(baseRaw, doc) {
+    const raw = JSON.stringify({
+      format: "suite-notebook-draft/v1",
+      baseRaw,
+      updatedAt: new Date().toISOString(),
+      doc: validateDocument(doc, true),
+    });
+    readDraft(raw, doc.tool);
+    return raw;
   }
   function empty(tool) {
     return validate({
@@ -89,7 +128,7 @@
       .join("\n\n");
     return a;
   }
-  const api = { validate, empty, markdown, merge };
+  const api = { validate, empty, markdown, merge, draft, readDraft };
   root.SuiteNotebookCore = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof window === "undefined" ? globalThis : window);

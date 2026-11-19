@@ -5,3 +5,5 @@
 .sc-record-content{min-width:0;flex:1}.sc-record-content>label{overflow-wrap:anywhere}
 .sc-record:has(input[type=checkbox]:checked){background:#f9eef1}
 .sc-browser input[type=checkbox]:focus-visible{outline:2px solid #3f6f98;outline-offset:3px}
+
+#hub-action-section{margin:14px 0 20px}#suite-hub h3{font-size:13px;margin:12px 0 8px;color:#626a73}#hub-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#hub-actions button{text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}#hub-actions small{font-size:11px;color:#626a73}#hub-actions button:disabled{opacity:.5;cursor:default}@media(max-width:600px){#hub-actions{grid-template-columns:1fr}}

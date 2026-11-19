@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "markiX document",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "name",
+    "syntax",
+    "source"
+  ],
+  "properties": {
+    "format": {
+      "const": "markix-project"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "syntax": {
+      "enum": [
+        "markdown",
+        "rst"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "maxLength": 20971520
+    }
+  }
+}

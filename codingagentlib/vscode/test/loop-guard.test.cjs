@@ -30,3 +30,42 @@ test('native command receipts distinguish full outputs with identical previews',
  assert.equal(rows.length,2);assert.equal(rows[0].stdout,rows[1].stdout);
  for(let i=0;i<2;i++){assert.equal(rows[i].stdoutSha256,crypto.createHash('sha256').update('x'.repeat(14000)+(i?'B':'A')).digest('hex'));assert.equal(rows[i].stderrSha256,crypto.createHash('sha256').update('é').digest('hex'));}
 });
+
+test('command retry attempts cannot be reset by changing result checks',()=>{
+ const events=[];for(let i=1;i<=3;i++)events.push(...pair(i,{tool:'run_script',args:{command:'node',path:'check.js'},checks:[{path:'/exitCode',op:'equals',value:i}]},{exitCode:1,stderr:'changed '+i}));
+ const action={tool:'run_script',args:{command:'node',path:'check.js'}};
+ const before=JSON.stringify(events),report=Guard.review(events,action);
+ assert.equal(report.code,'repeated_failure');assert.deepEqual(report.callIds,['s_1','s_2','s_3']);
+ assert.equal(Guard.review(events,{...action,args:{command:'node',path:'fixed.js'}}).blocked,false);
+ assert.equal(Guard.review([...events,...pair(4,action,{exitCode:0})],action).blocked,false);
+ assert.equal(JSON.stringify(events),before);
+});
+test('native controller pauses before a fourth failed command with altered checks',async t=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'agent-check-retries-')),worker=new Worker(path.resolve(__dirname,'../bin/codingagent-worker'+(process.platform==='win32'?'.exe':'')),root,[process.execPath]);
+ t.after(async()=>{await worker.close();await fs.rm(root,{recursive:true,force:true});});let turns=0;
+ const controller=new Controller(worker,async request=>({sessionId:request.sessionId,step:request.step,status:'act',plan:'Inspect changed checks',action:{tool:'run_command',args:{command:process.execPath,args:['-e','process.exit(1)']},checks:[{path:'/exitCode',op:'equals',value:++turns}]}}));
+ const result=await controller.run('Diagnose repeated failures',{commands:true},6);
+ assert.equal(result.reason,'no_progress');assert.equal(result.recovery.code,'repeated_failure');assert.equal(turns,4);
+ const saved=await worker.dispatch({op:'session',session:controller.session});assert.equal(saved.events.filter(e=>e.kind==='observation'&&e.value.tool==='run_command').length,3);
+});
+
+test('prepared turn ledger hashes source receipts once and isolates its decisions from mutable model context',()=>{
+ let reads=0;const events=[];
+ for(let i=1;i<=3;i++){const result={get text(){reads++;return 'observed source';}};events.push(...pair(i,read,result));}
+ const reviewer=Guard.createReviewer(events);assert.equal(reads,3);
+ const visible=reviewer();visible.recentFailures.push({callId:'fake',tool:'read_file'});
+ events.length=0;
+ const decision=reviewer(read);assert.equal(decision.code,'unchanged_cycle');assert.equal(decision.matchedReceipts,3);assert.deepEqual(decision.recentFailures,[]);
+ decision.callIds.length=0;
+ assert.equal(reviewer(read).callIds.length,3);assert.equal(reads,3);
+ assert.equal(Guard.createReviewer(events)(read).blocked,false);
+});
+
+test('native turn guard cannot be reset by mutating model-visible history or review metadata',async t=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'agent-private-ledger-'));
+ const worker=new Worker(path.resolve(__dirname,'../bin/codingagent-worker'+(process.platform==='win32'?'.exe':'')),root);
+ t.after(async()=>{await worker.close();await fs.rm(root,{recursive:true,force:true});});await fs.writeFile(path.join(root,'a.txt'),'stable');let turns=0;
+ const controller=new Controller(worker,async request=>{if(++turns===4){request.events.length=0;request.loopReview.matchedReceipts=0;request.loopReview.recentFailures.length=0;}return {sessionId:request.sessionId,step:request.step,status:'act',plan:'Inspect source',action:read};});
+ const result=await controller.run('Inspect',{},6);assert.equal(result.reason,'no_progress');assert.equal(turns,4);
+ const saved=await worker.dispatch({op:'session',session:controller.session});assert.equal(saved.events.filter(e=>e.kind==='observation').length,3);
+});

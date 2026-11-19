@@ -1,0 +1,46 @@
+.server-projects {
+  margin: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border, #d7dce1);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  color: var(--text, #343b43);
+}
+.server-projects summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.sp-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.6rem 0;
+}
+.sp-actions select,
+.sp-actions input {
+  max-width: 100%;
+  min-width: 12rem;
+}
+.sp-root {
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.sp-tree {
+  max-height: 20rem;
+  overflow: auto;
+}
+.sp-tree > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #e7e9eb;
+}
+.sp-tree span {
+  flex: 1;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.sp-tree button {
+  padding: 0.2rem 0.5rem;
+}

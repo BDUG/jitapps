@@ -1,0 +1,17 @@
+{
+  "cases": [
+    {"name":"plain","valid":true,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect a file","inputs":{},"steps":[{"id":"read","tool":"read_file","args":{"path":"README.md"}}]}},
+    {"name":"typed-input","valid":true,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect a file","inputs":{"path":{"type":"string","default":"README.md"}},"steps":[{"id":"read","tool":"read_file","args":{"path":{"$input":"path"}},"checks":[{"path":"/hash","op":"exists","value":true}]}]}},
+    {"name":"pinned","valid":true,"definition":{"format":"suite-tool-workflow/v2","name":"Inspect","description":"Inspect with procedure","steps":[{"id":"read","tool":"read_file","args":{"path":"README.md"},"skills":[{"id":"inspect","revision":2}]}]}},
+    {"name":"wrong-default","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","inputs":{"path":{"type":"string","default":42}},"steps":[{"id":"read","tool":"read_file","args":{}}]}},
+    {"name":"bad-check-operation","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","steps":[{"id":"read","tool":"read_file","args":{},"checks":[{"path":"/value","op":"execute","value":true}]}]}},
+    {"name":"bad-check-pointer","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","steps":[{"id":"read","tool":"read_file","args":{},"checks":[{"path":"/bad~9escape","op":"exists","value":true}]}]}},
+    {"name":"bad-step-pointer","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","steps":[{"id":"read","tool":"read_file","args":{}},{"id":"second","tool":"read_file","args":{"path":{"$step":"read","path":"/bad~9escape"}}}]}},
+    {"name":"nonboolean-exists","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","steps":[{"id":"read","tool":"read_file","args":{},"checks":[{"path":"/value","op":"exists","value":"yes"}]}]}},
+    {"name":"unknown-input","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","steps":[{"id":"read","tool":"read_file","args":{"path":{"$input":"missing"}}}]}},
+    {"name":"forward-reference","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","steps":[{"id":"first","tool":"read_file","args":{"path":{"$step":"second"}}},{"id":"second","tool":"list_files","args":{}}]}},
+    {"name":"null-inputs","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","inputs":null,"steps":[{"id":"read","tool":"read_file","args":{}}]}},
+    {"name":"duplicate-pins","valid":false,"definition":{"format":"suite-tool-workflow/v2","name":"Inspect","description":"Inspect","steps":[{"id":"read","tool":"read_file","args":{},"skills":[{"id":"inspect","revision":1},{"id":"inspect","revision":1}]}]}},
+    {"name":"pins-with-old-format","valid":false,"definition":{"format":"suite-tool-workflow/v1","name":"Inspect","description":"Inspect","steps":[{"id":"read","tool":"read_file","args":{},"skills":[{"id":"inspect","revision":1}]}]}}
+  ]
+}

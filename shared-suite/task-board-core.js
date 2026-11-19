@@ -88,6 +88,7 @@
     } else {
       if (!existing)
         throw Error("Task no longer exists. Refresh the dashboard.");
+      if (existing.text === task.text.trim()) return raw;
       existing.text = task.text.trim();
     }
     return JSON.stringify(N.validate(doc));
@@ -207,7 +208,39 @@
     }
     return { doc, added, skipped };
   }
+  function change(tool, beforeRaw, afterRaw, label) {
+    if (
+      typeof tool !== "string" ||
+      !tool ||
+      typeof label !== "string" ||
+      !label ||
+      typeof afterRaw !== "string" ||
+      (beforeRaw !== null && typeof beforeRaw !== "string")
+    )
+      throw Error("Invalid dashboard undo record.");
+    for (const raw of [beforeRaw, afterRaw])
+      if (raw !== null && N.validate(JSON.parse(raw)).tool !== tool)
+        throw Error("Undo record belongs to another app.");
+    return beforeRaw === afterRaw ? null : { tool, beforeRaw, afterRaw, label };
+  }
+  function undo(record, currentRaw) {
+    if (!record) throw Error("There is no dashboard change to undo.");
+    const checked = change(
+      record.tool,
+      record.beforeRaw,
+      record.afterRaw,
+      record.label,
+    );
+    if (!checked) throw Error("There is no dashboard change to undo.");
+    if (currentRaw !== record.afterRaw)
+      throw Error(
+        "This notebook changed after the dashboard action. Undo was refused to preserve newer work.",
+      );
+    return record.beforeRaw;
+  }
   const api = {
+    change,
+    undo,
     key,
     identity,
     collect,

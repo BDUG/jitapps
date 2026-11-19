@@ -52,7 +52,8 @@ const assert = require("node:assert/strict"),
     });
     await page.goto(base + "/");
     const apps = await page.evaluate(() => SuiteApps.map((a) => a.id));
-    assert.equal(apps.length, 18);
+    assert.ok(apps.length >= 21);
+    assert.equal(new Set(apps).size, apps.length);
     for (const app of apps) {
       console.log("Task editing " + app);
       await page.goto(base + "/" + app + "/");
@@ -179,7 +180,7 @@ const assert = require("node:assert/strict"),
     await page.screenshot({ path: "/tmp/task-editor-mobile.png" });
     assert.equal(aiCalls, 0);
     console.log(
-      "PASS: task creation/editing in all 18 apps, native document preservation, completed flags/notes retained, stale-save rejection with draft preservation, new notebooks from desktop, corrupt-target recovery and mobile layout.",
+      "PASS: task creation/editing in all registered apps, native document preservation, completed flags/notes retained, stale-save rejection with draft preservation, new notebooks from desktop, corrupt-target recovery and mobile layout.",
     );
   } finally {
     await browser.close();

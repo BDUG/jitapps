@@ -1,0 +1,571 @@
+[
+  {
+    "name": "missing",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "wrong script",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "other.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "passes",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "passed"
+    ]
+  },
+  {
+    "name": "latest failure",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "b",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "b",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 1
+          }
+        }
+      }
+    ],
+    "expected": [
+      "failed"
+    ]
+  },
+  {
+    "name": "stale after edit",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "edit",
+          "tool": "apply_project",
+          "ok": true,
+          "result": {
+            "status": "applied"
+          }
+        }
+      }
+    ],
+    "expected": [
+      "stale"
+    ]
+  },
+  {
+    "name": "reverified",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "edit",
+          "tool": "apply_project",
+          "ok": true,
+          "result": {
+            "status": "applied"
+          }
+        }
+      },
+      {
+        "kind": "action",
+        "value": {
+          "id": "b",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "b",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "passed"
+    ]
+  },
+  {
+    "name": "tool error",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": false,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      }
+    ],
+    "expected": [
+      "failed"
+    ]
+  },
+  {
+    "name": "model claim",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": true
+      }
+    ],
+    "events": [
+      {
+        "kind": "assistant",
+        "value": {
+          "acceptance": {
+            "passed": true
+          }
+        }
+      }
+    ],
+    "expected": [
+      "pending"
+    ]
+  },
+  {
+    "name": "opt out freshness",
+    "rules": [
+      {
+        "id": "tests",
+        "title": "Tests pass",
+        "tool": "run_script",
+        "match": [
+          {
+            "path": "/path",
+            "op": "equals",
+            "value": "verify.py"
+          }
+        ],
+        "checks": [
+          {
+            "path": "/exitCode",
+            "op": "equals",
+            "value": 0
+          }
+        ],
+        "afterEdits": false
+      }
+    ],
+    "events": [
+      {
+        "kind": "action",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "args": {
+            "path": "verify.py"
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "a",
+          "tool": "run_script",
+          "ok": true,
+          "result": {
+            "exitCode": 0
+          }
+        }
+      },
+      {
+        "kind": "observation",
+        "value": {
+          "id": "edit",
+          "tool": "apply_project",
+          "ok": true,
+          "result": {
+            "status": "applied"
+          }
+        }
+      }
+    ],
+    "expected": [
+      "passed"
+    ]
+  },
+  {
+    "name": "same-result edit",
+    "rules": [
+      {
+        "id": "apply",
+        "title": "Applied",
+        "tool": "apply_project",
+        "checks": [
+          {
+            "path": "/status",
+            "op": "equals",
+            "value": "applied"
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "kind": "observation",
+        "value": {
+          "id": "edit",
+          "tool": "apply_project",
+          "ok": true,
+          "result": {
+            "status": "applied"
+          }
+        }
+      }
+    ],
+    "expected": [
+      "passed"
+    ]
+  },
+  {
+    "name": "JSON pointer escaping",
+    "rules": [
+      {
+        "id": "pointer",
+        "title": "Pointer",
+        "tool": "read_file",
+        "checks": [
+          {
+            "path": "/a~1b/~0/0",
+            "op": "equals",
+            "value": false
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "kind": "observation",
+        "value": {
+          "id": "p",
+          "tool": "read_file",
+          "ok": true,
+          "result": {
+            "a/b": {
+              "~": [
+                false
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "expected": [
+      "passed"
+    ]
+  }
+]

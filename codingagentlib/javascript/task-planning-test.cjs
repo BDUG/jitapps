@@ -1,0 +1,2 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),planning=require('./planning.js'),cases=require('../rust/tests/fixtures/task-planning.json');
+test('shared native/JavaScript/Python task DAG contract',()=>{for(const item of cases){if(item.valid){assert.doesNotThrow(()=>planning.validate(item.tasks),item.name);for(const row of item.actions||[])assert.equal(planning.actionIssue(item.tasks,row.action)===null,row.valid,item.name);}else assert.throws(()=>planning.validate(item.tasks),item.name);}});

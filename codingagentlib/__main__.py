@@ -10,11 +10,16 @@ PROTOCOL='codingagentlib/1'
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--workspace',required=True)
+    parser.add_argument('--exclusive-workspace',action='store_true')
     parser.add_argument('--allow-command',action='append',default=[])
     parser.add_argument('--navigation-dir')
     parser.add_argument('--embedding-dir')
+    parser.add_argument('--tool-library')
     args=parser.parse_args()
-    with Agent(args.workspace,args.allow_command,navigation_dir=args.navigation_dir,embedding_dir=args.embedding_dir) as agent:
+    agent_type=Agent
+    if args.exclusive_workspace:
+        from .python.coding import Agent as agent_type
+    with agent_type(args.workspace,args.allow_command,navigation_dir=args.navigation_dir,embedding_dir=args.embedding_dir,tool_library=args.tool_library) as agent:
         def stop(*_):agent.close();raise SystemExit(0)
         signal.signal(signal.SIGTERM,stop)
         for line in sys.stdin:

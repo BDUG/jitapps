@@ -17,3 +17,17 @@ test('disabled context is absent and cancellation during collection prevents the
  let step=0;const worker={call:async n=>n==='agent_start'?{id:'s'}:n==='agent_next'?{step:++step}:{status:'complete'},dispatch:async()=>({}),interrupt:async()=>{}};const plain=new Controller(worker,async request=>{assert.equal(request.ideContext,undefined);return {};});await plain.run('Inspect');
  let modelCalls=0;const stopped=new Controller(worker,async()=>{modelCalls++;},()=>{},async()=>{},async()=>{await stopped.stop();return {diagnostics:[],counts:{}};});const result=await stopped.run('Stop');assert.equal(result.reason,'cancelled');assert.equal(modelCalls,0);
 });
+
+test('path checks are bounded, deduplicated and fresh while dependency folders avoid filesystem work',async t=>{
+ const vm=require('node:vm'),{createRequire}=require('node:module');
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'agent-context-batch-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const files=Array.from({length:24},(_,i)=>path.join(root,'file'+i+'.js'));await Promise.all(files.map(file=>fs.writeFile(file,'source')));
+ const dependency=path.join(root,'node_modules','package','private.js'),calls=new Map();let active=0,peak=0;
+ const instrumented={...fs,realpath:async file=>{calls.set(file,(calls.get(file)||0)+1);active++;peak=Math.max(peak,active);try{await new Promise(resolve=>setImmediate(resolve));return await fs.realpath(file);}finally{active--;}}};
+ const module={exports:{}},filename=path.resolve(__dirname,'../src/editor-context.cjs'),local=createRequire(filename);
+ vm.runInNewContext(await fs.readFile(filename,'utf8'),{module,exports:module.exports,require:name=>name==='node:fs/promises'?instrumented:local(name)});
+ const document={uri:uri(files[0]),version:1};const vscode={workspace:{textDocuments:[document]},window:{activeTextEditor:{document}},languages:{getDiagnostics:()=>[...files.map(file=>[uri(file),[diagnostic('current')]]),[uri(files[0]),[diagnostic('second')]], [uri(dependency),[diagnostic('excluded')]]]}};
+ const collected=await module.exports.collect(vscode,root);assert.ok(peak>1&&peak<=8);assert.equal(calls.get(files[0]),1);assert.equal(calls.has(dependency),false);assert.equal(collected.totalDiagnostics,25);assert.equal(collected.excludedFiles,1);
+ const outside=path.join(root,'..',path.basename(root)+'-outside');await fs.writeFile(outside,'external');t.after(()=>fs.rm(outside,{force:true}));await fs.rm(files[0]);await fs.symlink(outside,files[0]);
+ const fresh=await module.exports.collect(vscode,root);assert.equal(fresh.totalDiagnostics,23);assert.equal(fresh.activeEditor,null);assert.equal(calls.get(files[0]),2);assert.ok(fresh.diagnostics.every(d=>d.path!=='file0.js'));
+});

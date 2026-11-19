@@ -120,7 +120,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/api/health':
             profile = self.server.store.active() if hasattr(self.server, 'store') else {}
-            self.send_json(200, {'service':'architex','chatRelay':True,'protocolVersion':2,'multimodalVersion':1,'agentHandoff':self.server.store.handoff() if hasattr(self.server,'store') else {},'agentCollaboration':self.server.store.collaboration() if hasattr(self.server,'store') else {'mode':'off'},'providerDiagnosticsVersion':1,'providerConfigured':bool(profile.get('apiKey')) or profile.get('provider')=='litellm'})
+            self.send_json(200, {'service':'architex','chatRelay':True,'protocolVersion':2,'multimodalVersion':1,'agentHandoff':self.server.store.handoff() if hasattr(self.server,'store') else {},'modelProfiles':self.server.store.model_profiles() if hasattr(self.server,'store') else [],'agentCollaboration':self.server.store.collaboration() if hasattr(self.server,'store') else {'mode':'off'},'providerDiagnosticsVersion':1,'providerConfigured':bool(profile.get('apiKey')) or profile.get('provider')=='litellm'})
         elif self.path.startswith('/api/admin/'):
             if not self.local_admin() or self.headers.get('X-Architex-Admin')!='1':
                 self.send_json(403,{'error':'Provider administration is available only from the relay UI on its own local origin'})

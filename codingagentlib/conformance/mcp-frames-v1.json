@@ -1,0 +1,399 @@
+{
+  "cases": [
+    {
+      "name": "result",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {}
+      },
+      "kind": "response"
+    },
+    {
+      "name": "null-result",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": null
+      },
+      "kind": "response"
+    },
+    {
+      "name": "numeric-id",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1.0,
+        "result": {}
+      },
+      "kind": "response"
+    },
+    {
+      "name": "string-id",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": "request",
+        "result": []
+      },
+      "kind": "response"
+    },
+    {
+      "name": "null-id-error",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": null,
+        "error": {
+          "code": -32600,
+          "message": "Invalid request"
+        }
+      },
+      "kind": "response"
+    },
+    {
+      "name": "remote-error",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {
+          "code": -32601,
+          "message": "Missing",
+          "data": {}
+        }
+      },
+      "kind": "response"
+    },
+    {
+      "name": "notification",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "method": "notifications/progress",
+        "params": {
+          "progress": 1
+        }
+      },
+      "kind": "notification"
+    },
+    {
+      "name": "notification-without-params",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "method": "notifications/tools/list_changed"
+      },
+      "kind": "notification"
+    },
+    {
+      "name": "server-request",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "roots/list",
+        "params": {}
+      },
+      "kind": "request"
+    },
+    {
+      "name": "positional-params",
+      "valid": true,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": "server",
+        "method": "request",
+        "params": []
+      },
+      "kind": "request"
+    },
+    {
+      "name": "missing-result",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1
+      }
+    },
+    {
+      "name": "ambiguous-result",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {},
+        "error": {
+          "code": -1,
+          "message": "Bad"
+        }
+      }
+    },
+    {
+      "name": "null-error",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": null
+      }
+    },
+    {
+      "name": "missing-code",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {
+          "message": "Bad"
+        }
+      }
+    },
+    {
+      "name": "missing-message",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {
+          "code": -1
+        }
+      }
+    },
+    {
+      "name": "boolean-code",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {
+          "code": true,
+          "message": "Bad"
+        }
+      }
+    },
+    {
+      "name": "fractional-code",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {
+          "code": -1.5,
+          "message": "Bad"
+        }
+      }
+    },
+    {
+      "name": "string-code",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {
+          "code": "-1",
+          "message": "Bad"
+        }
+      }
+    },
+    {
+      "name": "boolean-id",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": true,
+        "result": {}
+      }
+    },
+    {
+      "name": "fractional-id",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1.5,
+        "result": {}
+      }
+    },
+    {
+      "name": "unsafe-id",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 9007199254740992,
+        "result": {}
+      }
+    },
+    {
+      "name": "object-id",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": {},
+        "result": {}
+      }
+    },
+    {
+      "name": "array-envelope",
+      "valid": false,
+      "frame": []
+    },
+    {
+      "name": "null-envelope",
+      "valid": false,
+      "frame": null
+    },
+    {
+      "name": "response-without-id",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "result": {}
+      }
+    },
+    {
+      "name": "wrong-version",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "1.0",
+        "id": 1,
+        "result": {}
+      }
+    },
+    {
+      "name": "invalid-notification-version",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "1.0",
+        "method": "notifications/progress",
+        "params": {}
+      }
+    },
+    {
+      "name": "request-with-result",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "roots/list",
+        "result": {}
+      }
+    },
+    {
+      "name": "notification-with-error",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "method": "notifications/progress",
+        "error": {}
+      }
+    },
+    {
+      "name": "empty-method",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "method": ""
+      }
+    },
+    {
+      "name": "null-params",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "method": "request",
+        "params": null
+      }
+    },
+    {
+      "name": "string-params",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "method": "request",
+        "params": "bad"
+      }
+    },
+    {
+      "name": "response-with-params",
+      "valid": false,
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {},
+        "params": {}
+      }
+    }
+  ],
+  "toolResults": [
+    {
+      "name": "empty-content",
+      "valid": true,
+      "result": {
+        "content": []
+      }
+    },
+    {
+      "name": "structured-result",
+      "valid": true,
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
+        "isError": false,
+        "structuredContent": {
+          "result": 1
+        }
+      }
+    },
+    {
+      "name": "missing-content",
+      "valid": false,
+      "result": {}
+    },
+    {
+      "name": "nonarray-content",
+      "valid": false,
+      "result": {
+        "content": {}
+      }
+    },
+    {
+      "name": "null-content",
+      "valid": false,
+      "result": {
+        "content": null
+      }
+    },
+    {
+      "name": "nonboolean-error",
+      "valid": false,
+      "result": {
+        "content": [],
+        "isError": "false"
+      }
+    },
+    {
+      "name": "null-error-flag",
+      "valid": false,
+      "result": {
+        "content": [],
+        "isError": null
+      }
+    },
+    {
+      "name": "array-result",
+      "valid": false,
+      "result": []
+    },
+    {
+      "name": "null-result",
+      "valid": false,
+      "result": null
+    }
+  ]
+}

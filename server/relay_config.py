@@ -241,6 +241,10 @@ class Store:
                 else:roles[role]=None
             return {'mode':value.get('mode','shadow'),**roles}
 
+    def model_profiles(self):
+        with self.lock:
+            return [dict(id=profile_identity(p),profileId=p['id'],name=p['name'],modalities=p.get('inputModalities',['text'])) for p in self.data['profiles']]
+
     def collaboration(self):
         with self.lock:
             value=self.data.get('agentCollaboration',{'mode':'off','members':[],'maxConsultations':2,'interval':5})

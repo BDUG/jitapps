@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict"),
   C = require("./core"),
   seeds = require("./seeds.json");
-assert.equal(Object.keys(C.names).length, 18);
+assert.equal(Object.keys(C.names).length, 21);
 for (const tool of Object.keys(C.names)) {
   const entries = C.entries(tool);
   assert.equal(entries.length, 4);
@@ -45,5 +45,5 @@ assert.equal(photo.image, seeds.photiX.image);
 assert.throws(() => C.entries("unknown"));
 assert.throws(() => C.create("mockiX", "unknown", seeds, seeds.mockiX));
 console.log(
-  "PASS: 18 app catalogues with two templates/two layouts each, fresh native examples, immutable seeds, locked-layer preservation, formulas, inline images and unknown-entry rejection.",
+  "PASS: 21 app catalogues with two templates/two layouts each, fresh native examples, immutable seeds, locked-layer preservation, formulas, inline images and unknown-entry rejection.",
 );

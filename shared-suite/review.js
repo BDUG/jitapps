@@ -8,6 +8,12 @@
     C = SuiteReviewCore;
   let captured = null,
     source = "",
+    sourceLabel = "",
+    sourceScope = "",
+    comparison = null,
+    states = [],
+    removedRows = [],
+    removedLimit = 100,
     selected = new Set(),
     limit = 100,
     busy = false;
@@ -18,12 +24,15 @@
   };
   const css = el("link");
   css.rel = "stylesheet";
-  css.href = new URL("shared-suite/review.css?v=followup-20261031", base).href;
+  css.href = new URL(
+    "shared-suite/review.css?v=review-delta-20261108",
+    base,
+  ).href;
   document.head.append(css);
   const dialog = el("dialog");
   dialog.id = "suite-review";
   dialog.setAttribute("aria-labelledby", "rv-title");
-  dialog.innerHTML = `<header><div><h2 id="rv-title">Review current work</h2><p id="rv-context"></p></div><button id="rv-close" aria-label="Close work review">×</button></header><p>Advisory checks inspect a snapshot. They do not run commands, apply changes, or certify that work is correct.</p><div class="rv-actions"><button id="rv-refresh">Refresh review</button><label>Severity<select id="rv-severity"><option value="">All findings</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Suggestions</option></select></label><label>Find<input id="rv-query" type="search" placeholder="Finding, location or code"></label></div><p id="rv-count" role="status"></p><div class="rv-actions"><button id="rv-select">Select filtered findings</button><button id="rv-clear">Clear selection</button><button id="rv-tasks" disabled>Add selected as notebook tasks</button><label>Export scope<select id="rv-export-scope"><option value="all">All findings</option><option value="filtered">Filtered findings</option><option value="selected">Selected findings</option></select></label><label>Format<select id="rv-export-format"><option value="json">JSON</option><option value="md">Markdown</option></select></label><button id="rv-export" disabled>Export review</button></div><fieldset class="rv-followup"><legend>Follow up on selected findings</legend><label>Goal <select id="rv-intent"><option value="investigate">Investigate</option><option value="improve">Improve</option><option value="verify">Verify</option></select></label><button id="rv-draft" disabled>Draft in AI chat</button><button id="rv-brief" disabled>Export AI brief</button><p>Drafts are editable and unsent. Review selected findings and sensitive text before sharing.</p></fieldset><div id="rv-list"></div><button id="rv-more" hidden>Show 100 more</button><p id="rv-limitations"></p><p id="rv-status" role="status" aria-live="polite"></p>`;
+  dialog.innerHTML = `<header><div><h2 id="rv-title">Review current work</h2><p id="rv-context"></p></div><button id="rv-close" aria-label="Close work review">×</button></header><p>Advisory checks inspect a snapshot. They do not run commands, apply changes, or certify that work is correct.</p><div class="rv-actions"><button id="rv-refresh">Refresh review</button><label>Severity<select id="rv-severity"><option value="">All findings</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Suggestions</option></select></label><label>Since previous review<select id="rv-change" title="Available after a second review capture in this page." disabled><option value="">All current findings</option><option value="new">Newly reported</option><option value="unchanged">Still reported</option></select></label><label>Find<input id="rv-query" type="search" placeholder="Finding, location or code"></label></div><details id="rv-comparison" hidden aria-label="Changes since previous review"><summary id="rv-delta-count" aria-live="polite">Changes since previous review</summary><p id="rv-delta-context"></p><button id="rv-delta-export" disabled>Export captured comparison</button><details id="rv-removed"><summary id="rv-removed-summary">No longer reported</summary><p>These are findings from the previous capture. No longer reported does not prove fixed; check that you are comparing the same document and scope.</p><div id="rv-removed-list"></div><button id="rv-removed-more" hidden>Show 100 more</button></details></details><p id="rv-count" role="status"></p><div class="rv-actions"><button id="rv-select">Select filtered findings</button><button id="rv-clear">Clear selection</button><button id="rv-tasks" disabled>Add selected as notebook tasks</button><label>Export scope<select id="rv-export-scope"><option value="all">All findings</option><option value="filtered">Filtered findings</option><option value="selected">Selected findings</option></select></label><label>Format<select id="rv-export-format"><option value="json">JSON</option><option value="md">Markdown</option></select></label><button id="rv-export" disabled>Export review</button></div><fieldset class="rv-followup"><legend>Follow up on selected findings</legend><label>Goal <select id="rv-intent"><option value="investigate">Investigate</option><option value="improve">Improve</option><option value="verify">Verify</option></select></label><button id="rv-draft" disabled>Draft in AI chat</button><button id="rv-brief" disabled>Export AI brief</button><p>Drafts are editable and unsent. Review selected findings and sensitive text before sharing.</p></fieldset><div id="rv-list"></div><button id="rv-more" hidden>Show 100 more</button><p id="rv-limitations"></p><p id="rv-status" role="status" aria-live="polite"></p>`;
   document.body.append(dialog);
   const q = (id) => dialog.querySelector("#" + id);
   function status(text) {
@@ -48,16 +57,48 @@
     return JSON.parse(JSON.stringify(value));
   }
   function filtered() {
-    return (captured?.findings || [])
-      .map((finding, index) => ({ finding, index }))
-      .filter(
-        ({ finding: f }) =>
-          (!q("rv-severity").value || f.severity === q("rv-severity").value) &&
-          [f.code, f.path, f.message]
-            .join(" ")
-            .toLocaleLowerCase()
-            .includes(q("rv-query").value.toLocaleLowerCase().trim()),
+    return C.search(captured, {
+      query: q("rv-query").value,
+      severity: q("rv-severity").value,
+      change: q("rv-change").value,
+      states,
+    });
+  }
+  function renderComparison() {
+    q("rv-comparison").hidden = !comparison;
+    q("rv-change").disabled = !comparison;
+    if (!comparison) return;
+    q("rv-delta-count").textContent =
+      comparison.counts.new +
+      " newly reported · " +
+      comparison.counts.removed +
+      " no longer reported · " +
+      comparison.counts.unchanged +
+      " still reported";
+    q("rv-delta-context").textContent =
+      comparison.baselineLabel +
+      " · " +
+      new Date(comparison.baselineAt).toLocaleString() +
+      " → " +
+      comparison.currentLabel +
+      " · " +
+      new Date(comparison.currentAt).toLocaleString() +
+      ". " +
+      comparison.note;
+    q("rv-removed-summary").textContent =
+      "No longer reported (" + removedRows.length + ")";
+    q("rv-removed").hidden = !removedRows.length;
+    q("rv-removed-list").replaceChildren();
+    for (const f of removedRows.slice(0, removedLimit)) {
+      const row = el("article");
+      row.append(
+        el("strong", f.severity + " · " + f.code),
+        el("p", f.message),
+        el("small", f.path || "Document"),
       );
+      q("rv-removed-list").append(row);
+    }
+    q("rv-removed-more").hidden = removedRows.length <= removedLimit;
   }
   function render() {
     const rows = filtered();
@@ -67,6 +108,7 @@
         label = el("label"),
         check = el("input"),
         body = el("div");
+      row.dataset.change = states[index] || "";
       check.type = "checkbox";
       check.checked = selected.has(index);
       check.setAttribute(
@@ -78,6 +120,13 @@
         else selected.delete(index);
         counts(rows.length);
       };
+      if (comparison)
+        body.append(
+          el(
+            "small",
+            states[index] === "new" ? "Newly reported" : "Still reported",
+          ),
+        );
       body.append(
         el("strong", f.severity + " · " + f.code),
         el("p", f.message),
@@ -95,6 +144,7 @@
         ),
       );
     q("rv-more").hidden = rows.length <= limit;
+    q("rv-delta-export").disabled = busy || !comparison;
     q("rv-export").disabled = busy || !captured;
     q("rv-limitations").textContent = captured?.limitations || "";
     counts(rows.length);
@@ -128,6 +178,7 @@
     q("rv-refresh").disabled = true;
     q("rv-tasks").disabled = true;
     q("rv-export").disabled = true;
+    q("rv-delta-export").disabled = true;
     q("rv-draft").disabled = q("rv-brief").disabled = true;
     try {
       await fn();
@@ -141,23 +192,77 @@
   }
   async function refresh() {
     const d = await snapshot(),
-      result = C.report(app.id, d);
+      result = C.report(app.id, d),
+      label =
+        String(
+          d.name || d.project?.name || d.metamodel?.name || app.name,
+        ).trim() || app.name,
+      scope = JSON.stringify([
+        label,
+        d.id ?? d.project?.id ?? d.metamodel?.id ?? null,
+      ]),
+      scopeChanged = !!sourceScope && sourceScope !== scope,
+      delta = C.reviewDelta(
+        captured,
+        result,
+        scopeChanged ? [] : [...selected],
+        sourceLabel || app.name,
+      );
+    comparison = delta.comparison
+      ? { ...delta.comparison, currentLabel: label }
+      : null;
+    states = comparison
+      ? comparison.items.slice(0, result.findings.length).map((f) => f.status)
+      : [];
+    removedRows = comparison
+      ? comparison.items.filter((f) => f.status === "removed")
+      : [];
+    removedLimit = 100;
     captured = result;
     source = JSON.stringify(d);
-    selected.clear();
+    sourceLabel = label;
+    sourceScope = scope;
+    selected = new Set(delta.selection);
     limit = 100;
+    renderComparison();
     q("rv-context").textContent =
       app.name + " · snapshot " + new Date(result.createdAt).toLocaleString();
     render();
-    status("Review refreshed. The app document is unchanged.");
+    status(
+      "Review refreshed. " +
+        (scopeChanged
+          ? "Document label or identity changed; previous selections were cleared. "
+          : "") +
+        "The app document is unchanged.",
+    );
   }
   q("rv-close").onclick = () => dialog.close();
   q("rv-refresh").onclick = () => run(refresh);
-  for (const id of ["rv-query", "rv-severity"])
+  for (const id of ["rv-query", "rv-severity", "rv-change"])
     q(id).addEventListener(id === "rv-query" ? "input" : "change", () => {
       limit = 100;
       render();
     });
+  q("rv-removed-more").onclick = () => {
+    removedLimit += 100;
+    renderComparison();
+  };
+  q("rv-delta-export").onclick = () => {
+    if (!comparison || busy) return;
+    const url = URL.createObjectURL(
+        new Blob([JSON.stringify(comparison, null, 2)], {
+          type: "application/json",
+        }),
+      ),
+      a = el("a");
+    a.href = url;
+    a.download = app.id + ".captured-review-comparison.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    status(
+      "Exported the comparison of the last two captured reviews. Refresh review to capture newer content.",
+    );
+  };
   q("rv-more").onclick = () => {
     limit += 100;
     render();
@@ -290,6 +395,18 @@
             ? filtered().map((row) => row.index)
             : [];
       const report = C.scopedReport(captured, scope, indices);
+      if (scope === "filtered" && q("rv-change").value) {
+        report.comparisonFilter = q("rv-change").value;
+        report.comparedWith = comparison.baselineAt;
+        report.limitations +=
+          " Comparison filter: " +
+          (q("rv-change").value === "new"
+            ? "newly reported"
+            : "still reported") +
+          " against capture " +
+          comparison.baselineAt +
+          ".";
+      }
       const format = q("rv-export-format").value;
       const text =
         format === "md" ? C.markdown(report) : JSON.stringify(report, null, 2);

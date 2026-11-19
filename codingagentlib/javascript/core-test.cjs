@@ -1,0 +1,56 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {createAgent,MemorySessionStore,replay}=require('./core.js');
+const {mcpTools,exposeMcp,delegationTool}=require('./extensions.js');
+const vectors=require('../conformance/core-v1.json');
+const response=(r,status='done',extra={})=>({sessionId:r.sessionId,step:r.step,plan:'Inspect evidence',status,action:null,summary:'Observed',...extra});
+function fill(value,r) {if(value==='$session')return r.sessionId;if(value==='$step')return r.step;if(Array.isArray(value))return value.map(v=>fill(v,r));if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,fill(v,r)]));return value;}
+(async()=>{
+  for(const vector of vectors.cases) {
+    let index=0,calls=0;const controller=new AbortController();
+    const agent=createAgent({model:r=>{if(vector.cancel)controller.abort();return fill(vector.responses[index++],r);},tools:[{name:'echo',description:'Echo',permission:vector.permission||'read',parameters:vector.parameters||{type:'object'},execute:args=>{calls++;return args;}}],policy:{complete:()=>!vector.denyComplete},budgets:vector.budgets});
+    let result=await agent.run('Conformance',{signal:controller.signal});
+    if(vector.resume)result=await agent.resume(result.sessionId,{answer:'Continue'});
+    assert.equal(result.status,vector.expected.status,vector.name);assert.equal(calls,vector.expected.calls,vector.name);
+    if(vector.expected.reason)assert.equal(result.reason,vector.expected.reason,vector.name);
+  }
+  let calls=0;
+  const {EmbeddedAgent}=require('./embedded.js'),{fromEmbedded}=require('./adapters.js');
+  const embedded=new EmbeddedAgent({context:{project:'host'}}).addTool('legacy',(_,ctx)=>{assert.equal(ctx.context.project,'host');return {read:true};});
+  const migrated=fromEmbedded(embedded,{model:r=>r.events.some(e=>e.kind==='tool_result')?response(r):response(r,'act',{action:{tool:'legacy',args:{}}})});
+  assert.equal((await migrated.run('Migrate host tools')).status,'complete');
+  const restricted=fromEmbedded(embedded,{model:r=>response(r,'act',{action:{tool:'legacy',args:{}}}),policy:{authorize:()=>false},budgets:{modelCalls:1}});
+  await restricted.run('Preserve additional host restrictions');assert.equal(restricted.snapshot().events.find(e=>e.kind==='tool_result').value.ok,false);
+  const tool={name:'echo',permission:'read',description:'Echo',parameters:{type:'object'},execute:args=>{calls++;return args;}};
+  const model=r=>r.events.some(e=>e.kind==='tool_result')?response(r):response(r,'act',{action:{tool:'echo',args:{}}});
+  const agent=createAgent({model,tools:[tool]});await agent.run('Record');const recorded=agent.snapshot();
+  const playback=await replay(recorded);assert.equal(playback.result.status,'complete');assert.equal(calls,1);
+  const brokenStream=createAgent({model:async function*(r){yield JSON.stringify(response(r,'act',{action:{tool:'echo',args:{}}}));yield 'trailing';},tools:[tool]});
+  assert.equal((await brokenStream.run('Never execute partial action')).status,'waiting');assert.equal(calls,1);
+  const goodStream=createAgent({model:async function*(r){const text=JSON.stringify(response(r));yield text.slice(0,10);yield text.slice(10);}});
+  assert.equal((await goodStream.run('Buffer full response')).status,'complete');
+  const store=new MemorySessionStore();let unblock;const gate=new Promise(resolve=>unblock=resolve);
+  let attempts=0;
+  const observerFailure=createAgent({model:r=>{attempts++;return response(r);},onEvent:e=>{if(e.kind==='model_response')throw Error('Observer failed');}});
+  await assert.rejects(observerFailure.run('Pause on host error'),/Observer failed/);assert.equal(attempts,1);assert.equal(observerFailure.snapshot().status,'paused');
+  const first=createAgent({model:async r=>{await gate;return response(r);},sessionStore:store});
+  const pending=first.run('Lease');await new Promise(resolve=>setImmediate(resolve));const id=first.snapshot().id;
+  const second=createAgent({model:r=>response(r),sessionStore:store});
+  await assert.rejects(second.resume(id),/leased/);unblock();await pending;
+  const foreign=createAgent({model:r=>response(r),sessionStore:store,tenant:'another'});await assert.rejects(foreign.resume(id),/unavailable/);
+  const uncertain=createAgent({model,tools:[tool],sessionStore:store,onEvent:e=>{if(e.kind==='tool_started')throw Error('Observer unavailable');}});
+  await assert.rejects(uncertain.run('Interrupted before side effect'),/Observer/);
+  const saved=uncertain.snapshot(), recovered=createAgent({model,tools:[tool],sessionStore:store});
+  assert.equal((await recovered.resume(saved.id)).reason,'uncertain_tool_call');assert.equal(calls,1);
+  await recovered.resolvePending(saved.id,{callId:saved.pending.callId,tool:'echo',ok:false,error:{code:'not_executed',message:'Host confirmed no dispatch',retryable:false}});
+  assert.equal((await recovered.resume(saved.id)).status,'complete');
+  const invalid=createAgent({model,tools:[{...tool,parameters:{type:'object',patternProperties:{}}}]});assert.equal(invalid.preflight().ok,false);
+  let remote=0;const server=exposeMcp({tools:[{...tool,execute:()=>{remote++;return {value:1};}}],authorize:()=>true});
+  const imported=await mcpTools({transport:{request:server},trust:()=>true});
+  const denied=createAgent({model:r=>response(r,'act',{action:{tool:'echo',args:{}}}),tools:imported,budgets:{modelCalls:1}});
+  await denied.run('No command permission');assert.equal(remote,0);
+  const allowed=createAgent({model,tools:imported});assert.equal((await allowed.run('Trusted MCP',{allowCommands:true})).status,'complete');assert.equal(remote,1);
+  const child=delegationTool({model:r=>response(r),tools:[tool]});const childResult=await child.execute({goal:'Scoped child'},{sessionId:'parent',callId:'parent_call'});assert.equal(childResult.result.status,'complete');
+  assert.throws(()=>delegationTool({model,tools:[{...tool,permission:'commands'}]}),/read-only/);
+  console.log('PASS portable SDK: '+vectors.cases.length+' shared conformance cases; replay, streams, leases, tenant isolation, uncertainty, preflight, MCP and bounded delegation.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

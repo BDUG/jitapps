@@ -9,3 +9,5 @@ fs.writeFileSync(path.join(root,'bin/platform.json'),JSON.stringify({platform:pr
 console.log('Bundled native worker for '+process.platform+'-'+process.arch);
 
 fs.copyFileSync(path.join(root,'../javascript/handoff.js'),path.join(root,'src/handoff.cjs'));
+
+fs.copyFileSync(path.join(root,'../javascript/executable.js'),path.join(root,'src/executable.cjs'));

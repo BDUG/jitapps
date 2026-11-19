@@ -6,7 +6,7 @@ const uri=file=>({scheme:'file',fsPath:file,toString:()=>file});const window={cr
 window.showTextDocument=async document=>calls.push({preview:document});
 const vscode={window,workspace:{isTrusted:true,workspaceFolders:[{name:'Test',uri:uri(workspace)}],textDocuments:[],openTextDocument:async uri=>({uri,getText:()=>contentProvider.provideTextDocumentContent(uri)}),saveAll:async()=>true,getConfiguration:()=>({get:(key,fallback)=>provider[key]??fallback,update:async(k,v)=>provider[k]=v}),registerTextDocumentContentProvider:(_scheme,content)=>{contentProvider=content;return {dispose(){}};}},commands:{registerCommand:(name,fn)=>{commands.set(name,fn);return {dispose(){}};},executeCommand:async(...args)=>calls.push(args)},Uri:{file:uri,parse:value=>({scheme:'codingagent-snapshot',toString:()=>value}),joinPath:(base,...parts)=>uri(path.join(base.fsPath,...parts))},ViewColumn:{Beside:2},StatusBarAlignment:{Right:1},ConfigurationTarget:{Global:1}};
 const storage=new Map();const context={workspaceState:{get:(key,fallback)=>storage.get(key)??fallback,update:async(key,value)=>storage.set(key,value)},subscriptions:[],extensionUri:uri(root),asAbsolutePath:p=>path.join(root,p),secrets:{get:async k=>secrets.get(k),store:async(k,v)=>secrets.set(k,v)}};
-const local=createRequire(path.join(root,'src/extension.cjs')),source=await fs.readFile(path.join(root,'src/extension.cjs'),'utf8'),module={exports:{}};vm.runInNewContext(source,{require:name=>name==='vscode'?vscode:local(name),module,exports:module.exports,process,AbortSignal,URL,console},{filename:'extension.cjs'});
+const workers=[],local=createRequire(path.join(root,'src/extension.cjs')),NativeWorker=local('./worker.cjs').Worker;class TrackedWorker extends NativeWorker{constructor(...args){super(...args);workers.push(this);}}const source=await fs.readFile(path.join(root,'src/extension.cjs'),'utf8'),module={exports:{}};vm.runInNewContext(source,{require:name=>name==='vscode'?vscode:name==='./worker.cjs'?{Worker:TrackedWorker}:local(name),module,exports:module.exports,process,AbortSignal,URL,console},{filename:'extension.cjs'});
 await fs.writeFile(path.join(workspace,'reference.txt'),'explicit reference marker');
 vscode.languages={getDiagnostics:()=>[[uri(path.join(workspace,'reference.txt')),[{message:'Current editor diagnostic',severity:1,range:{start:{line:0,character:1},end:{line:0,character:2}}}]]]};
 const previous=global.fetch;global.fetch=async(_url,options)=>{const request=JSON.parse(JSON.parse(options.body).messages[1].content);if(request.goal==='Provider failure recovery')return new Response('private-provider-error-body',{status:401});if(request.goal==='Generate retained output'){const observed=request.events.some(e=>e.kind==='observation');return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({sessionId:request.sessionId,step:request.step,status:observed?'done':'act',plan:'Generate one output',summary:'Output retained',action:observed?null:{tool:'run_command',args:{command:process.execPath,args:['-e',"process.stdout.write('host output marker')"+(largeProposal?';/*'+'x'.repeat(6500)+'*/':'')]}}})},finish_reason:'stop'}],usage:{prompt_tokens:1,completion_tokens:1}}));}assert.equal(request.ideContext.diagnostics[0].path,'reference.txt');assert.equal(request.ideContext.diagnostics[0].message,'Current editor diagnostic');assert.ok(request.events.some(e=>e.value?.attachments?.some(a=>a.content==='explicit reference marker')));const observed=request.events.some(e=>e.kind==='observation');return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({sessionId:request.sessionId,step:request.step,status:observed?'done':'act',plan:'Write requested file',tasks:[{id:'write',title:'Write greeting',status:observed?'done':'in_progress'}],summary:'Written',action:observed?null:{tool:'write_file',args:{path:'hello.txt',content:'VS Code native run',expectedHash:'missing'}}})},finish_reason:'stop'}],usage:{prompt_tokens:10,completion_tokens:5,total_tokens:15}}));};
@@ -38,5 +38,24 @@ terminalChoice='Run action';const beforeLargeResume=frames.filter(f=>f.kind==='s
 receive({command:'run',resume:true,goal:''});
 await waitFor(()=>frames.filter(f=>f.kind==='status'&&f.text==='complete').length>beforeLargeResume&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
 assert.ok(terminalDialogs.at(-1).buttons.includes('Run action'));
+// Reconnecting a crashed worker restores the saved audit without executing another action.
+const previousWorker=workers.at(-1),savedId=frames.filter(f=>f.kind==='state').at(-1).session;
+const auditBefore=await previousWorker.dispatch({op:'session',session:savedId});
+const exited=new Promise(resolve=>previousWorker.child.once('exit',resolve));previousWorker.child.kill('SIGKILL');await exited;
+await commands.get('codingagent.sessionSummary')();assert.equal(workers.length,2);
+const auditAfter=await workers.at(-1).dispatch({op:'session',session:savedId});
+assert.deepEqual(auditAfter.events,auditBefore.events);assert.equal(frames.filter(f=>f.kind==='state').at(-1).session,savedId);
+
+// Plan mode is enforced by the message/approval host and cannot become Build on Resume.
+const beforePlan=await fs.readFile(path.join(workspace,'hello.txt'),'utf8');
+receive({command:'run',goal:'Plan source changes',executionMode:'plan',edits:true,commands:true});
+await waitFor(()=>frames.some(f=>f.kind==='status'&&f.text==='paused · plan_action_blocked')&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
+assert.match(runDialogs.at(-1),/Mode: plan/);assert.match(runDialogs.at(-1),/File edits: disabled/);assert.match(runDialogs.at(-1),/Commands: disabled/);
+let planState=frames.filter(f=>f.kind==='state').at(-1);assert.equal(planState.sessionMode,'plan');
+let planSession=await workers.at(-1).dispatch({op:'session',session:planState.session});assert.equal(planSession.allowEdits,false);assert.equal(planSession.allowCommands,false);assert.equal(planSession.events.filter(e=>e.kind==='observation').length,0);
+const blockedCount=frames.filter(f=>f.kind==='status'&&f.text==='paused · plan_action_blocked').length;
+receive({command:'run',resume:true,goal:'Continue planning',executionMode:'build',edits:true,commands:true});
+await waitFor(()=>frames.filter(f=>f.kind==='status'&&f.text==='paused · plan_action_blocked').length>blockedCount&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
+assert.equal(frames.filter(f=>f.kind==='state').at(-1).sessionMode,'plan');assert.equal(await fs.readFile(path.join(workspace,'hello.txt'),'utf8'),beforePlan);
 
 });

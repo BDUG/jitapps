@@ -8,7 +8,7 @@ Open `textiX/index.html` directly, or serve the repository with `python3 -m http
 
 Click the document and start writing. Select text to apply bold, italic, underline, strikethrough, colors, highlighting, font family or font size. Choose normal paragraphs, headings, quotes or code from the paragraph-style menu. Headings populate the clickable document outline. Alignment, numbered and bulleted lists, indentation and clear inline formatting are available in the toolbar.
 
-Insert links with complete HTTP, HTTPS, mailto or tel URLs. Insert an editable table with up to 30 rows and 12 columns, optionally with a header row. Edit its cells directly; Tab moves through cells using browser editing behavior. Insert local PNG, JPEG or WebP images up to 2 MB, horizontal rules and explicit print page breaks. Images fit within the document width. Nested table structure and complex page layouts are not supported through dedicated controls.
+Insert links with complete HTTP, HTTPS, mailto or tel URLs. Insert an editable table with the requested rows and columns, optionally with a header row. Edit its cells directly; Tab moves through cells using browser editing behavior. Insert local PNG, JPEG or WebP images, horizontal rules and explicit print page breaks. Images fit within the document width. Nested table structure and complex page layouts are not supported through dedicated controls.
 
 Undo with Ctrl/Command Z; redo with Ctrl/Command Shift Z or Ctrl/Command Y. Ctrl/Command B, I and U format text. Use **Find** (Ctrl/Command F while editing) to search, replace one occurrence, or replace all. Case-sensitive search is optional. Replacement text is inserted as text rather than interpreted as HTML. Word count, character count and estimated reading time update below the document.
 
@@ -23,7 +23,7 @@ The document and its name autosave in browser storage. Undo history is limited t
 - **Markdown:** imports headings, emphasis, inline/fenced code, basic links, lists and quotes. Export also represents tables, with image placeholders. Markdown is a simplified interchange format; complex formatting and table/image round-trips are not lossless.
 - **Print / PDF:** opens the browser print dialog with an A4 print stylesheet. Select your browser's PDF destination to save a PDF. Printing omits editor controls and respects explicit page breaks.
 
-Imports are limited to 6 MB. Pasted HTML and imported documents are sanitized: scripts, event handlers, embedded HTML applications, SVG, external stylesheets, remote images and unsafe links are removed. Supported inline presentation styles remain. Browser-native contenteditable editing provides the rich-text behavior. Legacy Word binary (.doc) and ODT files are not supported.
+Imports do not have an app-imposed content-size limit. Pasted HTML and imported documents are sanitized: scripts, event handlers, embedded HTML applications, SVG, external stylesheets, remote images and unsafe links are removed. Supported inline presentation styles remain. Browser-native contenteditable editing provides the rich-text behavior. Legacy Word binary (.doc) and ODT files are not supported.
 
 ## Verification
 
@@ -42,7 +42,7 @@ Choose **Import → Local disk / Virtual disk** to open a `.docx` file. Choose *
 
 DOCX interchange supports headings, paragraphs, bold/italic/underline/strike formatting, lists, tables, hyperlinks, embedded images, and explicit page breaks. Exports also preserve supported inline fonts, sizes, colors, paragraph alignment and horizontal rules. WebP images are converted to PNG for Word compatibility. Import emphasizes document structure rather than Word's exact visual layout: custom styles, colors, floating objects, headers/footers, tracked changes, pagination, and complex merged tables may differ or be omitted. Conversion warnings appear below the document. Use HTML for the closest backup of textiX-specific formatting. Legacy `.doc` files are not supported; save them as `.docx` in Word first.
 
-Files are processed entirely in the browser using bundled, MIT-licensed Mammoth 1.11.0 and docx 9.5.1. No conversion service or AI provider is required. Imported HTML is sanitized, external document file access is disabled, and compressed documents are checked against a 30 MB expanded / 3000 ZIP-entry limit in addition to the existing 6 MB file limit.
+Files are processed entirely in the browser using bundled, MIT-licensed Mammoth 1.11.0 and docx 9.5.1. No conversion service or AI provider is required. Imported HTML is sanitized, external document file access is disabled, and document structure is validated without imposing compressed/expanded file-size or ZIP-entry-count caps.
 
 Verification (suite server on port 8000; Playwright, Chromium, and Python `python-docx` installed):
 
@@ -71,7 +71,7 @@ Additional **Workspace → Tool actions** capability: Repair skipped heading lev
 
 ## PDF
 
-Choose **Import** to load a `.pdf` from local or virtual disk. Text-based pages become editable paragraphs with page breaks. Original columns, fonts, tables and illustrations on text pages are not reconstructed. Pages without text are rendered as embedded images; OCR is not included. Password-protected PDFs require an unprotected copy. The existing 6 MB import limit applies. Failed conversions leave the current document intact, and Undo restores a successfully replaced document.
+Choose **Import** to load a `.pdf` from local or virtual disk. Text-based pages become editable paragraphs with page breaks. Original columns, fonts, tables and illustrations on text pages are not reconstructed. Pages without text are rendered as embedded images; OCR is not included. Password-protected PDFs require an unprotected copy. No app-imposed document-size check is applied. Failed conversions leave the current document intact, and Undo restores a successfully replaced document.
 
 Select **PDF document → Export** to save an A4 PDF to the selected computer or virtual-disk destination. This renders the document as page images, preserving visible formatting and embedded images, with CSS page breaks. Exported text is not searchable or selectable. Use **Print / PDF** for browser printing, or DOCX/HTML to preserve editable source. Very long documents remain subject to browser canvas and memory limits.
 
@@ -92,3 +92,64 @@ The layout catalogue offers Professional report, Editorial reading and Compact n
 These are native rich-text styles, not a new print-margin or multi-column page engine. Use the existing document tools for further editing. Export fidelity still depends on the chosen format. Templates/layouts persist on this browser origin; export important variants for backup or transfer. Applying changes uses the existing review and recovery workflow.
 
 The catalogue separates **Built-in templates**, **Layouts** and **My templates** into keyboard-accessible tabs. Arrow keys switch between them; search counts and empty states reflect the active built-in/layout view. **Duplicate saved template** creates an independent stored copy without replacing the open document. Existing Workspace → Templates navigation opens the saved-template view.
+
+
+## Embed content from other apps
+
+Choose **Embed content** in the formatting ribbon. It supports all other 22 suite
+apps, including formula/markup notebooks, vector artwork, diagrams, workbooks,
+slides, videos, research, code, terminal output and automation definitions.
+
+1. In the source app, choose **Content hub → Publish current content**. Include
+   its native snapshot to retain editable project data, and a visual preview when
+   offered. Publishing makes a copy on this browser origin.
+2. In textiX, place the cursor, open **Embed content**, filter by app/name, select
+   a published item and review its preview. **Insert snapshot at cursor** changes
+   the document explicitly. Loading a content-item JSON or a native project JSON
+   through **Load content file** also prepares a preview before insertion. Select
+   the correct source app for a native file; it is validated by that source app
+   before native replacement, not interpreted as an executable program here.
+3. Double-click an embedded card or reopen the menu. Select it under **Embedded
+   in document** to refresh from its published record, remove it, download its
+   source snapshot, or open a published copy in the source app. Applying it in
+   the source app still requires the normal native review. All document changes
+   have undo. A deleted hub record does not delete the document-owned snapshot.
+
+Cards are read-only snapshots with app/name/date provenance, portable native
+project data when supplied, and a flattened raster preview when available.
+Other content has an escaped text/inventory preview. Video previews are still
+frames without playback/audio; diagrams and images are not live editors inside
+the word processor. Previews are shortened to 12,000 characters, while complete
+text/native data remains in the snapshot. Live synchronization and execution of
+embedded apps, code, terminal commands or workflows are not enabled. Refresh
+updates the linked published record; after publishing a new record, insert that
+new item to use its newer content.
+
+**HTML** export retains native attachments in an inert JSON metadata block;
+reimporting that HTML restores the cards and project data. **textiX project JSON**,
+Workspace recovery and **Project ZIP** also preserve them. JSON/HTML imports reject
+missing or duplicate snapshot IDs before replacing the current document. Embedded
+payloads and native HTML do not have app-imposed content-size caps.
+Browser storage may fill earlier; export a copy when storage reports a failure.
+These portable files can contain confidential native project data even when the
+visible preview is short. Ordinary HTML paste produces a sanitized reading copy,
+not a hidden native attachment.
+
+PDF/DOCX retain visible text and raster previews as reading copies, not editable
+embedded source projects. Markdown/plain text contain readable references and
+image placeholders. Keep HTML/JSON/ZIP for complete editable backup. Use
+**Download source snapshot** to obtain the original native JSON independently.
+
+AI chat and the coding agent receive the visible preview plus public reference
+metadata. Native embedded payloads are preserved outside AI proposals; excluded
+codeiX files stay out of those AI references. Proposals that drop an existing
+embed placeholder are rejected with guidance to the explicit removal menu.
+Document find/replace skips read-only card bodies; remove or refresh cards through
+the embedding controls instead.
+
+Tests: `node --test textiX/embedded-test.cjs` and
+`node textiX/embedded-browser-test.cjs`. The latter uses a temporary suite server
+and validates all source apps, portable files, review, undo, privacy and mobile
+controls without live provider calls.
+
+Content-size regression check: `node textiX/content-size-browser-test.cjs` (use the suite server on port 8000 or set `BASE_URL`). Browser/runtime memory and storage quotas still apply; no app-level content-size check is performed.

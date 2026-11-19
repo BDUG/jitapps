@@ -14,7 +14,7 @@ from server import workflow_commands, agent_runtime
 LIVE = {'allow_origin', 'agent_no_commands', 'agent_allow_command', 'allow_workflow_command', 'workflow_cwd'}
 BOOL = {'disable_agent', 'agent_no_commands', 'skills_offline'}
 LIST = {'allow_origin', 'agent_allow_command', 'allow_workflow_command'}
-FIELDS = {'bind','port','config','search_config','skills_db','skills_offline','workflow_cwd','agent_workspace','disable_agent','agent_no_commands','agent_navigation_dir','agent_embedding_dir'} | LIST
+FIELDS = {'projects_root','agent_state_dir','bind','port','config','search_config','skills_db','skills_offline','workflow_cwd','agent_workspace','disable_agent','agent_no_commands','agent_navigation_dir','agent_embedding_dir'} | LIST
 
 def read(path):
     p = Path(path).expanduser()
@@ -54,7 +54,7 @@ class Settings:
         self.active_requests = 0
         self.revision = 1
         self.reviews = {}
-        self.effective = {key:copy.deepcopy(getattr(args,key)) for key in FIELDS}
+        self.effective = {key:copy.deepcopy(getattr(args,key,None)) for key in FIELDS}
         self.saved = copy.deepcopy(self.effective)
         self.default_commands = default_commands
 

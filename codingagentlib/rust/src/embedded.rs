@@ -1,5 +1,5 @@
 //! Portable host callback API. Tools are explicitly registered by the embedding program.
-use crate::{runtime::ident, CancelHandle, Result, RunOptions};
+use crate::{core::identity as ident, CancelHandle, Result, RunOptions};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
@@ -55,6 +55,77 @@ pub struct EmbeddedAgent {
     cancel: CancelHandle,
 }
 impl EmbeddedAgent {
+    /// Move an unstarted host-tool registration into SDK v1. Legacy snapshots
+    /// are deliberately not reinterpreted as SDK sessions.
+    pub fn into_core(self, model: crate::core::Model) -> Result<crate::core::CoreAgent> {
+        if self.state.is_some() {
+            return Err("Register a fresh embedded agent before migrating to SDK v1".into());
+        }
+        let mut options = crate::core::CoreOptions::new(model);
+        let context = self.context;
+        let mut provider = self.context_provider;
+        options
+            .context_providers
+            .push(Box::new(move |state, cancel| {
+                if let Some(provider) = &mut provider {
+                    provider(state, cancel)
+                } else {
+                    Ok(context.clone())
+                }
+            }));
+        let filter = std::sync::Arc::new(std::sync::Mutex::new(self.tool_availability));
+        for (name, tool) in self.tools {
+            let mut handler = tool.handler;
+            let definition = json!({"name":name,"description":tool.description,"parameters":tool.parameters,"permission":tool.permission.name(),"enabled":tool.enabled});
+            let descriptor = definition.clone();
+            let mut wrapped = crate::core::CoreTool::new(definition, move |args, ctx, cancel| {
+                handler(
+                    args,
+                    &ToolContext {
+                        session_id: ctx["sessionId"].as_str().ok_or("Missing session")?.into(),
+                        call_id: ctx["callId"].as_str().ok_or("Missing call")?.into(),
+                        step: ctx["step"].as_u64().ok_or("Missing step")?,
+                        cancel: cancel.clone(),
+                        context: ctx["context"][0].clone(),
+                    },
+                )
+            });
+            let filter = filter.clone();
+            wrapped.available = Some(Box::new(move |context, state| {
+                let mut guard = filter.lock().map_err(|_| "Availability lock poisoned")?;
+                if let Some(filter) = &mut *guard {
+                    filter(&descriptor, &context[0], state)
+                } else {
+                    Ok(true)
+                }
+            }));
+            options.tools.push(wrapped);
+        }
+        let mut authorize = self.before_tool;
+        let mut complete = self.before_finish;
+        options.policy = Some(Box::new(move |phase, value, state| match phase {
+            "authorize" => {
+                if let Some(hook) = &mut authorize {
+                    hook(
+                        value["tool"].as_str().ok_or("Missing tool")?,
+                        &value["args"],
+                    )
+                } else {
+                    Ok(true)
+                }
+            }
+            "complete" => {
+                if let Some(hook) = &mut complete {
+                    hook(value, state)
+                } else {
+                    Ok(true)
+                }
+            }
+            _ => Ok(true),
+        }));
+        options.on_event = self.on_event;
+        crate::core::create_agent(options)
+    }
     pub fn new(context: Value) -> Self {
         Self {
             context,

@@ -28,7 +28,7 @@ if (!process.env.CATALOGUE_GROUP) {
       );
   }
   console.log(
-    "PASS: all 18 native catalogues across six isolated browser groups.",
+    `PASS: all ${apps.length} native catalogues across ${Math.ceil(apps.length / 3)} isolated browser groups.`,
   );
 } else {
   (async () => {
@@ -145,7 +145,16 @@ if (!process.env.CATALOGUE_GROUP) {
         assert.equal(await page.locator("#nc-list article").count(), 0);
         await page.locator("#nc-query").fill("");
         await page.locator("#nc-list article button").first().click();
-        if (app === "mockiX" || app === "shelliX") {
+        await page.waitForFunction(
+          () =>
+            document.querySelector("#suite-workspace")?.open ||
+            (!document.querySelector("#nc-preview").hidden &&
+              !document.querySelector("#nc-apply").hidden),
+        );
+        const inlineReview = !(await page.evaluate(
+          () => document.querySelector("#suite-workspace")?.open,
+        ));
+        if (inlineReview) {
           await page.waitForFunction(
             () => !document.querySelector("#nc-preview").hidden,
           );
@@ -173,7 +182,7 @@ if (!process.env.CATALOGUE_GROUP) {
               .textContent.startsWith("Updated"),
           );
         }
-        if (app === "mockiX" || app === "shelliX") {
+        if (inlineReview) {
           await page.locator("#nc-apply").click();
           await page.waitForFunction(
             () =>

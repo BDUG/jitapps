@@ -1,6 +1,6 @@
 # Shared desktop and virtual disk
 
-The suite desktop lives at `/` and lists all 18 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
+The suite desktop lives at `/` and lists all 21 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
 
 ## Save and open files
 
@@ -259,7 +259,7 @@ The **Tasks** button in every app and on the desktop opens a suite-wide dashboar
 
 Completion checkboxes save back to the original notebook. They do not edit native app documents or run tasks. A changed saved notebook is rejected before a dashboard write; cross-window storage events refresh the dashboard. This is the same browser-storage conflict check used by notebook editing, not transactional multiplayer collaboration. Corrupt/unreadable notebooks are reported separately so other app tasks remain available.
 
-**Current app notes** opens the existing notebook editor, including a direct fallback in mockiX. Unsaved notebook drafts remain in that editor and are not silently merged with task dashboard changes. If the stored notebook changed, export the draft or deliberately reload the saved copy.
+**Current app notes** opens the existing notebook editor. Unsaved notebook drafts remain in that editor and are not silently merged with task dashboard changes. If the stored notebook changed, export the draft or deliberately reload the saved copy.
 
 **Draft AI brief** appends selected tasks, their source apps and notebook titles to the current app's composer. It preserves the existing draft and never sends a request or starts a command. codeiX uses its coding-agent goal field; shelliX uses its goal composer; other apps use the shared AI chat. Briefs are capped at 30,000 characters. Review sensitive task text before sending it to your configured provider. Task completion flags are notes, not verification evidence.
 
@@ -317,11 +317,11 @@ In **Review**, select findings and choose a follow-up goal:
 
 **Draft in AI chat** appends the selected findings, capture timestamp, limitations and source count to the current app's existing composer. The composer opens for review; nothing is sent automatically. **Export AI brief** downloads the same standalone Markdown brief without changing the composer. Both actions require an unchanged source snapshot. Selection is preserved across filters, so check the selection count before drafting. Only the selected finding records are copied; the native document is not embedded.
 
-All 18 apps use their existing AI interface, including the codeiX agent and shelliX agent mode. Read-only/busy inputs and composer size limits reject drafting without replacing existing text. Briefs are limited to 30,000 characters. codeiX projects with AI-excluded files block both AI-brief actions; local review JSON/Markdown exports remain available. Review any finding text for sensitive information before sending it to a provider. Advisory findings are untrusted reference data, not commands or proof that a defect exists.
+All 23 apps use their existing AI interface, including the codeiX agent and shelliX agent mode. Read-only/busy inputs and composer size limits reject drafting without replacing existing text. Briefs are limited to 30,000 characters. codeiX projects with AI-excluded files block both AI-brief actions; local review JSON/Markdown exports remain available. Review any finding text for sensitive information before sending it to a provider. Advisory findings are untrusted reference data, not commands or proof that a defect exists.
 
 ## Capture and edit tasks from any app
 
-The shared **Tasks** dashboard now includes **Add task**. Choose any of the 18 apps, enter a task and save it directly to that app's browser notebook. The current app or app filter is selected initially; on the desktop you can choose any app. If no notebook exists, saving creates an empty app notebook with the new task. New tasks start unfinished. Search/status filters still apply, so a saved task may be outside the current view.
+The shared **Tasks** dashboard now includes **Add task**. Choose any of the 23 apps, enter a task and save it directly to that app's browser notebook. The current app or app filter is selected initially; on the desktop you can choose any app. If no notebook exists, saving creates an empty app notebook with the new task. New tasks start unfinished. Search/status filters still apply, so a saved task may be outside the current view.
 
 Each task also has **Edit task**. The editor preserves its ID, completion status, notebook title, notes and other tasks. Existing tasks stay in their original app; editing does not move them. Cancel and Escape discard editor changes. Task text is limited to 5,000 characters.
 
@@ -371,3 +371,45 @@ Preview uses native validation and the existing workspace diff/recovery flow whe
 **Save editable copy** stores a captured candidate in the app's existing browser-local template/snippet library. **My saved native templates** lists saved entries for preview; **Save current as new template** captures content edited in the native app under a name you provide. These are independent copies; built-ins are never changed. Existing office catalogues and template libraries remain available. **Export candidate JSON** downloads the complete candidate for inspection and portable reuse; timeline exports describe view preferences rather than project documents. Review embedded sample content, scripts and media before sharing.
 
 The catalogue modules and approximately 53 KB native seed bundle load only when requested. Opening, previewing, saving and exporting use no AI and run no commands. Source documents remain unchanged until explicit application.
+
+Project ZIP compressed/expanded size caps are disabled for **textiX** and **presentiX**. Other apps retain the shared 50 MiB default. Archive structure, app identity, paths and checksums remain validated in all apps.
+
+## Catalogue favourites and recent previews
+
+Every app's **App catalogue** now searches built-in templates/layouts and saved native copies together, including saved descriptions and tags. Use **Kind** to narrow to templates or layouts, and **View** for all entries, favourites or recent previews. Pin frequently used entries; favourites appear first in the all-entries view. Recent previews are recorded only after a native preview succeeds, and do not imply application or verification.
+
+View preferences are saved per app on this browser origin (up to 100 pins and 20 recent entries). They contain entry IDs only, not document content. Reloading retains pins; cross-window storage changes refresh the visible preferences. Deleted/unavailable entries are ignored by the filtered views. **Clear recent previews** keeps pins, saved copies and open documents. **Reset view preferences** explicitly resets filters and preference metadata; it does not delete saved templates or edit documents. Unreadable preferences are reported and left untouched until reset.
+
+The main catalogue renders 50 cards at a time with **Show 50 more** and full match counts. Its legacy saved-copy section also renders at most 50 cards and directs larger libraries to the searchable main list. Filtering uses the loaded library without re-reading storage on every keystroke. Refresh saved templates or reopen the catalogue to load external library changes. If saved-template storage cannot be read, built-in entries remain available with a visible error. Native validation, preview, source-conflict checks, recovery and explicit apply still govern document changes.
+
+## Undo task dashboard changes
+
+**Undo** in the shared Tasks dashboard restores the notebook saved immediately before the latest successful task creation, text edit, completion change or worklist import. It restores the exact saved notebook, including its title, notes and task flags; undoing the first task in a newly created notebook removes that notebook. Native documents and open notebook drafts are untouched.
+
+One change is retained in this page session, including while the dashboard is closed. Another successful dashboard save replaces it; no-op edits and failed saves retain it. Reloading or navigating clears Undo. If the saved notebook has changed since the action, Undo refuses to overwrite newer work. A failed storage write keeps Undo available for retry.
+
+## Notebook draft recovery
+
+All registered apps automatically keep unsaved **Notes & tasks** edits in this browser tab. Reopen **Tasks → Current app notes** after a refresh or after switching apps to recover the title, notes, added/removed tasks, completion flags and task text, including temporarily empty task text. Recovery is separate from the saved notebook and native document. Finish any empty task text before saving or exporting the notebook. Text still in the New task field must be added to the checklist first.
+
+A recovery banner explains when a draft was restored. **Save notes** commits it to the existing browser notebook and clears recovery; **Reload saved notes** discards the draft after the existing unsaved-change confirmation. The original saved version stays attached to a recovered draft: if another window or the Tasks dashboard changed the saved notebook, saving refuses to overwrite that newer copy. Export your completed draft or deliberately reload saved notes to resolve the conflict.
+
+Drafts are scoped per app and browser tab using session storage, with a 1 MB UTF-8 limit including the original saved version. Writes are debounced by 250 ms and flushed on dialog close, page navigation and visibility changes when the browser delivers those events. Closing the tab or clearing browser storage can remove recovery; use Save or export for lasting copies. Invalid recovery records are retained with a visible error until explicitly replaced by saving or discarded via Reload saved notes. Storage failures leave the current in-memory editor available and show a recovery warning. Pending import previews and unsubmitted AI prompts are not included.
+
+## Find apps and workspace actions
+
+Open **Apps** or press **Alt+Shift+P** in any registered app or on the desktop. The **Apps & actions** search now finds current-workspace tools alongside apps: **Tasks across apps**, **Review current work**, **Templates & layouts**, **Workspace commands** and **Virtual disk**. Search words can appear in any order across the action name, description and aliases, for example `quality review`, `notes checklist` or `native templates`. App results still support favourites and recent ordering. Display preferences remain in the expandable help section.
+
+Only tools present in the current page appear. Desktop results include Tasks and Virtual disk; shelliX opens its existing shell Workspace. **Down** from search focuses the first enabled action or app, **Up** focuses the last result, and **Enter** opens the first enabled result. Arrow keys then move through action and app results together; **Home/End** reach the first/last result and **Up** from the first returns to search. **Tab** still reaches app pin controls.
+
+Action buttons open the existing tool dialogs. They do not apply templates, change documents, send AI requests or run shell commands. Availability is checked again on activation so a control disabled after rendering cannot be bypassed. App-switch links retain the active-operation guard. Search and display changes retain result nodes so keyboard focus and pin controls remain stable.
+
+## Compare successive work reviews
+
+In every app, **Review → Refresh review** now compares the new capture with the preceding successful capture in this page. The collapsible summary distinguishes **Newly reported**, **Still reported** and **No longer reported** findings; expand it for comparison details, exports and historical findings. **Since previous review** filters current findings; ordinary search now matches multiple words across message, code and location, in any order. Selections follow identical current findings through refresh and reordering, including across filters. Changed or missing findings lose their selection; changing the document label or available document identity clears previous selections. Duplicate findings are matched by occurrence within the same severity/code/path/message group.
+
+**No longer reported** is a separate read-only list of historical findings; it cannot add obsolete findings to notebook tasks or AI follow-ups. Its first 100 rows are shown initially, with more available on demand. **Export captured comparison** exports the complete comparison of the last two captures, including both timestamps, document labels, counts and all historical findings. Filtered report exports identify the comparison filter and preceding capture. Existing all/selected exports continue to describe the current captured review. Failed refreshes retain the prior capture, comparison and selection.
+
+Comparisons use the existing quality-baseline matching rules: a severity, message or path change may appear as a new finding and an old finding no longer reported. Index shifts can move paths. Compare the intended document and scope; no longer reported does not prove fixed, and selected tasks are not verification evidence. shelliX compares its loaded-session audit, where old failures may remain after retries. Review comparisons stay in page memory and reset on reload/navigation; use the existing Quality baseline exports for portable baseline workflows. Comparing and exporting do not change documents, notebooks or unsent AI drafts, send requests, or execute commands.
+
+Apps without bundled catalogue starters, including formiX and markiX, can use **My saved native templates → Save current as new template** and browse/pin their saved copies in the shared catalogue.

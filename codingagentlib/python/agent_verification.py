@@ -32,7 +32,7 @@ def capture(runtime,session,extra=()):
         try:
             base=session['_dir']/'scripts' if kind=='script' else None
             if base is not None and base.is_symlink():raise ValueError('Symlink script root')
-            target=runtime.path(path,base=base)
+            target=runtime.path(path,base=base,private=kind=='script')
             try:
                 fd=os.open(target,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
             except FileNotFoundError:

@@ -52,7 +52,8 @@ const assert = require("node:assert/strict"),
     });
     await page.goto(base + "/");
     const apps = await page.evaluate(() => SuiteApps.map((a) => a.id));
-    assert.equal(apps.length, 18);
+    assert.ok(apps.length >= 21);
+    assert.equal(new Set(apps).size, apps.length);
     const packet = {
       format: "suite-worklist/v1",
       tasks: [
@@ -153,13 +154,11 @@ const assert = require("node:assert/strict"),
         },
       ],
     };
-    await page
-      .locator("#tb-file")
-      .setInputFiles({
-        name: "next.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(JSON.stringify(next)),
-      });
+    await page.locator("#tb-file").setInputFiles({
+      name: "next.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(next)),
+    });
     await page.locator("#suite-worklist-import").waitFor({ state: "visible" });
     await page.evaluate(() => {
       const key =
@@ -171,13 +170,11 @@ const assert = require("node:assert/strict"),
     await page.locator("#wi-apply").click();
     assert.match(await page.locator("#wi-status").textContent(), /changed/);
     await page.locator("#wi-cancel").click();
-    await page
-      .locator("#tb-file")
-      .setInputFiles({
-        name: "bad.json",
-        mimeType: "application/json",
-        buffer: Buffer.from('{"format":"wrong"}'),
-      });
+    await page.locator("#tb-file").setInputFiles({
+      name: "bad.json",
+      mimeType: "application/json",
+      buffer: Buffer.from('{"format":"wrong"}'),
+    });
     await page.waitForFunction(() =>
       document
         .querySelector("#tb-status")
@@ -189,7 +186,7 @@ const assert = require("node:assert/strict"),
     );
     assert.equal(aiCalls, 0);
     console.log(
-      "PASS: reviewed worklist import/export across all 18 apps, preserved title/notes/status, duplicate imports, stale-preview protection, invalid-file rejection and zero AI calls.",
+      "PASS: reviewed worklist import/export across all registered apps, preserved title/notes/status, duplicate imports, stale-preview protection, invalid-file rejection and zero AI calls.",
     );
   } finally {
     await browser.close();

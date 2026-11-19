@@ -1,13 +1,17 @@
 (function () {
   "use strict";
   function setup() {
-    if (window.SuiteNotebook || document.getElementById("suite-notebook")) return;
+    if (window.SuiteNotebook || document.getElementById("suite-notebook"))
+      return;
     const N = window.SuiteNotebookCore,
       tool =
         window.SuiteWorkspaceAdapter?.name ||
-        (window.SuiteApps || []).find(app => location.pathname.includes("/" + app.id + "/"))?.id;
+        (window.SuiteApps || []).find((app) =>
+          location.pathname.includes("/" + app.id + "/"),
+        )?.id;
     if (!N || !tool) return;
     const key = "suite-notebook-v1:" + tool,
+      draftKey = "suite-notebook-draft-v1:" + tool,
       make = (tag, text) => {
         const e = document.createElement(tag);
         if (text !== undefined) e.textContent = text;
@@ -17,7 +21,9 @@
       saved = null,
       pending = null,
       dirty = false,
-      storageError = "";
+      storageError = "",
+      draftTimer = null,
+      draftBlocked = false;
     try {
       saved = localStorage.getItem(key);
       if (saved) doc = N.validate(JSON.parse(saved));
@@ -40,7 +46,7 @@
     modal.className = "sd-dialog";
     modal.setAttribute("aria-labelledby", "nb-heading");
     modal.innerHTML =
-      '<div class="sd-heading"><h2 id="nb-heading">Notes & tasks</h2><button type="button" id="nb-close" aria-label="Close notes and tasks">×</button></div><p id="nb-scope"></p><label>Notebook title<input id="nb-title"></label><label>Notes<textarea id="nb-notes" rows="6"></textarea></label><form id="nb-add"><label>New task<input id="nb-task" required></label><button>Add task</button></form><p id="nb-count"></p><div id="nb-tasks"></div><div class="nb-actions"><button type="button" id="nb-save">Save notes</button><button type="button" id="nb-reload">Reload saved notes</button><label>Export destination<select id="nb-destination"><option value="computer">Computer</option><option value="disk">Virtual disk</option></select></label><button type="button" id="nb-json">Export JSON</button><button type="button" id="nb-markdown">Export Markdown</button><button type="button" id="nb-import">Import notebook</button><input id="nb-file" type="file" accept=".json,application/json" data-disk-label="Workspace notebook" hidden><button type="button" id="nb-draft">Draft AI request</button></div><section id="nb-preview" hidden><h3>Import preview</h3><p id="nb-import-summary"></p><label>Import policy<select id="nb-policy"><option value="merge">Merge notes and tasks</option><option value="replace">Replace notebook</option></select></label><button type="button" id="nb-apply">Apply notebook import</button><button type="button" id="nb-discard">Discard import</button></section><p id="nb-status" role="status"></p>';
+      '<div class="sd-heading"><h2 id="nb-heading">Notes & tasks</h2><button type="button" id="nb-close" aria-label="Close notes and tasks">×</button></div><p id="nb-scope"></p><p id="nb-recovery" role="status" hidden></p><label>Notebook title<input id="nb-title"></label><label>Notes<textarea id="nb-notes" rows="6"></textarea></label><form id="nb-add"><label>New task<input id="nb-task" required></label><button>Add task</button></form><p id="nb-count"></p><div id="nb-tasks"></div><div class="nb-actions"><button type="button" id="nb-save">Save notes</button><button type="button" id="nb-reload">Reload saved notes</button><label>Export destination<select id="nb-destination"><option value="computer">Computer</option><option value="disk">Virtual disk</option></select></label><button type="button" id="nb-json">Export JSON</button><button type="button" id="nb-markdown">Export Markdown</button><button type="button" id="nb-import">Import notebook</button><input id="nb-file" type="file" accept=".json,application/json" data-disk-label="Workspace notebook" hidden><button type="button" id="nb-draft">Draft AI request</button></div><section id="nb-preview" hidden><h3>Import preview</h3><p id="nb-import-summary"></p><label>Import policy<select id="nb-policy"><option value="merge">Merge notes and tasks</option><option value="replace">Replace notebook</option></select></label><button type="button" id="nb-apply">Apply notebook import</button><button type="button" id="nb-discard">Discard import</button></section><p id="nb-status" role="status"></p>';
     document.body.append(modal);
     const q = (id) => modal.querySelector("#" + id);
     q("nb-scope").textContent =
@@ -50,16 +56,95 @@
     const css = make("link");
     css.rel = "stylesheet";
     css.href = new URL(
-      "notebook.css",
+      "notebook.css?v=notebook-drafts-20261108",
       document.querySelector('script[src*="shared-suite/notebook.js"]').src,
     ).href;
     document.head.append(css);
     function status(text) {
       q("nb-status").textContent = text;
     }
+    function recoveryStatus(text) {
+      q("nb-recovery").textContent = text;
+      q("nb-recovery").hidden = !text;
+    }
+    function flushDraft() {
+      clearTimeout(draftTimer);
+      if (!dirty || draftBlocked) return;
+      try {
+        const raw = N.draft(saved, {
+          ...doc,
+          title: q("nb-title").value,
+          notes: q("nb-notes").value,
+        });
+        sessionStorage.setItem(draftKey, raw);
+        recoveryStatus(
+          "Unsaved draft kept in this tab for refresh recovery. Save notes to keep it after this tab closes.",
+        );
+      } catch (error) {
+        recoveryStatus(
+          "Automatic draft recovery is unavailable: " +
+            error.message +
+            " Keep this page open or export your notes before leaving.",
+        );
+      }
+    }
+    function clearDraft() {
+      clearTimeout(draftTimer);
+      try {
+        sessionStorage.removeItem(draftKey);
+        draftBlocked = false;
+        recoveryStatus("");
+      } catch (error) {
+        recoveryStatus(
+          "The recovery copy could not be cleared: " +
+            error.message +
+            " An older draft may reappear after refresh.",
+        );
+      }
+    }
+    function recoverDraft() {
+      try {
+        const raw = sessionStorage.getItem(draftKey);
+        if (raw === null) return;
+        const recovered = N.readDraft(raw, tool);
+        // A completed save may have succeeded even when clearing its draft failed.
+        if (
+          !storageError &&
+          JSON.stringify(doc) === JSON.stringify(recovered.doc)
+        ) {
+          clearDraft();
+          return;
+        }
+        const conflicted = recovered.baseRaw !== saved;
+        doc = recovered.doc;
+        saved = recovered.baseRaw;
+        dirty = true;
+        render();
+        recoveryStatus(
+          "Recovered unsaved notebook draft in this tab. " +
+            (conflicted
+              ? "Saved notes have changed since this draft began. Export the draft or use Reload saved notes; saving will refuse to overwrite the newer copy."
+              : "Save notes to keep it, or use Reload saved notes to discard it."),
+        );
+      } catch (error) {
+        draftBlocked = true;
+        recoveryStatus(
+          "The recovery copy could not be read: " +
+            error.message +
+            " It has been retained. Use Reload saved notes to discard it.",
+        );
+      }
+    }
+    window.addEventListener("pagehide", flushDraft);
+    window.addEventListener("beforeunload", flushDraft);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flushDraft();
+    });
     function changed() {
       dirty = true;
       status("Unsaved notebook changes.");
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(flushDraft, 250);
     }
     function capture() {
       return N.validate({
@@ -159,6 +244,7 @@
       saved = serialized;
       doc = N.validate(value);
       dirty = false;
+      clearDraft();
     }
     function open() {
       q("nb-destination").value =
@@ -172,7 +258,10 @@
           storageError = error.message;
         }
       }
-      if (!dirty) render();
+      if (!dirty) {
+        render();
+        recoverDraft();
+      }
       if (!modal.open) modal.showModal();
       status(
         storageError ||
@@ -185,7 +274,7 @@
       if (
         dirty &&
         !confirm(
-          "Close with unsaved notes? Your draft stays here until this page reloads.",
+          "Close with unsaved notes? Your draft will be kept in this tab when browser storage is available.",
         )
       )
         return;
@@ -195,7 +284,7 @@
       if (
         dirty &&
         !confirm(
-          "Close with unsaved notes? Your draft stays here until this page reloads.",
+          "Close with unsaved notes? Your draft will be kept in this tab when browser storage is available.",
         )
       )
         event.preventDefault();
@@ -229,6 +318,7 @@
         doc = next;
         saved = current;
         dirty = false;
+        clearDraft();
         render();
         status("Loaded saved notebook.");
       });
@@ -274,7 +364,10 @@
       q("nb-preview").setAttribute("aria-busy", "false");
       q("nb-apply").disabled = true;
     }
-    modal.addEventListener("close", discardImport);
+    modal.addEventListener("close", () => {
+      discardImport();
+      flushDraft();
+    });
     q("nb-file").onchange = async () => {
       const file = q("nb-file").files[0];
       if (!file) return;
@@ -360,9 +453,15 @@
           document.querySelector("#sai-panel")?.hidden
         )
           document.querySelector("#sai-launch")?.click();
-        if (tool === "shelliX" && document.querySelector("#agent-input")?.hidden) {
+        if (
+          tool === "shelliX" &&
+          document.querySelector("#agent-input")?.hidden
+        ) {
           window.ShelliXTerminal?.mode("agent", false);
-          if (document.querySelector("#agent-input")?.hidden) throw Error("Finish the active shell operation before opening the agent composer.");
+          if (document.querySelector("#agent-input")?.hidden)
+            throw Error(
+              "Finish the active shell operation before opening the agent composer.",
+            );
         }
         const reference = { ...d, tasks: d.tasks.filter((t) => !t.done) };
         input.value +=

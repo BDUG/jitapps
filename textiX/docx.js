@@ -74,8 +74,7 @@ async function write(html,name){
  return {blob:await D.Packer.toBlob(documentFile),warnings:[...notes]};
 }
 async function read(file){
- const arrayBuffer=await file.arrayBuffer(),zip=await JSZip.loadAsync(arrayBuffer);let size=0,count=0;
- for(const entry of Object.values(zip.files)){size+=entry._data?.uncompressedSize||0;if(++count>3000||size>30000000)throw Error('DOCX expands beyond the 30 MB / 3000-entry import limit.');}
+ const arrayBuffer=await file.arrayBuffer(),zip=await JSZip.loadAsync(arrayBuffer);
  if(!zip.file('word/document.xml'))throw Error('This is not a Word DOCX document.');
  const result=await mammoth.convertToHtml({arrayBuffer},{externalFileAccess:false,styleMap:["u => u","strike => s","br[type='page'] => div.page-break:fresh > br","p[style-name='Quote'] => blockquote:fresh"]});
  return {html:result.value,warnings:result.messages.map(m=>m.message)};

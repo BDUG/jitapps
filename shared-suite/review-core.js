@@ -7,6 +7,9 @@
     N =
       root.SuiteNotebookCore ||
       (typeof require === "function" ? require("./notebook-core") : null),
+    B =
+      root.SuiteQualityBaseline ||
+      (typeof require === "function" ? require("./quality-baseline") : null),
     arr = (v) => (Array.isArray(v) ? v : []),
     blank = (v) => !String(v ?? "").trim();
   function report(tool, d) {
@@ -369,6 +372,59 @@
         " Additional checks are advisory heuristics; a finding may be intentional and a clean report is not proof of correctness.",
     };
   }
+  function reviewDelta(
+    previous,
+    current,
+    indices = [],
+    label = "Previous work review",
+  ) {
+    const after = B.report(current);
+    if (!previous) return { comparison: null, selection: [] };
+    const before = B.report(previous, after.tool);
+    if (
+      !Array.isArray(indices) ||
+      indices.some(
+        (i) => !Number.isInteger(i) || i < 0 || i >= before.findings.length,
+      )
+    )
+      throw Error("Review selection references an unavailable finding.");
+    const selected = new Set(indices),
+      buckets = new Map(),
+      key = (f) => JSON.stringify([f.severity, f.code, f.path, f.message]);
+    before.findings.forEach((f, index) => {
+      const id = key(f);
+      if (!buckets.has(id)) buckets.set(id, { selected: [], cursor: 0 });
+      buckets.get(id).selected.push(selected.has(index));
+    });
+    const selection = [];
+    after.findings.forEach((f, index) => {
+      const bucket = buckets.get(key(f));
+      if (bucket && bucket.selected[bucket.cursor++]) selection.push(index);
+    });
+    return { comparison: B.compare(B.pack(label, before), after), selection };
+  }
+  function search(
+    value,
+    { query = "", severity = "", change = "", states = [] } = {},
+  ) {
+    const terms = String(query)
+      .toLocaleLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!["", "new", "unchanged"].includes(change))
+      throw Error("Choose a current-finding comparison filter.");
+    return (value?.findings || [])
+      .map((finding, index) => ({ finding, index }))
+      .filter(({ finding: f, index }) => {
+        const text = [f.code, f.path, f.message].join(" ").toLocaleLowerCase();
+        return (
+          (!severity || f.severity === severity) &&
+          (!change || states[index] === change) &&
+          terms.every((term) => text.includes(term))
+        );
+      });
+  }
   function toNotebook(existing, tool, title, findings) {
     const doc = existing ? N.validate(existing) : N.empty(tool);
     if (doc.tool !== tool)
@@ -506,7 +562,15 @@
       );
     return text;
   }
-  const api = { report, toNotebook, scopedReport, markdown, brief };
+  const api = {
+    report,
+    toNotebook,
+    scopedReport,
+    markdown,
+    brief,
+    reviewDelta,
+    search,
+  };
   root.SuiteReviewCore = api;
   if (typeof module !== "undefined") module.exports = api;
 })(typeof window === "undefined" ? globalThis : window);

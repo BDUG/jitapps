@@ -185,3 +185,48 @@ assert.throws(
     ),
   /UTF-8 bytes/,
 );
+const afterStatus = JSON.stringify({
+    ...a,
+    tasks: a.tasks.map((t) => ({ ...t, done: true })),
+  }),
+  record = C.change(
+    "textiX",
+    JSON.stringify(a),
+    afterStatus,
+    "task status change",
+  );
+assert.equal(C.undo(record, afterStatus), JSON.stringify(a));
+assert.equal(
+  C.undo(
+    C.change("textiX", null, JSON.stringify(a), "task creation"),
+    JSON.stringify(a),
+  ),
+  null,
+);
+assert.equal(C.change("textiX", afterStatus, afterStatus, "unchanged"), null);
+assert.throws(
+  () => C.undo(record, JSON.stringify({ ...a, notes: "Newer work" })),
+  /preserve newer/,
+);
+assert.throws(() => C.undo(record, null), /preserve newer/);
+assert.throws(() => C.undo(null, afterStatus), /no dashboard/);
+assert.throws(
+  () => C.change("mockiX", JSON.stringify(a), afterStatus, "wrong app"),
+  /another app/,
+);
+assert.throws(() => C.change("textiX", "{broken", afterStatus, "broken"));
+assert.equal(record.afterRaw, afterStatus);
+assert.equal(record.beforeRaw, JSON.stringify(a));
+console.log(
+  "PASS: exact notebook undo, creation removal, no-op preservation, changed/deleted-source refusal and wrong-app/corrupt-record protection.",
+);
+
+const formattedNotebook = JSON.stringify(a, null, 2);
+assert.equal(
+  C.saveTask("textiX", formattedNotebook, formattedNotebook, {
+    id: a.tasks[0].id,
+    text: a.tasks[0].text,
+    create: false,
+  }),
+  formattedNotebook,
+);

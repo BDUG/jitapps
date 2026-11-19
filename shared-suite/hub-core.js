@@ -31,8 +31,10 @@
     return apps
       .filter((app) => {
         if (!terms.length) return true;
-        const text = [app.name, app.category, app.description].join(" ").toLocaleLowerCase();
-        return terms.every(term => text.includes(term));
+        const text = [app.name, app.category, app.description]
+          .join(" ")
+          .toLocaleLowerCase();
+        return terms.every((term) => text.includes(term));
       })
       .map((app) => ({
         ...app,
@@ -45,6 +47,65 @@
           (a.recent < 0 ? 100 : a.recent) - (b.recent < 0 ? 100 : b.recent) ||
           a.name.localeCompare(b.name),
       );
+  }
+  const quickActions = [
+    {
+      id: "tasks",
+      target: "suite-tasks-open",
+      label: "Tasks across apps",
+      description: "Search, edit and export saved notebook checklists.",
+      keywords: "tasks notes todo planning",
+    },
+    {
+      id: "review",
+      target: "suite-review-open",
+      label: "Review current work",
+      description: "Inspect advisory findings without changing the document.",
+      keywords: "review quality preflight audit issues",
+    },
+    {
+      id: "catalogue",
+      target: "suite-catalogue-open",
+      label: "Templates & layouts",
+      description: "Browse native starting points, layouts and saved copies.",
+      keywords: "catalogue catalog template layout starter presets",
+    },
+    {
+      id: "workspace",
+      target: "suite-workspace-open",
+      label: "Workspace commands",
+      description: "Find editing actions, recovery points and project tools.",
+      keywords: "workspace command find replace backup restore undo",
+    },
+    {
+      id: "disk",
+      target: "suite-disk-open",
+      label: "Virtual disk",
+      description: "Browse saved files and import or export.",
+      keywords: "disk files storage import export",
+    },
+  ];
+  function actionTargets() {
+    return quickActions.map((action) => action.target);
+  }
+  function actionSearch(availableIds, query = "") {
+    const available = new Set(availableIds),
+      terms = String(query)
+        .trim()
+        .toLocaleLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+    return quickActions
+      .filter((action) => {
+        const text = [action.label, action.description, action.keywords]
+          .join(" ")
+          .toLocaleLowerCase();
+        return (
+          available.has(action.target) &&
+          terms.every((term) => text.includes(term))
+        );
+      })
+      .map((action) => ({ ...action }));
   }
   function inventory(
     rows,
@@ -110,7 +171,13 @@
       all: entries,
     };
   }
-  const api = { preferences, appSearch, inventory };
+  const api = {
+    preferences,
+    appSearch,
+    inventory,
+    actionTargets,
+    actionSearch,
+  };
   root.SuiteHubCore = api;
   if (typeof module === "object") module.exports = api;
 })(globalThis);

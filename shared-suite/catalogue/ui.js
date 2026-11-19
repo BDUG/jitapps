@@ -6,6 +6,7 @@
       location.pathname.startsWith(new URL(a.id + "/", base).pathname),
     ),
     C = SuiteNativeCatalogue,
+    P = SuiteCataloguePreferences,
     el = (t, text) => {
       const n = document.createElement(t);
       if (text !== undefined) n.textContent = text;
@@ -14,18 +15,46 @@
   if (!app) return;
   const style = el("link");
   style.rel = "stylesheet";
-  style.href = new URL("shared-suite/catalogue/style.css?v=20261031", base);
+  style.href = new URL(
+    "shared-suite/catalogue/style.css?v=catalogue-view-20261108",
+    base,
+  );
   document.head.append(style);
   const dialog = el("dialog");
   dialog.id = "suite-native-catalogue";
   dialog.setAttribute("aria-labelledby", "nc-title");
   dialog.innerHTML =
-    '<header><h2 id="nc-title">Templates & layouts</h2><button id="nc-close" aria-label="Close catalogue">×</button></header><p>Editable native starting points and layout themes. Templates replace content; layouts restyle or arrange current content. Preview before applying. Preparing catalogue entries uses no AI or terminal commands.</p><label>Find<input id="nc-query" type="search" placeholder="Template or layout name"></label><div id="nc-list"></div><details id="nc-preview" hidden><summary>Inspect complete native candidate</summary><pre id="nc-json"></pre></details><div><button id="nc-apply" hidden>Use reviewed candidate</button><button id="nc-save" disabled>Save editable copy</button><button id="nc-export" disabled>Export candidate JSON</button></div><details id="nc-saved"><summary>My saved native templates</summary><label>Copy name<input id="nc-copy-name" maxlength="120" placeholder="Name your edited template"></label><button id="nc-save-current">Save current as new template</button><button id="nc-refresh-saved">Refresh saved templates</button><div id="nc-saved-list"></div></details><p id="nc-status" role="status" aria-live="polite"></p>';
+    '<header><h2 id="nc-title">Templates & layouts</h2><button id="nc-close" aria-label="Close catalogue">×</button></header><p>Editable native starting points and layout themes. Templates replace content; layouts restyle or arrange current content. Preview before applying. Preparing catalogue entries uses no AI or terminal commands.</p><label>Find<input id="nc-query" type="search" placeholder="Template or layout name"></label><div class="nc-filters"><label>View<select id="nc-view"><option value="all">All entries</option><option value="pinned">Favourites</option><option value="recent">Recent previews</option></select></label><label>Kind<select id="nc-kind"><option value="">Templates & layouts</option><option value="template">Templates</option><option value="layout">Layouts</option></select></label><button id="nc-clear-recent">Clear recent previews</button><button id="nc-reset-prefs">Reset view preferences</button></div><p id="nc-count" role="status"></p><div id="nc-list"></div><button id="nc-more" hidden>Show 50 more</button><details id="nc-preview" hidden><summary>Inspect complete native candidate</summary><pre id="nc-json"></pre></details><div><button id="nc-apply" hidden>Use reviewed candidate</button><button id="nc-save" disabled>Save editable copy</button><button id="nc-export" disabled>Export candidate JSON</button></div><details id="nc-saved"><summary>My saved native templates</summary><label>Copy name<input id="nc-copy-name" maxlength="120" placeholder="Name your edited template"></label><button id="nc-save-current">Save current as new template</button><button id="nc-refresh-saved">Refresh saved templates</button><div id="nc-saved-list"></div></details><p id="nc-status" role="status" aria-live="polite"></p>';
   document.body.append(dialog);
   const q = (id) => dialog.querySelector("#" + id);
   let seeds = null,
     pending = null,
-    busy = false;
+    busy = false,
+    records = [],
+    limit = 50;
+  const preferenceKey = "suite-catalogue-view:" + app.id;
+  let prefs = P.parse(null),
+    preferenceError = "";
+  function readPreferences() {
+    try {
+      prefs = P.parse(localStorage.getItem(preferenceKey));
+      preferenceError = "";
+    } catch (error) {
+      preferenceError = error.message;
+    }
+  }
+  function updatePreferences(change) {
+    const raw = localStorage.getItem(preferenceKey),
+      current = P.parse(raw),
+      next = change(current);
+    if (localStorage.getItem(preferenceKey) !== raw)
+      throw Error("View preferences changed. Retry the action.");
+    localStorage.setItem(preferenceKey, JSON.stringify(next));
+    prefs = next;
+    preferenceError = "";
+    render();
+  }
+  readPreferences();
   function adapter() {
     return window.SuiteWorkspaceAdapter || window.SuiteAgentAdapter;
   }
@@ -81,35 +110,144 @@
       dialog.close();
       SuiteWorkspace.open("inspector");
       await SuiteWorkspace.review(value, entry.name);
+      if (document.querySelector("#sw-review")?.hidden) return;
     } else {
       q("nc-preview").open = true;
       status(
         "Review the native candidate. Use reviewed candidate applies it; shell snippets only load into the command draft.",
       );
     }
+    rememberPreview(entry);
+  }
+  function rememberPreview(entry) {
+    try {
+      updatePreferences((p) =>
+        P.remember(
+          p,
+          entry.key ||
+            (entry.id.startsWith("saved-")
+              ? "saved:" + entry.id.slice(6)
+              : "builtin:" + entry.id),
+        ),
+      );
+    } catch (error) {
+      preferenceError = error.message;
+    }
   }
   function render() {
     q("nc-list").replaceChildren();
-    const term = q("nc-query").value.toLowerCase();
-    for (const entry of C.entries(app.id).filter((e) =>
-      (e.name + " " + e.kind + " " + e.description)
-        .toLowerCase()
-        .includes(term),
-    )) {
+    const entries = [
+      ...(C.names[app.id] ? C.entries(app.id) : []).map((e) => ({
+        ...e,
+        key: "builtin:" + e.id,
+        origin: "Built-in",
+      })),
+      ...records.map((r) => ({
+        id: "saved-" + r.id,
+        key: "saved:" + r.id,
+        name: r.name,
+        description: r.description || "",
+        tags: r.tags || [],
+        kind: "template",
+        origin: "Saved copy",
+        document: r.document,
+      })),
+    ];
+    const matches = P.select(entries, prefs, {
+      query: q("nc-query").value,
+      view: q("nc-view").value,
+      kind: q("nc-kind").value,
+    });
+    for (const entry of matches.slice(0, limit)) {
       const article = el("article");
+      article.dataset.catalogueKey = entry.key;
       article.append(
         el("strong", entry.name + " · " + entry.kind),
+        el("small", entry.origin),
         el("p", entry.description),
       );
-      const b = el("button", "Preview " + entry.name);
-      b.onclick = () => run(() => preview(entry));
-      article.append(b);
+      const previewButton = el("button", "Preview " + entry.name);
+      previewButton.onclick = () => run(() => preview(entry, entry.document));
+      const wantedPin = !prefs.pinned.includes(entry.key);
+      const pin = el(
+        "button",
+        prefs.pinned.includes(entry.key) ? "Unpin" : "Pin",
+      );
+      pin.setAttribute(
+        "aria-label",
+        (prefs.pinned.includes(entry.key) ? "Unpin " : "Pin ") + entry.name,
+      );
+      pin.setAttribute(
+        "aria-pressed",
+        String(prefs.pinned.includes(entry.key)),
+      );
+      pin.onclick = () =>
+        run(() => {
+          updatePreferences((p) => P.setPinned(p, entry.key, wantedPin));
+          const replacement = [
+            ...q("nc-list").querySelectorAll("article"),
+          ].find((n) => n.dataset.catalogueKey === entry.key);
+          const target =
+            replacement?.querySelectorAll("button")[1] || q("nc-view");
+          target.focus({ preventScroll: true });
+        });
+      article.append(previewButton, pin);
       q("nc-list").append(article);
     }
-    if (!q("nc-list").children.length)
-      q("nc-list").append(el("p", "No catalogue entries match this search."));
+    q("nc-count").textContent =
+      matches.length +
+      " matching entries · " +
+      Math.min(limit, matches.length) +
+      " displayed · " +
+      records.length +
+      " saved copies";
+    q("nc-more").hidden = matches.length <= limit;
+    q("nc-clear-recent").disabled = !prefs.recent.length;
+    if (!matches.length)
+      q("nc-list").append(
+        el(
+          "p",
+          q("nc-view").value === "pinned"
+            ? "No favourites match. Pin entries from All entries."
+            : q("nc-view").value === "recent"
+              ? "No recent previews match. Preview an entry to add it here."
+              : !C.names[app.id] && !records.length
+                ? "No bundled starters for this app yet. Open My saved native templates to save the current document as a reusable template."
+                : "No catalogue entries match this search.",
+        ),
+      );
+    if (preferenceError) status(preferenceError);
   }
-  q("nc-query").oninput = render;
+  for (const id of ["nc-query", "nc-view", "nc-kind"])
+    q(id).addEventListener(id === "nc-query" ? "input" : "change", () => {
+      limit = 50;
+      render();
+    });
+  q("nc-more").onclick = () => {
+    limit += 50;
+    render();
+  };
+  q("nc-clear-recent").onclick = () =>
+    run(() => updatePreferences((p) => ({ ...p, recent: [] })));
+  q("nc-reset-prefs").onclick = () =>
+    run(() => {
+      localStorage.setItem(preferenceKey, JSON.stringify(P.parse(null)));
+      readPreferences();
+      limit = 50;
+      q("nc-view").value = "all";
+      q("nc-kind").value = "";
+      q("nc-query").value = "";
+      render();
+      status(
+        "View preferences reset. Saved templates and documents are unchanged.",
+      );
+    });
+  window.addEventListener("storage", (event) => {
+    if (event.key === preferenceKey || !event.key) {
+      readPreferences();
+      if (dialog.open) render();
+    }
+  });
   q("nc-close").onclick = () => dialog.close();
   q("nc-apply").onclick = () =>
     run(async () => {
@@ -164,6 +302,7 @@
         },
         pending.value,
       );
+      await saved();
       status("Editable copy saved in this app template/snippet library.");
     });
   q("nc-export").onclick = () => {
@@ -180,9 +319,10 @@
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   };
   async function saved() {
-    const records = await SuiteTemplates.list(app.id);
+    records = await SuiteTemplates.list(app.id);
+    render();
     q("nc-saved-list").replaceChildren();
-    for (const record of records) {
+    for (const record of records.slice(0, 50)) {
       const row = el("article");
       row.append(el("strong", record.name));
       const button = el("button", "Preview saved copy");
@@ -198,6 +338,13 @@
     }
     if (!records.length)
       q("nc-saved-list").append(el("p", "No saved native templates yet."));
+    else if (records.length > 50)
+      q("nc-saved-list").append(
+        el(
+          "p",
+          "Showing the first 50 saved copies. Search or browse the paged main catalogue for all entries.",
+        ),
+      );
   }
   q("nc-refresh-saved").onclick = () => run(saved);
   q("nc-saved").addEventListener("toggle", () => {
@@ -237,7 +384,19 @@
           seeds = await r.json();
         }
         q("nc-title").textContent = app.name + " · Templates & layouts";
-        render();
+        readPreferences();
+        limit = 50;
+        try {
+          await saved();
+        } catch (error) {
+          records = [];
+          render();
+          status(
+            "Saved templates are unavailable: " +
+              error.message +
+              " Built-in entries remain available.",
+          );
+        }
         if (!dialog.open) dialog.showModal();
       }),
   };

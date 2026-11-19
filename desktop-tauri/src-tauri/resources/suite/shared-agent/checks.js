@@ -1,0 +1,6 @@
+/* Declarative checks, never executable expressions. Runtime evaluates actual results. */
+(function(root){'use strict';
+function jsonValue(value){if(value===null||['string','boolean'].includes(typeof value))return true;if(typeof value==='number')return Number.isFinite(value);if(Array.isArray(value))return value.every(jsonValue);if(value&&typeof value==='object')return Object.values(value).every(jsonValue);return false;}
+function validate(checks){if(checks===undefined)return [];if(!Array.isArray(checks))throw Error('Action checks must be an array.');for(const c of checks){if(!c||typeof c!=='object'||Array.isArray(c)||!['equals','contains','exists'].includes(c.op))throw Error('Check op must be equals, contains or exists.');if(typeof c.path!=='string'||(c.path&&!c.path.startsWith('/'))||/~(?![01])/.test(c.path))throw Error('Check path must be an RFC 6901 JSON pointer.');if(!Object.hasOwn(c,'value')||!jsonValue(c.value))throw Error('Check needs a finite JSON value.');if(c.op==='exists'&&typeof c.value!=='boolean')throw Error('exists check value must be boolean.');if(c.label!==undefined&&typeof c.label!=='string')throw Error('Check label must be text.');}return checks;}
+root.SuiteAgentChecks={validate};if(typeof module!=='undefined')module.exports=root.SuiteAgentChecks;
+})(typeof window==='undefined'?globalThis:window);

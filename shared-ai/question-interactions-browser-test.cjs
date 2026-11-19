@@ -11,7 +11,7 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright');
   ]:requests.length===3?[{id:'choice',text:'Follow-up choice',options:['Keep','Change']}]:[];
   await route.fulfill({json:{text:JSON.stringify({requestId:request.requestId,documentDigest:request.documentDigest,answer:'Continue the discussion.',questions,proposal:null})}});
  });
- await page.goto('http://localhost:8000/textiX/');await page.locator('#sai-launch').click();
+ await page.goto((process.env.BASE_URL||'http://localhost:8000')+'/textiX/');await page.locator('#sai-launch').click();
  async function send(){await page.locator('#sai-send').click();await page.waitForFunction(()=>!document.querySelector('#sai-send').disabled);}
  await page.locator('#sai-prompt').fill('Help refine this document');await send();
  const first=page.locator('.sai-card-question').nth(0),multi=page.locator('.sai-card-question').nth(1),notes=page.locator('.sai-card-question').nth(2);

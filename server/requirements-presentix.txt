@@ -1,0 +1,2 @@
+# Optional Preserve appearance PPTX import. Install LibreOffice Impress separately.
+PyMuPDF>=1.24,<2

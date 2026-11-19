@@ -1,5 +1,7 @@
 # Workspace coding agent
 
+Read the [Coding Agent How-to Book](../docs/coding-agent-book/README.md) for step-by-step usage, LLM request/response examples, result delivery and SDK integration.
+
 The browser-independent loop/spec helpers and Python runtime are now maintained in [`codingagentlib/`](../codingagentlib/README.md), which offers standalone Python, Node.js and Rust adapters. This folder retains UI code and CommonJS compatibility imports.
 
 See [techniques, setup and remaining gaps](TECHNIQUES.md) for compiler navigation, learned semantic memory, independent completion review, dependency-aware plans and provider-backed evaluations.
@@ -266,7 +268,7 @@ Suggested **Next steps** in native app chat have **Use as follow-up** buttons. T
 
 Open **Task presets and handoff** in the coding-agent tools. Built-in investigation, implementation, review, refactoring and continuation presets append editable instructions to the goal. **Save goal as preset** stores a named custom preset in this browser, shared across suite apps. A saved preset with the same name is replaced. Export/import saved presets as `suite-agent-presets/v1` JSON from local or virtual disk; imports merge by name and replace matching saved names. Built-ins cannot be deleted. Presets never change run permissions, call a model or execute tools. Saved prompts and exports can contain your task text; edit them before reuse.
 
-An unanswered agent question appears beside the goal even after loading a session. **Draft an answer** preserves your typed instructions and adds the question with an editable answer placeholder. Review it and explicitly send/resume. A recorded follow-up clears the pending question; the existing paused-run behavior remains unchanged.
+An unanswered agent question appears beside the goal even after loading a session. **Apply default resolution** (or **Break cycle & change approach** when a repeating action cycle is detected) drafts an evidence-based resolution with one click to break repeating loops or unblock denied actions without guessing. **Draft an answer** preserves your typed instructions, pre-filling the question and recommended resolution for manual adjustment. Review it and explicitly send/resume. A recorded follow-up clears the pending question; the existing paused-run behavior remains unchanged.
 
 **Download handoff Markdown/JSON** reads the current session and exports its goal, follow-ups, task statuses, pending question, observation-derived recommendation, command exit results and historical failures. The JSON format is `suite-agent-handoff/v1`. Completion verification statements are labeled model-reported. Failures are historical and may have been resolved; task completion is not independent certification. Exports are point-in-time snapshots and do not stop an active run. They exclude raw source, full command logs and provider configuration; use **Download result ZIP** for full artifacts. Review the current project and evidence before continuing work elsewhere.
 

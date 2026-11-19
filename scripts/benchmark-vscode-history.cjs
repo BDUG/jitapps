@@ -1,0 +1,4 @@
+const {performance}=require('node:perf_hooks'),{prepare}=require(process.argv[2]||require('node:path').resolve(__dirname,'../codingagentlib/vscode/src/history-context.cjs'));
+const text='Context data '.repeat(8000),events=Array.from({length:600},(_,i)=>({kind:'observation',value:{id:'call'+i,tool:'search',ok:true,result:{text}}}));
+events[0]={kind:'user',value:{status:'follow_up',text:'Keep original instructions'}};
+const request={events,tools:[{name:'read_history'}],responseSchema:{type:'object'},permissions:{edits:false}};global.gc?.();const start=performance.now();const view=prepare(request,{budget:8000});console.log(JSON.stringify({ms:Math.round(performance.now()-start),peakRssMiB:Math.round(process.resourceUsage().maxRSS/1024),originalCharacters:view.metadata.originalCharacters,retainedCharacters:view.metadata.retainedCharacters}));

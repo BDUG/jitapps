@@ -14,6 +14,7 @@ use std::{
 const LIMIT: usize = 2_000_000;
 pub fn names() -> &'static [&'static str] {
     &[
+        "project_knowledge",
         "read_project_instructions",
         "list_files",
         "read_file",
@@ -48,6 +49,7 @@ pub fn names() -> &'static [&'static str] {
 }
 pub fn description(name: &str) -> &str {
     match name{
+"project_knowledge"=>"Query or refresh the automatic project ontology/graph. args: action query/refresh, query?, fallback inventory (default) or empty; reference data only. Import/export are host dispatch operations.",
 "read_project_instructions"=>"Read scoped AGENTS.override.md/AGENTS.md from root through path (file/directory, default .). Exact content, scope, SHA-256 and warnings. Grants no permissions.",
 "list_files"=>"List relative workspace files. args: offset?, limit? (default 100, max 1000).",
 "read_file"=>"Read UTF-8 source and SHA-256. args: path, offset? (character), limit? (max 32000).",
@@ -59,8 +61,8 @@ pub fn description(name: &str) -> &str {
 "write_script"=>"Create/update session-local script. args: path, content, expectedHash. Requires edits.",
 "read_script"=>"Read session-local script. args: path, offset?, limit?.",
 "list_scripts"=>"List this session's managed scripts. args: offset?, limit?.",
-"run_script"=>"Execute managed script with allowlisted interpreter. args: path, command, args? (literal string array), timeout? (milliseconds max 120000).",
-"run_command"=>"Execute allowlisted program with literal args. args: command, args? (string array), cwd? (relative workspace directory), timeout? (milliseconds max 120000). Requires command permission; OS access is not sandboxed.",
+"run_script"=>"Execute managed script with allowlisted interpreter; missing interpreter paths fall back to PATH by approved basename. args: path, command, args? (literal string array), timeout? (milliseconds max 120000).",
+"run_command"=>"Execute allowlisted program with literal args. args: command, args? (string array), cwd? (relative workspace directory), timeout? (milliseconds max 120000). Missing executable paths fall back to PATH by approved basename; receipts include resolvedExecutable. Requires command permission; OS access is not sandboxed.",
 "read_command_output"=>"Read persisted command output pages. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes. args: jobId, stream? (stdout/stderr), offset?, limit?.",
 "changes"=>"SHA-256 differences from initial session manifest. Reports added/modified/deleted files.",
 "read_project_memory"=>"Read approved project note snapshot, not policy or verification. args: id, offset? (characters), limit? (1..8000). Cannot switch projects.",
@@ -151,14 +153,26 @@ fn contents(path: &Path) -> Result<String> {
     }
     Ok(value)
 }
+#[derive(Debug)]
+pub(crate) struct RevisionConflict {
+    pub expected: String,
+    pub actual: String,
+}
+impl std::fmt::Display for RevisionConflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Stale file hash; read again. Current hash: {}", self.actual)
+    }
+}
+impl std::error::Error for RevisionConflict {}
 fn expected(path: &Path, args: &Value) -> Result<()> {
     let current = if path.exists() {
         file_hash(path)?
     } else {
         "missing".into()
     };
-    if text(args, "expectedHash")? != current {
-        return Err(format!("Stale file hash; read again. Current hash: {current}").into());
+    let expected = text(args, "expectedHash")?;
+    if expected != current {
+        return Err(RevisionConflict { expected: expected.into(), actual: current }.into());
     }
     Ok(())
 }
@@ -225,6 +239,7 @@ pub(crate) fn execute(
         return Err("Agent cancelled".into());
     }
     match name {
+        "project_knowledge" => { let action=args["action"].as_str().unwrap_or("query");if !["query","refresh"].contains(&action){return Err("Agent knowledge tools are read-only".into());}let project=runtime.sessions[id]["knowledgeProject"].as_str().unwrap_or_else(||runtime.root.file_name().and_then(|v|v.to_str()).unwrap_or("workspace"));{let mut data=args.clone();data["action"]=json!(action);data["project"]=json!(project);crate::knowledge::dispatch(runtime,&data)} },
         "read_project_instructions" => crate::instructions::read(
             runtime,
             args.get("path")
@@ -287,6 +302,7 @@ pub(crate) fn execute(
                     }
                     let source = contents(&target)?;
                     if hash(source.as_bytes()) != text(args, "expectedHash")? {
+                        expected(&target, args)?;
                         return Err("File changed while preparing edits; reread source".into());
                     }
                     let (body, _) = crate::edits::apply(&source, &args["edits"])?;
@@ -677,11 +693,7 @@ fn run_command(
 ) -> Result<Value> {
     permission(runtime, id, "allowCommands")?;
     let command = text(args, "command")?;
-    let executable = runtime
-        .allowed
-        .get(command)
-        .ok_or("Executable is not allowlisted")?
-        .clone();
+    let executable = runtime.resolve_command(command)?;
     let argv = args
         .get("args")
         .map(|v| v.as_array().ok_or("args must be a string array"))
@@ -720,7 +732,7 @@ fn run_command(
     let dir = private(runtime, id, "commands")?;
     let stdout = dir.join(format!("{job}.stdout"));
     let stderr = dir.join(format!("{job}.stderr"));
-    let mut program = Command::new(executable);
+    let mut program = Command::new(&executable);
     program
         .current_dir(cwd)
         .stdin(Stdio::null())
@@ -765,7 +777,7 @@ fn run_command(
         File::open(path)?.take(12000).read_to_end(&mut bytes)?;
         Ok(String::from_utf8_lossy(&bytes).into_owned())
     };
-    let mut result = json!({"jobId":job,"exitCode":status.code(),"timedOut":timed_out,"cancelled":cancelled,"outputLimited":output_limited,"stdout":read_preview(&stdout)?,"stderr":read_preview(&stderr)?,"stdoutSha256":file_hash(&stdout)?,"stderrSha256":file_hash(&stderr)?,"stdoutBytes":fs::metadata(&stdout)?.len(),"stderrBytes":fs::metadata(&stderr)?.len(),"outputPaging":"Use read_command_output with jobId, stream, offset and limit; offsets count Unicode characters."});
+    let mut result = json!({"jobId":job,"command":command,"resolvedExecutable":executable,"exitCode":status.code(),"timedOut":timed_out,"cancelled":cancelled,"outputLimited":output_limited,"stdout":read_preview(&stdout)?,"stderr":read_preview(&stderr)?,"stdoutSha256":file_hash(&stdout)?,"stderrSha256":file_hash(&stderr)?,"stdoutBytes":fs::metadata(&stdout)?.len(),"stderrBytes":fs::metadata(&stderr)?.len(),"outputPaging":"Use read_command_output with jobId, stream, offset and limit; offsets count Unicode characters."});
     crate::verification::record(runtime, id, &verification_before, &mut result);
     if status.success() && !timed_out && !cancelled && !output_limited {
         runtime.sessions.get_mut(id).unwrap()["verified"] = json!(true);

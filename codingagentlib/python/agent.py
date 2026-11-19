@@ -16,13 +16,13 @@ class Agent:
     def __enter__(self):return self
     def __exit__(self,*args):self.close()
     def dispatch(self,data):return self.runtime.dispatch(data)
-    def start(self,goal,allow_edits=False,allow_commands=False,acceptance_rules=None):
-        return self.dispatch({'op':'start','goal':goal,'tool':'headless','allowEdits':allow_edits,'allowCommands':allow_commands,'acceptanceRules':acceptance_rules or []})
+    def start(self,goal,allow_edits=False,allow_commands=False,acceptance_rules=None,project=None,remember_sessions=None):
+        return self.dispatch({'op':'start','goal':goal,'tool':'headless','allowEdits':allow_edits,'allowCommands':allow_commands,'acceptanceRules':acceptance_rules or [],'knowledgeProject':project,**({'rememberSessions':remember_sessions} if remember_sessions is not None else {})})
     def next(self,session_id):
         session=self.runtime.get(session_id);turn=self.dispatch({'op':'turn','session':session_id});self.pending[session_id]=turn
         tools=[t for t in self.runtime.health()['tools'] if t['name'] not in BROWSER_TOOLS and (self.runtime.shared_skills or not t['name'].startswith('catalog_'))]
         schema=copy.deepcopy(SPEC['responseSchema']);schema['properties']['sessionId']['const']=session_id;schema['properties']['step']['const']=turn['step']
-        return {'projectInstructions':turn.get('projectInstructions'),'verificationFreshness':turn.get('verificationFreshness'),'protocol':SPEC['protocol'],'sessionId':session_id,'step':turn['step'],'goal':session['goal'],'workspace':str(self.runtime.root),'tools':tools,'events':copy.deepcopy(session['events']),'tasks':agent_planning.latest(session['events']),'permissions':{'allowEdits':session['allowEdits'],'allowCommands':session['allowCommands'],'applyProject':False},'responseSchema':schema,'instructions':SPEC['instructions']}
+        return {'projectKnowledge':turn.get('projectKnowledge'),'agentMemory':turn.get('agentMemory'),'projectInstructions':turn.get('projectInstructions'),'verificationFreshness':turn.get('verificationFreshness'),'protocol':SPEC['protocol'],'sessionId':session_id,'step':turn['step'],'goal':session['goal'],'workspace':str(self.runtime.root),'tools':tools,'events':copy.deepcopy(session['events']),'tasks':agent_planning.latest(session['events']),'permissions':{'allowEdits':session['allowEdits'],'allowCommands':session['allowCommands'],'applyProject':False},'responseSchema':schema,'instructions':SPEC['instructions']}
     def submit(self,session_id,raw):
         turn=self.pending.pop(session_id,None)
         if not turn:raise ValueError('No reserved turn. Request the next turn; inspect tool_status before retrying an interrupted action.')

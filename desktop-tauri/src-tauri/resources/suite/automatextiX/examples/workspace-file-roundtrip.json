@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "name": "Read and update a workspace file",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "name": "start",
+      "x": 50,
+      "y": 140,
+      "config": {
+        "data": "{\"path\":\"workspace-input.json\"}"
+      }
+    },
+    {
+      "id": "read",
+      "type": "readFile",
+      "name": "read",
+      "x": 360,
+      "y": 140,
+      "config": {
+        "path": "{{ item.path }}",
+        "encoding": "json",
+        "resultKey": "file",
+        "keepInput": true
+      }
+    },
+    {
+      "id": "transform",
+      "type": "set",
+      "name": "transform",
+      "x": 670,
+      "y": 140,
+      "config": {
+        "fields": "{\"updated\":{\"original\":\"{{ item.file.content }}\",\"processed\":true}}",
+        "keepInput": true
+      }
+    },
+    {
+      "id": "save",
+      "type": "writeFile",
+      "name": "save",
+      "x": 980,
+      "y": 140,
+      "config": {
+        "path": "results/workspace-output.json",
+        "content": "{{ item.updated }}",
+        "encoding": "json",
+        "mimeType": "",
+        "overwrite": false,
+        "expectedRevision": "",
+        "resultKey": "savedFile",
+        "keepInput": true
+      }
+    },
+    {
+      "id": "done",
+      "type": "log",
+      "name": "done",
+      "x": 1290,
+      "y": 140,
+      "config": {
+        "message": "Saved {{ item.savedFile.path }}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "source": "start",
+      "target": "read",
+      "port": "out"
+    },
+    {
+      "id": "e1",
+      "source": "read",
+      "target": "transform",
+      "port": "out"
+    },
+    {
+      "id": "e2",
+      "source": "transform",
+      "target": "save",
+      "port": "out"
+    },
+    {
+      "id": "e3",
+      "source": "save",
+      "target": "done",
+      "port": "out"
+    }
+  ]
+}

@@ -166,3 +166,15 @@ test("latest edit, command and failure ledger entries retain their exact audit r
       args: { offset: index, limit: 1 },
     });
 });
+
+test("history accounting never serializes the full archive array and retains exact Unicode sizes",()=>{
+ const events=Array.from({length:160},(_,i)=>observation(i,'🧪\n\"\\'.repeat(2000)));
+ events[0]={kind:'user',value:{status:'follow_up',text:'Retain exact instructions'}};
+ const expected=JSON.stringify(events).length,raw=request(events),stringify=JSON.stringify;
+ JSON.stringify=function(value,...args){assert.notEqual(value,events,'Do not allocate one full archived-history string');return stringify(value,...args);};
+ let view;try{view=prepare(raw,{budget:8000});}finally{JSON.stringify=stringify;}
+ assert.equal(view.metadata.originalCharacters,expected);
+ assert.equal(view.metadata.retainedCharacters,JSON.stringify(view.request.events).length);
+ assert.equal(view.request.events[0].value.text,'Retain exact instructions');
+ assert.ok(view.metadata.omittedRanges.length);
+});

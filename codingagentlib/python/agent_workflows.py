@@ -29,7 +29,7 @@ def references(value,inputs,steps):
             for item in value.values():references(item,inputs,steps)
 
 def validate(value):
-    if not isinstance(value,dict) or value.get('format')!='suite-tool-workflow/v1':raise ValueError('Use a suite-tool-workflow/v1 definition')
+    if not isinstance(value,dict) or value.get('format') not in {'suite-tool-workflow/v1','suite-tool-workflow/v2'}:raise ValueError('Use a suite-tool-workflow/v1 or v2 definition')
     for key in ('name','description'):
         if not isinstance(value.get(key),str) or not value[key].strip():raise ValueError('Workflow needs a name and description')
     inputs=value.get('inputs',{})
@@ -46,6 +46,15 @@ def validate(value):
         ident=identifier(step.get('id'))
         if ident in seen:raise ValueError('Workflow step IDs must be unique')
         if not isinstance(step.get('tool'),str) or step.get('tool') not in STEP_TOOLS or not isinstance(step.get('args'),dict):raise ValueError('Unsupported workflow step tool or arguments')
+        pins=step.get('skills',[])
+        if not isinstance(pins,list) or len(pins)>32:raise ValueError('A step supports at most 32 pinned skills')
+        if pins and value['format']!='suite-tool-workflow/v2':raise ValueError('Pinned skills require suite-tool-workflow/v2 so older runtimes cannot ignore prerequisites')
+        pinned=set()
+        for pin in pins:
+            if not isinstance(pin,dict):raise ValueError('Invalid pinned skill')
+            identifier(pin.get('id'))
+            if pin['id'] in pinned or type(pin.get('revision')) is not int or pin['revision']<1:raise ValueError('Use unique skill IDs and positive pinned revisions')
+            pinned.add(pin['id'])
         references(step['args'],inputs,seen);agent_checks.validate(step.get('checks',[]));references(step.get('checks',[]),inputs,seen);seen.add(ident)
     if not agent_checks.json_value(value):raise ValueError('Workflow must contain finite JSON data')
     return copy.deepcopy({k:value[k] for k in ('format','name','description','inputs','steps') if k in value})
@@ -148,6 +157,11 @@ def preflight(runtime,s,args):
         issues=[];dynamic=False
         def has_result(v):
             return isinstance(v,dict) and ('$step' in v or any(has_result(i) for i in v.values())) or isinstance(v,list) and any(has_result(i) for i in v)
+        for pin in step.get('skills',[]):
+            try:
+                skill=runtime.skills.read(pin['id'])
+                if not skill.get('enabled') or skill['revision']!=pin['revision']:issues.append('Pinned skill is disabled or changed: '+pin['id'])
+            except (ValueError,OSError):issues.append('Pinned skill is unavailable: '+pin['id'])
         dynamic=has_result(step['args'])
         if step['tool'] in edit_tools and not s['allowEdits']:issues.append('File/script edit permission is disabled')
         if step['tool'] in {'run_command','run_script'}:
@@ -193,6 +207,9 @@ def run(runtime,s,args,continuing=False):
         if execution['nextStep']>=execution['totalSteps']:execution.update(status='complete',reason='All declared steps succeeded');break
         step=execution['definition']['steps'][execution['nextStep']];call_id='wf_'+execution['runId']+'_'+str(execution['nextStep'])
         try:
+            for pin in step.get('skills',[]):
+                skill=runtime.skills.read(pin['id'])
+                if not skill.get('enabled') or skill['revision']!=pin['revision']:raise PermissionError('Pinned skill is disabled or changed: '+pin['id'])
             runtime.check(s);a=resolve(step['args'],execution['inputs'],execution['results']);checks=agent_checks.validate(resolve(step.get('checks',[]),execution['inputs'],execution['results']))
             with s['_lock']:
                 if call_id in s['_calls']:raise ValueError('Workflow step call was already reserved; refusing replay')

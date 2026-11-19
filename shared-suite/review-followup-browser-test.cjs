@@ -228,7 +228,7 @@ const assert = require("node:assert/strict"),
     await page.screenshot({ path: "/tmp/review-followup-mobile.png" });
     assert.equal(aiCalls, 0);
     console.log(
-      "PASS: follow-up briefs in all 18 native app composers, independent exports, preserved drafts/documents, read-only and size guards, codeiX exclusions and zero AI requests.",
+      "PASS: follow-up briefs in all registered native app composers, independent exports, preserved drafts/documents, read-only and size guards, codeiX exclusions and zero AI requests.",
     );
   } finally {
     await browser.close();

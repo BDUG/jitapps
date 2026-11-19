@@ -632,3 +632,33 @@ fn structured_edit_batch_is_all_or_nothing_and_hash_guarded() -> Result<()> {
     agent.close()?;
     Ok(())
 }
+
+#[test]
+fn revision_conflict_recovery_preserves_external_work_and_receipts() -> Result<()> {
+    let w=Workspace::new()?;
+    fs::write(w.0.join("source.txt"),"external edits")?;
+    let mut agent=Agent::new(&w.0,&[])?;
+    let session=start(&mut agent,true,false)?;
+    for (i,name) in ["write_file","replace_text","apply_edits","delete_file"].iter().enumerate() {
+        let args=json!({"path":"source.txt","content":"lost","expectedHash":"missing","find":"external","replacement":"lost","edits":[{"find":"external","replacement":"lost"}]});
+        let receipt=tool(&mut agent,&session,name,&format!("conflict{i}"),args.clone())?;
+        assert_eq!(receipt["ok"],false);
+        assert_eq!(receipt["code"],"file_revision_conflict");
+        assert_eq!(receipt["conflict"]["path"],"source.txt");
+        assert_eq!(receipt["conflict"]["expectedHash"],"missing");
+        assert_eq!(receipt["conflict"]["requiresRead"],true);
+        assert_eq!(receipt["recovery"]["automaticRetry"],false);
+        assert_eq!(receipt["recovery"]["nextAction"],json!({"tool":"read_file","args":{"path":"source.txt"}}));
+        assert_eq!(fs::read_to_string(w.0.join("source.txt"))?,"external edits");
+        assert_eq!(tool(&mut agent,&session,name,&format!("conflict{i}"),args)?,receipt);
+    }
+    let read=tool(&mut agent,&session,"read_file","refresh",json!({"path":"source.txt"}))?;
+    let adapted=tool(&mut agent,&session,"replace_text","adapt",json!({"path":"source.txt","find":"external edits","replacement":"external edits plus requested change","expectedHash":read["result"]["hash"]}))?;
+    assert_eq!(adapted["ok"],true);
+    assert_eq!(fs::read_to_string(w.0.join("source.txt"))?,"external edits plus requested change");
+    agent.close()?;
+    let mut agent=Agent::new(&w.0,&[])?;
+    let saved=agent.dispatch(json!({"op":"session","session":session}))?;
+    assert_eq!(saved["receipts"]["conflict0"]["observation"]["recovery"]["strategy"],"read_then_replan");
+    Ok(())
+}

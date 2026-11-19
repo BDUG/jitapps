@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://architex.local/schemas/validation-finding.schema.json",
+  "title": "Validation finding and graphical annotation",
+  "type": "object",
+  "required": [
+    "message"
+  ],
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ]
+    },
+    "nodeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "portId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "connectionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "blocksConnection": {
+      "type": "boolean"
+    },
+    "highlightColor": {
+      "enum": [
+        "red",
+        "orange",
+        "green",
+        "blue",
+        "purple"
+      ]
+    },
+    "ruleId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ruleName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scriptError": {
+      "type": "boolean"
+    }
+  }
+}

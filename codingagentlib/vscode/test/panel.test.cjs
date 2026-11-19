@@ -28,3 +28,29 @@ test('long replay does no hidden JSON work and expanded trace reuses formatted e
 test('completed session keyboard shortcut starts a new request rather than resuming',()=>{const p=panel();p.state({sessionStatus:'complete'});p.q('goal').value='New request';p.q('goal').onkeydown({key:'Enter',metaKey:true,preventDefault(){}});assert.equal(p.posted.at(-1).resume,false);});
 
 test('specification bridge isolates results from the agent trace and supports cancellation',async()=>{const p=panel();p.state();const options=p.specification(),source={command:'Read only'},abort=new AbortController(),promise=options.generate(source,abort.signal),request=p.posted.at(-1);assert.equal(request.command,'specificationGenerate');p.event({kind:'specificationResult',id:request.id,result:{title:'Draft'}});assert.deepEqual(await promise,{title:'Draft'});assert.equal(p.q('chat').children.length,0);const next=new AbortController(),cancelled=options.generate(source,next.signal);next.abort();await assert.rejects(cancelled,/stopped/);assert.equal(p.posted.at(-1).command,'specificationCancel');assert.ok(!p.posted.some(m=>m.command==='run'));});
+
+test('revision conflict recovery is inert, preserves drafts and never submits or changes permissions',()=>{const p=panel();p.state();p.q('goal').value='Keep follow-up';p.event({kind:'result',result:{observation:{tool:'write_file',ok:false,code:'file_revision_conflict',conflict:{path:'src/<unsafe>.js',requiresRead:true},error:'stale'}}});const card=p.q('chat').children.at(-1),button=card.children.at(-1);assert.equal(button.textContent,'Draft recovery follow-up');assert.match(card.children.at(-2).textContent,/src\/<unsafe>\.js/);p.state({running:true});button.onclick();assert.equal(p.q('goal').value,'Keep follow-up');p.state({running:false});button.onclick();assert.match(p.q('goal').value,/^Keep follow-up\n\nResolve/);assert.match(p.q('goal').value,/Do not replay the stale write/);assert.ok(!p.posted.some(m=>m.command==='run'));assert.equal(p.q('edits').checked,false);assert.equal(p.q('commands').checked,false);const reload=panel(p.saved());reload.state();assert.equal(reload.q('goal').value,p.q('goal').value);});
+
+test('command result log shortcuts and position navigation only request retained pages',()=>{
+ const p=panel(),jobId='a'.repeat(32);p.state();p.event({kind:'result',result:{observation:{tool:'run_command',ok:true,result:{jobId,exitCode:1}}}});
+ const card=p.q('chat').children.at(-1),stdout=card.children.at(-2),stderr=card.children.at(-1);assert.equal(stdout.textContent,'Inspect stdout');assert.equal(stderr.textContent,'Inspect stderr');stderr.onclick();assert.equal(p.posted.at(-1).command,'output');assert.equal(p.posted.at(-1).stream,'stderr');assert.equal(p.posted.at(-1).jobId,jobId);
+ const view={sessionId:'s',jobId,jobs:[{id:jobId,tool:'run_command',exitCode:1}],stream:'stderr',limit:12000,busy:false,page:{text:'😀<script>inert</script>',offset:0,nextOffset:12000,totalCharacters:30000,done:false}};
+ p.event({kind:'outputView',view});p.q('output-last').onclick();assert.equal(p.posted.at(-1).offset,18000);
+ p.q('output-offset').value='12345';p.q('output-jump').onclick();assert.equal(p.posted.at(-1).offset,12345);
+ for(const value of ['','-1','1.2','30001','9007199254740992']){p.q('output-offset').value=value;const n=p.posted.length;p.q('output-jump').onclick();assert.equal(p.posted.length,n);}
+ p.q('output-offset').value='3';const n=p.posted.length;p.q('output-offset').onkeydown({key:'Enter',isComposing:true});assert.equal(p.posted.length,n);
+ p.state({running:true});const count=p.posted.length;stdout.onclick();stderr.onclick();p.q('output-last').onclick();assert.equal(p.posted.length,count);assert.equal(p.q('output-last').disabled,true);assert.ok(!p.posted.some(m=>m.command==='run'));
+});
+
+test('Plan selection removes editing permissions and its handoff creates only an unsent new Build request',()=>{
+ const p=panel();p.state();p.q('execution-mode').value='plan';p.q('edits').checked=true;p.q('commands').checked=true;p.q('execution-mode').onchange();assert.equal(p.q('edits').checked,false);assert.equal(p.q('commands').checked,false);assert.equal(p.q('edits').disabled,true);
+ p.q('goal').value='Inspect and plan';p.q('form').onsubmit({preventDefault(){}});assert.equal(p.posted.at(-1).executionMode,'plan');assert.equal(p.posted.at(-1).edits,false);
+ p.state({sessionStatus:'complete',sessionMode:'plan'});p.q('goal').value='Additional requirement';p.event({kind:'result',result:{status:'complete',summary:'Plan: change src/app.js and run tests. <script>inert</script>',executionMode:'plan'}});
+ const button=p.q('chat').children.at(-1).children.at(-1),n=p.posted.filter(m=>m.command==='run').length;assert.equal(button.textContent,'Draft Build request');button.onclick();assert.match(p.q('goal').value,/^Additional requirement\n\nImplement/);assert.equal(p.q('execution-mode').value,'build');assert.equal(p.q('edits').checked,false);assert.equal(p.q('commands').checked,false);assert.equal(p.posted.filter(m=>m.command==='run').length,n);
+ p.q('form').onsubmit({preventDefault(){}});assert.equal(p.posted.at(-1).executionMode,'build');assert.equal(p.posted.at(-1).resume,false);
+});
+
+test('stale per-check source evidence is visible and drafting verification remains unsent',()=>{
+ const p=panel();p.state();p.q('goal').value='Keep my request';p.event({kind:'verification',report:{commandsAllowed:true,passed:false,checks:[{name:'Lint',status:'stale',callId:'s_1',reason:'This check passed for different tracked inputs.'},{name:'Tests',status:'passed',callId:'s_2',reason:'Current inputs'}]}});
+ assert.match(p.q('verification-summary').textContent,/1\/2/);assert.match(p.q('verification-checks').children[0].textContent,/Lint · stale/);p.q('draft-verification').onclick();assert.match(p.q('goal').value,/^Keep my request/);assert.ok(!p.posted.some(e=>e.command==='run'));
+});

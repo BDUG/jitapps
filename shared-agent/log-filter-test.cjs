@@ -6,7 +6,7 @@ const source=fs.readFileSync(__dirname+'/ui.js','utf8');
 const functions=source.slice(source.indexOf('function filterLogRow('),source.indexOf('filter.onchange=filterLog;'));
 function setup(){
  const controls={'#ag-log-filter':{value:'all'},'#ag-log-search':{value:''},'#ag-log':{children:[]}};
- const context=vm.createContext({$:id=>controls[id],logPayloads:new WeakMap()});
+ const context=vm.createContext({$:id=>controls[id],logPayloads:new WeakMap(),payloadText:value=>typeof value==='function'?value():String(value||'')});
  vm.runInContext(functions,context);
  return {controls,context};
 }

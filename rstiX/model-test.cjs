@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict'),M=require('./model.js');
+let project=M.demo();assert.equal(M.graph(project).needs.length,3);
+const before=project.files[0].content;project=M.edit(project,'REQ_STABLE',{title:'Updated requirement',status:'done'});assert.match(project.files[0].content,/Updated requirement/);assert.match(project.files[0].content,/:status: done/);assert.equal(M.graph(project).needs[1].title,'Control loop');
+project=M.connect(project,'TEST_CONTROL','REQ_STABLE');assert.ok(M.graph(project).warnings.some(w=>w.includes('cycle')));
+project=M.edit(project,'REQ_STABLE',{links:'MISSING'});assert.ok(M.graph(project).warnings.some(w=>w.includes('Missing target')));
+assert.equal(M.graph(M.fromNeeds(M.needsJSON(M.demo()))).needs.length,3);
+assert.equal(M.knowledge(project).ontology.format,'codingagentlib/project-ontology-v1');
+assert.throws(()=>M.validate({...project,files:[...project.files,{...project.files[0],path:'other.rst'}]}),/Duplicate need/);
+assert.throws(()=>M.validate({...project,files:[{path:'../escape.rst',content:''}]}),/Unsafe/);
+const crlf=M.validate({format:'rstix-project',version:1,name:'CRLF',positions:{},files:[{path:'test.rst',content:'Prose\r\n\r\n.. req:: Old\r\n   :id: REQ_A\r\n   :custom: unchanged\r\n      continuation\r\n\r\n   Body\r\n'}]});
+const updated=M.edit(crlf,'REQ_A',{title:'New',body:'Revised body'});assert.match(updated.files[0].content,/:custom: unchanged\r\n      continuation/);assert.match(updated.files[0].content,/Revised body/);assert.ok(!updated.files[0].content.replace(/\r\n/g,'').includes('\n'));
+const code=M.validate({format:'rstix-project',version:1,name:'Literal',positions:{},files:[{path:'literal.rst',content:'.. code-block:: rst\n\n   .. req:: Not a need\n      :id: HIDDEN\n'}]});assert.equal(M.graph(code).needs.length,0);
+console.log('PASS rstiX: source-backed edits, dependency cycles/missing targets, needs.json round-trip, knowledge export, unsafe paths, duplicate IDs, literal directives and CRLF/custom-option preservation.');

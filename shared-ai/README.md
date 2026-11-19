@@ -140,7 +140,7 @@ The headless helper `SuitePromptLibraryCore.brief(app, fields, isCodingAgent)` r
 
 ## Native starting points for every app
 
-**Prompt workflows → Build a structured task brief** now offers three app-specific starting points for all 18 desktop apps: create a native result, improve the current result, or review it before handoff. Use **Use starting point** to fill the goal, scope, constraints and success criteria. Edit these fields for the actual task, choose **Build task brief**, then preview and insert the workflow when ready.
+**Prompt workflows → Build a structured task brief** now offers three app-specific starting points for all 21 desktop apps: create a native result, improve the current result, or review it before handoff. Use **Use starting point** to fill the goal, scope, constraints and success criteria. Edit these fields for the actual task, choose **Build task brief**, then preview and insert the workflow when ready.
 
 Starting points describe supported native content: for example, mockiX screen/flow graphs, sheetiX formulas, reportiX cited evidence, architeX ports and instances, and editable design/video layers. They are editable instructions for the configured model, not deterministic generators or guarantees about the model's output. Existing proposal validation and review continue to govern document changes. shelliX creation/improvement starting points default to planning instructions; insertion does not change its execution permissions or run a command.
 

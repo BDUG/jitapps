@@ -1,0 +1,536 @@
+{
+  "graph": {
+    "format": "codingagentlib/project-knowledge-v1",
+    "version": 1,
+    "project": "flight",
+    "revision": "r1",
+    "complete": true,
+    "warnings": [
+      "Reference data"
+    ],
+    "ontology": {
+      "format": "codingagentlib/project-ontology-v1",
+      "version": 1,
+      "classes": [
+        {
+          "id": "Symbol",
+          "label": "Symbol"
+        }
+      ],
+      "relations": [
+        {
+          "id": "calls",
+          "label": "calls"
+        },
+        {
+          "id": "contains",
+          "label": "contains"
+        }
+      ]
+    },
+    "nodes": [
+      {
+        "id": "b",
+        "type": "Symbol",
+        "label": "Beta",
+        "source": {},
+        "properties": {}
+      },
+      {
+        "id": "a",
+        "type": "Symbol",
+        "label": "Überprüfung",
+        "source": {
+          "path": "src/über.py"
+        },
+        "properties": {}
+      },
+      {
+        "id": "Z",
+        "type": "Symbol",
+        "label": "東京",
+        "source": {},
+        "properties": {
+          "topic": "文書"
+        }
+      },
+      {
+        "id": "a_",
+        "type": "Symbol",
+        "label": "Audit",
+        "source": {},
+        "properties": {
+          "note": "контроль"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "a",
+        "target": "b",
+        "type": "calls"
+      },
+      {
+        "id": "e2",
+        "source": "Z",
+        "target": "a",
+        "type": "contains"
+      },
+      {
+        "id": "e3",
+        "source": "a_",
+        "target": "Z",
+        "type": "calls"
+      }
+    ],
+    "annotations": {
+      "a": {
+        "text": "prüfen"
+      },
+      "Z": {
+        "text": "Review imports"
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "browse-stable-id-order",
+      "valid": true,
+      "options": {
+        "hops": 0
+      },
+      "expected": {
+        "nodes": [
+          "Z",
+          "a",
+          "a_",
+          "b"
+        ],
+        "seeds": [
+          "Z",
+          "a",
+          "a_",
+          "b"
+        ],
+        "edges": [
+          "e1",
+          "e2",
+          "e3"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "unicode-label",
+      "valid": true,
+      "options": {
+        "query": "ÜBERPRÜFUNG"
+      },
+      "expected": {
+        "nodes": [
+          "a",
+          "b",
+          "Z"
+        ],
+        "seeds": [
+          "a"
+        ],
+        "edges": [
+          "e1",
+          "e2"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "unicode-property",
+      "valid": true,
+      "options": {
+        "query": "文書",
+        "hops": 0
+      },
+      "expected": {
+        "nodes": [
+          "Z"
+        ],
+        "seeds": [
+          "Z"
+        ],
+        "edges": [],
+        "annotations": [
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "cyrillic-property",
+      "valid": true,
+      "options": {
+        "query": "контроль",
+        "hops": 0
+      },
+      "expected": {
+        "nodes": [
+          "a_"
+        ],
+        "seeds": [
+          "a_"
+        ],
+        "edges": [],
+        "annotations": [],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "unicode-neighborhood",
+      "valid": true,
+      "options": {
+        "query": "東京"
+      },
+      "expected": {
+        "nodes": [
+          "Z",
+          "a",
+          "a_"
+        ],
+        "seeds": [
+          "Z"
+        ],
+        "edges": [
+          "e2",
+          "e3"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "unmatched-text",
+      "valid": true,
+      "options": {
+        "query": "zzzzzz",
+        "fallback": "empty"
+      },
+      "expected": {
+        "nodes": [],
+        "seeds": [],
+        "edges": [],
+        "annotations": [],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "punctuation-is-not-browse",
+      "valid": true,
+      "options": {
+        "query": "???",
+        "fallback": "empty"
+      },
+      "expected": {
+        "nodes": [],
+        "seeds": [],
+        "edges": [],
+        "annotations": [],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "blank-is-browse",
+      "valid": true,
+      "options": {
+        "query": "  ",
+        "hops": 0,
+        "limit": 2
+      },
+      "expected": {
+        "nodes": [
+          "Z",
+          "a"
+        ],
+        "seeds": [
+          "Z",
+          "a"
+        ],
+        "edges": [
+          "e2"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "duplicate-seeds-before-limit",
+      "valid": true,
+      "options": {
+        "nodeIds": [
+          "b",
+          "b",
+          "a"
+        ],
+        "hops": 0,
+        "limit": 2
+      },
+      "expected": {
+        "nodes": [
+          "b",
+          "a"
+        ],
+        "seeds": [
+          "b",
+          "a"
+        ],
+        "edges": [
+          "e1"
+        ],
+        "annotations": [
+          "a"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "frontier-order-under-budget",
+      "valid": true,
+      "options": {
+        "nodeIds": [
+          "a_",
+          "a"
+        ],
+        "hops": 1,
+        "limit": 3
+      },
+      "expected": {
+        "nodes": [
+          "a_",
+          "a",
+          "Z"
+        ],
+        "seeds": [
+          "a_",
+          "a"
+        ],
+        "edges": [
+          "e2",
+          "e3"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "incoming",
+      "valid": true,
+      "options": {
+        "nodeIds": [
+          "a"
+        ],
+        "direction": "in"
+      },
+      "expected": {
+        "nodes": [
+          "a",
+          "Z"
+        ],
+        "seeds": [
+          "a"
+        ],
+        "edges": [
+          "e2"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "relation-filter",
+      "valid": true,
+      "options": {
+        "nodeIds": [
+          "a"
+        ],
+        "relations": [
+          "calls"
+        ]
+      },
+      "expected": {
+        "nodes": [
+          "a",
+          "b"
+        ],
+        "seeds": [
+          "a"
+        ],
+        "edges": [
+          "e1"
+        ],
+        "annotations": [
+          "a"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "two-hops",
+      "valid": true,
+      "options": {
+        "nodeIds": [
+          "a_"
+        ],
+        "direction": "out",
+        "hops": 2
+      },
+      "expected": {
+        "nodes": [
+          "a_",
+          "Z",
+          "a"
+        ],
+        "seeds": [
+          "a_"
+        ],
+        "edges": [
+          "e2",
+          "e3"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "score-tie-id-order",
+      "valid": true,
+      "options": {
+        "query": "Beta Audit",
+        "hops": 0
+      },
+      "expected": {
+        "nodes": [
+          "a_",
+          "b"
+        ],
+        "seeds": [
+          "a_",
+          "b"
+        ],
+        "edges": [],
+        "annotations": [],
+        "fallbackUsed": false
+      }
+    },
+    {
+      "name": "unknown-seed",
+      "valid": false,
+      "options": {
+        "nodeIds": [
+          "missing"
+        ]
+      }
+    },
+    {
+      "name": "invalid-hop",
+      "valid": false,
+      "options": {
+        "hops": 5
+      }
+    },
+    {
+      "name": "invalid-limit",
+      "valid": false,
+      "options": {
+        "limit": 51
+      }
+    },
+    {
+      "name": "invalid-direction",
+      "valid": false,
+      "options": {
+        "direction": "sideways"
+      }
+    },
+    {
+      "name": "invalid-seeds",
+      "valid": false,
+      "options": {
+        "nodeIds": "a"
+      }
+    },
+    {
+      "name": "invalid-relations",
+      "valid": false,
+      "options": {
+        "relations": "calls"
+      }
+    },
+    {
+      "name": "boolean-limit",
+      "valid": false,
+      "options": {
+        "limit": true
+      }
+    },
+    {
+      "name": "default-inventory-fallback",
+      "valid": true,
+      "options": {
+        "query": "zzzzzz",
+        "hops": 0
+      },
+      "expected": {
+        "nodes": [
+          "Z",
+          "a",
+          "a_",
+          "b"
+        ],
+        "seeds": [
+          "Z",
+          "a",
+          "a_",
+          "b"
+        ],
+        "edges": [
+          "e1",
+          "e2",
+          "e3"
+        ],
+        "annotations": [
+          "a",
+          "Z"
+        ],
+        "fallbackUsed": true
+      }
+    },
+    {
+      "name": "invalid-fallback",
+      "valid": false,
+      "options": {
+        "fallback": "unknown"
+      }
+    }
+  ]
+}

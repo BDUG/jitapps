@@ -1,6 +1,6 @@
 # presentiX
 
-A local-first, PPTx-style presentation studio in the agentic desktop suite. Create editable slide decks, rehearse in presentation mode, exchange PPTX files, and collaborate with a slide-aware AI assistant. No build, account or package installation is needed for the editor or PPTX interchange.
+A local-first, PPTx-style presentation studio in the agentic desktop suite. Create editable slide decks, rehearse in presentation mode, exchange PPTX files, and collaborate with a slide-aware AI assistant. No build or account is needed for the editor and editable PPTX interchange. Preserve appearance import additionally uses the local Python server, LibreOffice Impress and PyMuPDF.
 
 ## Start
 
@@ -45,7 +45,7 @@ Import follows the presentation's slide relationships and ordering. It reads tex
 
 PPTX interchange is **not lossless** for arbitrary PPTx decks. The import report lists simplifications. Mixed run formatting, fonts, bullets, borders, crop settings, master/layout artwork, effects and rotated groups can change; complex shapes become rectangles. Charts, tables, connectors, audio/video, embedded objects, vector images, external object-animation timelines and unsupported slide transitions are skipped. Fade, left/right push and inward zoom slide transitions are imported and exported; PPTX transition durations map to fast/medium/slow speeds. Object entrance settings from presentiX exports are retained in a validated XML extension for re-import, but PPTx shows the objects statically. External editors may strip this extension. Unsupported content is not retained in the exported deck. Use a copy of the original PPTX and review imported slides before presenting. Fonts are not embedded; image/format support also varies between PPTx versions.
 
-Limits: 100 slides, 200 elements per slide, 2,000 elements per deck; text up to 10,000 characters per element and notes up to 20,000 per slide. Raster images are limited to 3 MB each and approximately 12 MB total. Deck JSON is limited to 20 MB. PPTX import accepts files up to 25 MB, 4,000 package entries and 50 MB declared expanded size. Macros and external resources are never executed.
+The editor does not impose content byte, text-length, slide-count, object-count or archive-expansion limits. File structure, supported element types, embedded image formats and unique IDs are still validated. Macros and external resources are never executed.
 
 ## AI chat
 
@@ -86,3 +86,46 @@ Additional **Workspace → Tool actions** capability: Scale text across slides w
 **Productivity extension:** Fit a complete slide composition inside margins with uniform scaling and preserved image proportions. Use **Workspace → Tool actions** to review and apply native changes.
 
 **Reusable variants:** Duplicate an editable slide with new slide/object IDs, including images and notes. Available through **Workspace → Tool actions**, with native validation, preview and recovery.
+
+## Import with the source appearance
+
+**PPTX import → Preserve appearance · server** is the default. The Python server
+uses LibreOffice to render the entire slide composition, then imports 1920-pixel-wide
+slide images. Masters, gradients, layered artwork, connectors, image cropping and
+mixed text formatting remain visible together. Speaker notes are retained; visible
+slide text is also retained as reference text. You can add editable objects on top,
+reorder/duplicate slides, present the deck, and export the visible result to PPTX/JSON.
+Rendered source objects are a single static image per slide, rather than individually
+editable shapes. Fonts/layout may differ from Microsoft PowerPoint; video, interactive
+links and object animations are not reproduced. This is not full PowerPoint parity.
+
+The attached regression deck `TEST PPT.pptx` (13 slides, including a 5.9 MB source
+image) was verified with this mode. **Original PPTX** downloads the unchanged upload
+during the current page session. This button is not a download of edited contents;
+use **Export PPTX** for those. The original file is not embedded in native JSON backups.
+
+Server setup (Debian/Ubuntu example):
+
+```sh
+sudo apt-get install libreoffice-impress
+python3 -m pip install -r server/requirements-presentix.txt
+python3 server/server.py --skills-offline
+```
+
+Open presentiX from that server origin, choose the mode and open your PPTX. Rendering
+runs locally without an AI call and uses an isolated temporary Office profile. If
+LibreOffice/PyMuPDF is unavailable, the import reports the dependency and leaves the
+current deck intact. Choose **Editable objects · simplified** for browser-only import
+or to edit individual supported source objects with the existing fidelity warnings.
+
+Rendering runs one conversion at a time with a 90-second execution timeout. Uploads,
+expanded package contents, slide counts and rendered image sizes have no app-imposed cap.
+Linked external media/documents are refused; embed them in the source deck first.
+Large rendered decks can exceed browser localStorage capacity: the header explicitly
+reports **Not saved locally**. Download PPTX or JSON before closing; imported contents
+remain available in memory. Keep the original PPTX for full source-object editing and
+PowerPoint playback. Rendering temporary files are removed after conversion.
+
+Run `node presentiX/appearance-browser-test.cjs` when Office/PyMuPDF are installed.
+Set `PPTX_FIXTURE_PATH`, `PPTX_EXPECTED_SLIDES` and optionally `PPTX_SCREENSHOT_PATH`
+to test a local deck. Uploaded user files are not added to the repository.

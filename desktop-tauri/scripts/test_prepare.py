@@ -28,9 +28,11 @@ class StagingTest(unittest.TestCase):
     def test_actual_suite_stages_every_registered_app(self):
         with tempfile.TemporaryDirectory() as folder:
             out=prepare.stage(prepare.ROOT,Path(folder)/'suite')
-            self.assertEqual(len(prepare.APPS),18)
+            self.assertEqual(len(prepare.APPS),24)
             for app in prepare.APPS:self.assertTrue((out/app/'index.html').exists())
             self.assertTrue((out/'shared-suite/apps.js').exists())
+            self.assertTrue((out/'formiX/vendor/tex-svg.js').exists())
+            self.assertTrue((out/'formiX/vendor/MathJax-LICENSE.txt').exists())
             self.assertTrue((out/'codingagentlib/javascript/loop.js').exists())
             self.assertTrue((out/'codingagentlib/vscode/media/project-memory-ui.js').exists())
             self.assertTrue((out/'codingagentlib/vscode/media/specification.js').exists())

@@ -51,6 +51,12 @@
     };
   }
   const briefGuidance = {
+    markiX: "Preserve Markdown/RST syntax, unrelated exact source, custom directives and code. Propose complete reviewed source edits without claiming an unexecuted Sphinx build.",
+    formiX: "Preserve formula IDs, source, notes and active selection. Use base/AMS TeX without delimiters, macros, HTML or external files. State assumptions and do not invent a numerical verification.",
+    cncfiX: "Preserve existing category, subcategory and item IDs, maturity levels and layout settings. Keep each item linked to a valid categoryId and subcategoryId, and propose complete reviewed edits.",
+    schematiX: "Infer schemas and source-linked ontology concepts from examples. Preserve evidence, identify hypotheses, and propose reviewable graph edits.",
+    mergiX: "Compare only checked text paths. Preserve all left/right/base inputs and unrelated results. Propose merged results for review; never claim semantic correctness, tests or source-file writes.",
+    rstiX: "Preserve RST prose, need IDs, custom options and file paths. Update real dependency options. Never execute directives or conf.py; review source-backed changes and report dangling links.",
     mockiX:
       "Preserve screen/component IDs, prototype targets, reusable definitions and instances, project colors and flow nodes/edges. Keep geometry within screen bounds and respect locked/hidden layers. Return native editable mockiX content, not HTML or external Figma data.",
     architex:
@@ -146,6 +152,12 @@
     ].join("\n\n");
   }
   const startingPoints = {
+    markiX: ["Draft a clear technical guide", "Create a structured editable guide in the current Markdown or RST format, preserving existing content and source-only constructs.", "Headings, lists, examples and next steps are clear, source format stays intact, and changes require review."],
+    formiX: ["Create a formula reference sheet", "Add related editable formulas, clear variable definitions and assumptions for the requested topic.", "Sources render with local base/AMS TeX, notation is consistent, unrelated formulas remain intact, and proposed changes require review."],
+    cncfiX: ["Map a cloud native platform stack", "Add categorized CNCF projects with accurate maturity levels, subcategories, and concise architecture notes.", "All items belong to valid categories/subcategories, existing selections remain valid, and proposed changes require review."],
+    schematiX: ["Discover example structure", "Infer candidate schemas and a source-linked ontology and knowledge graph from the imported examples.", "Source evidence is preserved, inferred constraints are identified as hypotheses, and graph edits remain reviewable."],
+    mergiX: ["Review and merge selected changes", "Explain semantic differences in the checked paths and propose compatible merged results, identifying conflicts that require a decision.", "Comparison inputs and unchecked paths are unchanged; merged results are reviewable, unresolved choices are disclosed, and no tests or filesystem writes are claimed."],
+    rstiX: ["Trace a requirement", "Inspect RST source and connect requirements, specifications and tests using stable Sphinx-Needs IDs.", "Actual source dependency options are updated, unrelated prose is preserved, and missing targets are reported."],
     mockiX: [
       "Create a clickable onboarding flow",
       "Add an editable three-screen onboarding journey with useful labels and a decision in the user-flow map.",

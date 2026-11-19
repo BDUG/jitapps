@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>cncfiX · CNCF Landscape studio</title><link rel="icon" href="../assets/icons/cncfiX.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="../shared-ai/chat.css"><link rel="stylesheet" href="../shared-ai/multimodal.css"><link rel="stylesheet" href="../shared-ai/input-ste.css"><link rel="stylesheet" href="../shared-suite/suite.css"><link rel="stylesheet" href="../shared-suite/workspace.css"><link rel="stylesheet" href="../shared-suite/theme.css"></head><body>
+<header><a class="brand" href="./"><div><strong class="brand-name">landscapi<span>X</span></strong><small>CNCF Landscape studio</small></div></a><input id="name" maxlength="160" aria-label="Landscape name"><span id="save-state" role="status">Local landscape</span><button id="new">New landscape</button><button id="import">Open</button><button id="open-export" class="primary">Export</button><input id="file" type="file" accept=".json,.yml,.yaml,.svg,application/json,text/yaml,image/svg+xml" data-disk-label="CNCF Landscape JSON / YAML / SVG" hidden></header>
+<main>
+<aside aria-label="Landscape structure">
+<h1>CNCF Landscape</h1>
+<p>Map cloud native categories, subcategories, and project maturities.</p>
+<div class="actions"><button id="add-cat">+ Category</button><button id="add-sub">+ Subcategory</button><button id="add-item">+ Project</button></div>
+<details open><summary>Categories</summary><div id="category-list" aria-label="Categories"></div></details>
+<details open><summary>CNCF Catalog</summary><label>Find project<input id="catalog-search" type="search" placeholder="Kubernetes, Envoy, OPA…"></label><div id="catalog-list"></div></details>
+<details><summary>Templates</summary><div id="templates"></div></details>
+<a href="README.md">cncfiX guide ↗</a>
+<button id="recover" hidden>Download stored recovery</button>
+</aside>
+
+<section id="editor" aria-label="Landscape canvas">
+<div class="toolbar">
+<button id="undo">↶ Undo</button><button id="redo">↷ Redo</button>
+<label>Maturity<select id="filter-maturity"><option value="all">All</option><option value="graduated">Graduated</option><option value="incubating">Incubating</option><option value="sandbox">Sandbox</option><option value="platform">Platform</option><option value="non-cncf">Non-CNCF</option></select></label>
+<label>Filter<input id="filter-text" type="search" placeholder="Search cards…"></label>
+<label>Zoom<input id="zoom" type="range" min="25" max="175" value="100"><output id="zoom-label">100%</output></label>
+<button id="fit">Fit</button>
+</div>
+<div id="preview-wrap"><div id="preview" aria-live="polite"></div></div>
+<p id="error" role="alert"></p>
+<p id="status" role="status">Ready</p>
+</section>
+
+<aside aria-label="Inspector">
+<details open><summary>Selected project</summary>
+<label>Project name<input id="item-name" maxlength="120"></label>
+<label>Category<select id="item-cat"></select></label>
+<label>Subcategory<select id="item-sub"></select></label>
+<label>Maturity<select id="item-maturity"><option value="graduated">Graduated</option><option value="incubating">Incubating</option><option value="sandbox">Sandbox</option><option value="platform">Platform</option><option value="non-cncf">Non-CNCF</option></select></label>
+<label class="check"><input id="item-oss" type="checkbox">Open Source (OSS)</label>
+<label>Homepage URL<input id="item-homepage" maxlength="400" placeholder="https://…"></label>
+<label>Repository URL<input id="item-repo" maxlength="400" placeholder="https://github.com/…"></label>
+<label>Description<textarea id="item-desc" maxlength="1000" rows="3"></textarea></label>
+<label>Architecture notes<textarea id="item-notes" maxlength="4000" rows="3"></textarea></label>
+<div class="actions"><button id="dup-item">Duplicate</button><button id="del-item">Delete</button></div>
+</details>
+<details><summary>Selected category</summary>
+<label>Category name<input id="cat-name" maxlength="120"></label>
+<label>Header color<input id="cat-color" type="color"></label>
+<div class="actions"><button id="del-cat">Delete category</button></div>
+</details>
+<details open><summary>Layout & SVG</summary>
+<label>Subtitle<input id="subtitle" maxlength="240"></label>
+<label>Columns<input id="columns" type="number" min="1" max="6"></label>
+<label>Card width (px)<input id="card-width" type="number" min="110" max="240"></label>
+<label class="check"><input id="show-legend" type="checkbox">Show maturity legend</label>
+<label class="check"><input id="show-maturity" type="checkbox">Show maturity labels</label>
+<label class="check"><input id="show-oss" type="checkbox">Show OSS badge</label>
+<button id="schema">Download project schema</button>
+</details>
+</aside>
+</main>
+
+<dialog id="export-dialog">
+<div class="dialog-head"><h2>Export CNCF Landscape</h2><button id="export-close" aria-label="Close export">×</button></div>
+<label>Format<select id="format"><option value="svg">SVG · vector landscape poster</option><option value="png">PNG · high-DPI raster poster</option><option value="yaml">YAML · CNCF landscape.yml</option><option value="json">cncfiX project · editable JSON</option></select></label>
+<p id="export-hint">Export the landscape diagram as a standalone vector SVG with embedded editable project data.</p>
+<p id="export-error" role="alert" class="error"></p>
+<button id="doExport" class="primary">Download</button>
+</dialog>
+
+<script src="model.js"></script><script src="render.js"></script><script src="app.js"></script>
+<script src="../shared-ai/multimodal.js"></script><script src="../shared-ai/input-ste.js"></script><script src="../shared-ai/paging-spec.js"></script><script src="../shared-ai/paging.js"></script><script src="../shared-ai/protocol.js"></script><script src="ai-adapter.js"></script><script src="../shared-ai/chat.js"></script><script src="../shared-suite/templates.js?v=content-collections-20261028"></script><script src="../shared-ai/prompt-library-core.js?v=native-starters-20261031"></script><script src="../shared-ai/prompt-library.js?v=native-starters-20261031"></script><script src="../shared-suite/apps.js?v=tlal-mockix-20261031"></script><script src="../shared-suite/disk.js"></script><script src="../shared-suite/ui.js?v=review-delta-20261108"></script><script src="../shared-suite/workspace-core.js"></script><script src="../shared-suite/workspace-store.js"></script><script src="../shared-suite/workspace-adapters.js"></script><script src="../shared-suite/workspace-recipes.js"></script><script src="../shared-suite/workspace-insights.js"></script><script src="../shared-suite/command-preferences.js"></script><script src="../shared-suite/quality.js"></script><script src="../shared-suite/offline-review.js"></script><script src="../shared-suite/workspace.js"></script><script src="../shared-suite/project-zip.js"></script><script src="../shared-suite/project-zip-ui.js"></script><script src="../shared-suite/capabilities.js"></script><script src="../shared-suite/content-hub-core.js?v=textix-embeds-20261108"></script><script src="../shared-suite/content-hub-visual.js?v=textix-embeds-20261108"></script><script src="../shared-suite/content-hub-ui.js?v=textix-embeds-20261108"></script></body></html>

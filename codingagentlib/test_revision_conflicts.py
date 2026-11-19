@@ -29,6 +29,9 @@ class RevisionConflictTests(unittest.TestCase):
                 if i==winner:continue
                 self.assertEqual(result['code'],'file_revision_conflict')
                 self.assertTrue(result['conflict']['requiresRead'])
+                self.assertEqual(result['recovery']['strategy'],'read_then_replan')
+                self.assertFalse(result['recovery']['automaticRetry'])
+                self.assertEqual(result['recovery']['nextAction'],{'tool':'read_file','args':{'path':'source.txt'}})
                 self.assertEqual(result['conflict']['expectedHash'],old)
                 self.assertEqual(result['conflict']['actualHash'],hashlib.sha256(p.read_bytes()).hexdigest())
                 self.assertEqual(runtime.get(sessions[i])['backups'],{})

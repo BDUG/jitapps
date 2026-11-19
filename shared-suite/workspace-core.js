@@ -134,6 +134,8 @@
     return result;
   }
   const labels = new Set([
+    "latex",
+    "source",
     "name",
     "label",
     "text",
@@ -166,7 +168,7 @@
     "reportSources",
     "ruleLibrary",
   ]);
-  const sourceFields = new Set(["css", "js", "content"]);
+  const sourceFields = new Set(["css", "js", "content", "latex", "source"]);
   function fields(doc, { code = false } = {}) {
     const result = [],
       path = [];
@@ -307,6 +309,51 @@
     }
     return { document: next, count };
   }
+  async function documentHash(document){
+    const engine=root.crypto?.subtle||(typeof require==='function'?require('node:crypto').webcrypto.subtle:null);
+    if(!engine)throw Error('Change reviews require Web Crypto. Use localhost or HTTPS.');
+    const bytes=new TextEncoder().encode(JSON.stringify(document));
+    return [...new Uint8Array(await engine.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function applyChangeReview(document,review,tool){
+    if(!review||review.format!=='suite-change-review/v1'||review.tool!==tool||!Array.isArray(review.changes)||!review.changes.length||review.changes.length>20000)throw Error('Choose a nonempty change review for '+tool+'.');
+    if(!/^[a-f0-9]{64}$/.test(review.baseHash||''))throw Error('This review has no base fingerprint. Export a new selected review before importing changes.');
+    const before=copy(document),changes=copy(review.changes);
+    if(await documentHash(before)!==review.baseHash)throw Error('Change review conflicts with the current project. Restore its matching base or prepare a fresh review.');
+    const tree=new Map();
+    for(const change of changes){
+      if(!Array.isArray(change.segments)||!change.segments.length||change.segments.length>100||change.segments.some(k=>typeof k!=='string')||typeof change.beforePresent!=='boolean'||typeof change.afterPresent!=='boolean')throw Error('Invalid changed field path or presence flags.');
+      let branch=tree,current=before;
+      for(const [index,key]of change.segments.entries()){
+        if(!current||typeof current!=='object')throw Error('Changed field parent is missing.');
+        if(Array.isArray(current)&&(!/^(0|[1-9][0-9]*)$/.test(key)||Number(key)>20000))throw Error('Invalid array index in change review.');
+        const present=Object.hasOwn(current,key),value=present?current[key]:undefined;
+        if(index===change.segments.length-1){
+          if(branch.has(key))throw Error('Duplicate or overlapping changes.');
+          if(present!==change.beforePresent||present&&JSON.stringify(value)!==JSON.stringify(change.before))throw Error('Changed field does not match its recorded original value.');
+          if(change.afterPresent&&!Object.hasOwn(change,'after'))throw Error('A new field value is missing.');
+          branch.set(key,{leaf:true,present:change.afterPresent,value:change.after});
+        }else{
+          if(!present)throw Error('Changed field parent is missing.');
+          if(branch.get(key)?.leaf)throw Error('Overlapping change paths are not allowed.');
+          if(!branch.has(key))branch.set(key,{children:new Map()});
+          branch=branch.get(key).children;current=value;
+        }
+      }
+    }
+    function merge(value,branch){
+      const output=Array.isArray(value)?[]:{};
+      for(const key of new Set([...Object.keys(value),...branch.keys()])){
+        const edit=branch.get(key);let next;
+        if(edit?.leaf){if(!edit.present)continue;next=copy(edit.value);}
+        else if(edit)next=merge(value[key],edit.children);
+        else next=copy(value[key]);
+        Object.defineProperty(output,key,{value:next,enumerable:true,writable:true,configurable:true});
+      }
+      return Array.isArray(output)?output.filter((_,i)=>Object.hasOwn(output,i)):output;
+    }
+    return merge(before,tree);
+  }
   root.SuiteWorkspaceCore = {
     copy,
     envelope,
@@ -318,6 +365,8 @@
     replace,
     textMatches,
     selectChanges,
+    documentHash,
+    applyChangeReview,
   };
   if (typeof module !== "undefined") module.exports = root.SuiteWorkspaceCore;
 })(typeof window === "undefined" ? globalThis : window);

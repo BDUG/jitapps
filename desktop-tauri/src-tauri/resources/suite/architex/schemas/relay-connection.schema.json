@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://architex.local/schemas/relay-connection.schema.json",
+  "title": "Architex relay connection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "url"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "The only AI setting in Architex. Provider configuration is owned exclusively by the relay server."
+    }
+  }
+}

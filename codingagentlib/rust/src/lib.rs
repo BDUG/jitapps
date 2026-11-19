@@ -1,18 +1,43 @@
 //! Native Rust coding agent. No Python, Node, worker process or HTTP server is required.
 //! Model callbacks are supplied by the host. Commands require an explicit allowlist and
 //! session permission, and run with host OS permissions (not in a sandbox).
+#[cfg(feature = "coding")]
 mod handoff;
+#[cfg(feature = "coding")]
 pub use handoff::ModelHandoff;
+pub mod contracts_data;
+pub use contracts_data::{ModelRequest, ModelResponse, ToolDefinition, ToolResult, AgentEvent, AgentError};
+pub mod contracts;
+pub mod core;
+pub mod mosaic;
+pub mod graph_memory;
+pub mod extensions;
+pub mod mcp_stdio;
+pub mod beyond_react;
+pub use core::{create_agent, CoreAgent, CoreOptions};
 mod integration;
 pub use integration::ContextRegistry;
+#[cfg(feature = "coding")]
+pub mod recovery;
+#[cfg(feature = "coding")]
+pub mod planning;
+#[cfg(feature = "coding")]
 mod edits;
 mod embedded;
 pub use embedded::{EmbeddedAgent, ToolContext, ToolPermission};
+#[cfg(feature = "coding")]
 mod instructions;
+#[cfg(feature = "coding")]
+mod knowledge;
+#[cfg(feature = "coding")]
 mod runtime;
+#[cfg(feature = "coding")]
 mod tools;
+#[cfg(feature = "coding")]
 mod verification;
+#[cfg(feature = "coding")]
 use serde_json::{json, Value};
+#[cfg(feature = "coding")]
 use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -25,7 +50,7 @@ pub struct RunOptions {
     pub allow_commands: bool,
     pub max_steps: Option<usize>,
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CancelHandle(Arc<AtomicBool>);
 impl CancelHandle {
     pub fn cancel(&self) {
@@ -35,10 +60,12 @@ impl CancelHandle {
         self.0.load(Ordering::SeqCst)
     }
 }
+#[cfg(feature = "coding")]
 pub struct Agent {
     pub(crate) runtime: runtime::Runtime,
     pub(crate) cancel: CancelHandle,
 }
+#[cfg(feature = "coding")]
 impl Agent {
     pub fn new(workspace: impl AsRef<Path>, commands: &[&str]) -> Result<Self> {
         Ok(Self {
@@ -93,6 +120,15 @@ impl Agent {
             }
             "agent_next" => self.next(session()?),
             "agent_submit" => self.submit(session()?, params["response"].clone()),
+            "agent_project_knowledge" => {
+                let id=session()?;let saved=self.runtime.session(id)?;
+                if saved["status"]!="running" {return Err("Project knowledge binding requires an active session".into());}
+                let project=params["project"].as_str().ok_or("Missing project")?;
+                crate::knowledge::dispatch(&self.runtime,&json!({"project":project,"action":"refresh"}))?;
+                self.runtime.sessions.get_mut(id).unwrap()["knowledgeProject"]=json!(project);self.runtime.save(id)?;
+                self.runtime.event(id,"project_knowledge_scope",json!({"project":project}))?;
+                crate::knowledge::dispatch(&self.runtime,&json!({"project":project,"action":"query","query":saved["goal"]}))
+            }
             "agent_project_memory" => {
                 let id=session()?;let saved=self.runtime.session(id)?;
                 if saved["status"]!="running" {return Err("Project memory requires an active approved run".into());}
@@ -220,6 +256,7 @@ impl Agent {
         self.runtime.pause_all()
     }
 }
+#[cfg(feature = "coding")]
 impl Drop for Agent {
     fn drop(&mut self) {
         self.cancel.cancel();

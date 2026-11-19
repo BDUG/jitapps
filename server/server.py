@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Serve every desktop tool, AI provider relay, and reportiX web research."""
 import argparse
+import zipfile
+import xml.etree.ElementTree as ET
 import json
 import os
 import signal
@@ -16,14 +18,24 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from server import relay, crawler, google_search, workflow_commands, agent_runtime, skill_catalog, skill_api, image_provider, server_settings, wormhole_share
 from server.relay import validate_origin
+from server import github_rst, projects, agent_state, presentation_render
 
 SLOTS=threading.BoundedSemaphore(3)
 class Handler(relay.Handler):
+    def end_headers(self):
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'SAMEORIGIN')
+        self.send_header('Referrer-Policy', 'same-origin')
+        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+        super().end_headers()
     def send_head(self):
         settings=getattr(self.server,'settings',None)
         if settings and (Path(self.translate_path(self.path)).resolve()==settings.path or Path(self.translate_path(self.path)).name.startswith('.server-settings-')):
             self.send_error(404);return None
         target=Path(self.translate_path(self.path)).resolve()
+        storage=getattr(self.server,'projects',None)
+        if storage and target.is_relative_to(storage.root):
+            self.send_error(404);return None
         sharing=getattr(self.server,'wormhole_share',None)
         if sharing and target.is_relative_to(sharing.directory):
             self.send_error(404);return None
@@ -38,6 +50,9 @@ class Handler(relay.Handler):
         if catalog and str(Path(self.translate_path(self.path)).resolve()) in {str(catalog.path.resolve())+suffix for suffix in ('','-wal','-shm','-journal')}:
             self.send_error(404);return None
         runtime=getattr(self.server,'agent_runtime',None)
+        library=getattr(runtime,'tool_library',None)
+        if library and str(target) in {str(library.path.resolve())+suffix for suffix in ('','-wal','-shm','-journal')}:
+            self.send_error(404);return None
         if runtime and runtime.state and Path(self.translate_path(self.path)).resolve().is_relative_to(runtime.state.resolve()):
             self.send_error(404);return None
         if hasattr(self.server,'search_store') and Path(self.translate_path(self.path)).resolve()==self.server.search_store.path.resolve():
@@ -57,6 +72,25 @@ class Handler(relay.Handler):
             except (ValueError,OSError):self.send_json(500,{'error':'Google search configuration is unavailable'})
             return
         if self.path=='/api/research/health':self.send_json(200,{'service':'reportix','protocolVersion':1});return
+        if self.path=='/.well-known/agent.json':
+            from codingagentlib.python.a2a import agent_card
+            host=self.headers.get('Host','127.0.0.1:8000')
+            self.send_json(200,agent_card(url=f'http://{host}/api/a2a'));return
+        if self.path.startswith('/api/agent/otel'):
+            if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'Agent telemetry requires its same localhost origin'});return
+            import urllib.parse
+            from codingagentlib.python.otel_genai import GenAITracer, ReactOtelObserver
+            qs=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            sid=(qs.get('session') or [''])[0]
+            tracer=GenAITracer()
+            if sid:
+                obs=ReactOtelObserver(tracer)
+                s=self.server.agent_runtime.get(sid)
+                obs.on_event({'kind':'start','sessionId':sid})
+                for ev in s.get('events') or ():
+                    obs.on_event(ev)
+                obs.on_event({'kind':'done','sessionId':sid})
+            self.send_json(200,tracer.export_otlp_json());return
         return super().do_GET()
     def do_POST(self):
         settings = getattr(self.server, 'settings', None)
@@ -80,6 +114,45 @@ class Handler(relay.Handler):
                 with settings.lock: settings.active_requests -= 1
 
     def _do_POST(self):
+        if self.path=='/api/presentix/render':
+            if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'Use the local suite origin to render a presentation'});return
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if size<=0:raise ValueError('Choose a nonempty PPTX presentation')
+                if self.headers.get_content_type()!='application/vnd.openxmlformats-officedocument.presentationml.presentation':raise ValueError('Upload a PPTX presentation')
+                self.send_json(200,presentation_render.render(self.rfile.read(size)))
+            except (ValueError,TypeError,KeyError,zipfile.BadZipFile,ET.ParseError) as error:self.send_json(400,{'error':str(error)})
+            except OSError:self.send_json(503,{'error':'Presentation renderer is unavailable. Check LibreOffice and server permissions.'})
+            return
+        if self.path=='/api/projects':
+            if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'Use the project manager on the same local suite origin'});return
+            if self.headers.get_content_type()!='application/json':self.send_json(415,{'error':'Use application/json'});return
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=80*1024*1024:raise ValueError('Project request exceeds 80 MiB')
+                self.send_json(200,self.server.projects.dispatch(json.loads(self.rfile.read(size))))
+            except projects.Conflict as error:self.send_json(409,{'error':str(error)})
+            except PermissionError as error:self.send_json(403,{'error':str(error)})
+            except (ValueError,KeyError,TypeError,UnicodeError,RecursionError) as error:self.send_json(400,{'error':str(error)})
+            except OSError as error:self.send_json(503,{'error':'Project storage unavailable: '+str(error)[:200]})
+            return
+        if self.path=='/api/rstix/github':
+            if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'Use the same local suite origin'});return
+            if self.headers.get_content_type()!='application/json':self.send_json(415,{'error':'Use application/json'});return
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=16000:raise ValueError('Repository request exceeds 16 KB')
+                data=json.loads(self.rfile.read(size))
+                if not isinstance(data,dict):raise ValueError('Use a JSON object')
+                if not SLOTS.acquire(blocking=False):self.send_json(429,{'error':'Scanner busy; retry later'});return
+                def cancelled():
+                    import select,socket
+                    try:return bool(select.select([self.connection],[],[],0)[0]) and self.connection.recv(1,socket.MSG_PEEK)==b''
+                    except OSError:return True
+                try:self.send_json(200,github_rst.scan(data,cancelled=cancelled))
+                finally:SLOTS.release()
+            except (ValueError,TypeError,KeyError,UnicodeError) as error:self.send_json(400,{'error':str(error)[:300]})
+            return
         if self.path=='/api/wormhole':
             if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'File sharing requires its same localhost origin'});return
             if self.headers.get_content_type()!='application/json':self.send_json(415,{'error':'Use application/json'});return
@@ -126,7 +199,7 @@ class Handler(relay.Handler):
             except (ValueError,KeyError,TypeError,UnicodeError,RecursionError) as error:self.send_json(400,{'error':str(error)})
             except OSError as error:self.send_json(502,{'error':'Skill source or storage unavailable: '+str(error)[:300]})
             return
-        if self.path in {'/api/agent','/api/agent/package'}:
+        if self.path in {'/api/agent','/api/agent/package','/api/agent/stream','/api/a2a','/api/mcp'}:
             if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'Agent tools require their same localhost origin'});return
             if self.headers.get_content_type()!='application/json':self.send_json(415,{'error':'Use application/json'});return
             try:
@@ -138,6 +211,34 @@ class Handler(relay.Handler):
                     runtime=self.server.agent_runtime;package=runtime.package(runtime.get(data.get('session')))
                     with package.open('rb') as archive:
                         self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Length',str(os.fstat(archive.fileno()).st_size));self.send_header('Content-Disposition','attachment; filename="agent-result.zip"');self.send_header('Cache-Control','no-store');self.end_headers();shutil.copyfileobj(archive,self.wfile)
+                elif self.path=='/api/agent/stream':
+                    from codingagentlib.python.streaming import SSEStreamBridge
+                    fmt=data.get('format','ag-ui')
+                    sid=data.get('session')
+                    bridge=SSEStreamBridge(fmt=fmt,run_id=str(sid or 'run-1'),thread_id=str(sid or 'thread-1'))
+                    bridge.emit({'kind':'start','sessionId':sid})
+                    if sid:
+                        s=self.server.agent_runtime.get(sid)
+                        for ev in s.get('events') or ():
+                            bridge.emit(ev)
+                    bridge.emit({'kind':'done','sessionId':sid,'summary':'Stream complete'})
+                    body=''.join(bridge.frames).encode('utf-8')
+                    self.send_response(200);self.send_header('Content-Type','text/event-stream; charset=utf-8');self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+                elif self.path=='/api/a2a':
+                    from codingagentlib.python.a2a import A2AServer, agent_card
+                    host=self.headers.get('Host','127.0.0.1:8000')
+                    srv=getattr(self.server,'a2a_server',None)
+                    if srv is None:
+                        srv=A2AServer(card=agent_card(url=f'http://{host}/api/a2a'),handler=lambda goal,params:{'status':'complete','summary':goal,'workspace':str(self.server.agent_runtime.root)})
+                        self.server.a2a_server=srv
+                    self.send_json(200,srv.handle(data))
+                elif self.path=='/api/mcp':
+                    from codingagentlib.rpc import MCPService
+                    svc=getattr(self.server,'mcp_service',None)
+                    if svc is None:
+                        svc=MCPService(self.server.agent_runtime)
+                        self.server.mcp_service=svc
+                    self.send_json(200,svc.frame(data))
                 else:self.send_json(200,self.server.agent_runtime.dispatch(data))
             except PermissionError as error:self.send_json(403,{'error':str(error)})
             except (ValueError,KeyError,TypeError,UnicodeError,RecursionError) as error:self.send_json(400,{'error':str(error)})
@@ -196,6 +297,9 @@ def main(default_port=8000, shutdown_event=None):
     parser.add_argument('--allow-origin', action='append', default=[], help='Exact trusted app origin permitted to use the AI relay; repeat as needed')
     parser.add_argument('--allow-workflow-command', action='append', default=[], metavar='EXECUTABLE', help='Allow this executable for local workflow command steps; repeat to allow more (disabled by default)')
     parser.add_argument('--workflow-cwd', default=str(ROOT), help='Working directory for allowed workflow commands')
+    parser.add_argument('--projects-root',default=None,help='Persistent project storage root (default: projects beside provider config)')
+    parser.add_argument('--agent-state-dir',default=None,help='Persistent agent state directory (default: private per-workspace directory beside provider config)')
+    parser.add_argument('--agent-tool-library',default=None,help='Optional shared private Python recipe SQLite library')
     parser.add_argument('--agent-workspace', default=str(ROOT), help='Coding-agent workspace directory (default: suite repository)')
     parser.add_argument('--disable-agent', action='store_true', help='Disable the coding-agent runtime')
     parser.add_argument('--agent-no-commands', action='store_true', help='Disable coding-agent command execution')
@@ -222,9 +326,11 @@ def main(default_port=8000, shutdown_event=None):
     try:
         server.workflow_commands = workflow_commands.Commands(args.allow_workflow_command,args.workflow_cwd)
         agent_commands = args.agent_allow_command if args.agent_allow_command is not None else ([sys.executable] if not getattr(sys,'frozen',False) else [name for name in ('python3','python') if shutil.which(name)]) + [name for name in ('node','npm','git','sh') if shutil.which(name)]
-        server.agent_runtime = agent_runtime.Runtime(None if args.disable_agent else args.agent_workspace, [] if args.disable_agent or args.agent_no_commands else agent_commands, embedding_dir=args.agent_embedding_dir,navigation_dir=args.agent_navigation_dir or str(Path(__file__).with_name('code-navigation')))
+        server.agent_runtime = agent_runtime.Runtime(None if args.disable_agent else args.agent_workspace, [] if args.disable_agent or args.agent_no_commands else agent_commands, tool_library=args.agent_tool_library,embedding_dir=args.agent_embedding_dir,navigation_dir=args.agent_navigation_dir or str(Path(__file__).with_name('code-navigation')),state_dir=None if args.disable_agent else agent_state.location(args.agent_workspace,args.config,args.agent_state_dir))
     except ValueError as error:
         parser.error(str(error))
+    server.projects = projects.Projects(args.projects_root or Path(args.config).expanduser().parent/'projects')
+    server.agent_runtime.private_paths.add(server.projects.root)
     server.wormhole_share = wormhole_share.Sharing(Path(args.config).expanduser().parent/'.suite-wormhole')
     server.skill_catalog = skill_catalog.Catalog(args.skills_db or str(Path(args.config).parent/'skills/catalog.sqlite3'),offline=args.skills_offline or os.environ.get('SUITE_SKILLS_OFFLINE')=='1')
     server.agent_runtime.shared_skills = server.skill_catalog

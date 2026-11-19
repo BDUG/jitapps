@@ -29,6 +29,6 @@ Search commands, loaded stdout/stderr and conversation text with the history sea
 
 `node shared-suite/hub-core-test.cjs` checks preference normalization, app search, stable inventory indices, sorting/paging and nonmutation.
 
-Against a running suite server: `BASE_URL=http://127.0.0.1:8000 node shared-suite/hub-browser-test.cjs` covers all 17 entry points, saved display preferences/favorites, editor inventories and selected-item prompt drafting. `shelliX/browser-test.cjs` starts its own temporary runtime and verifies actual commands, history filters and the existing session workflow.
+Against a running suite server: `BASE_URL=http://127.0.0.1:8000 node shared-suite/hub-browser-test.cjs` covers all 21 entry points, saved display preferences/favorites, editor inventories and selected-item prompt drafting. `shelliX/browser-test.cjs` starts its own temporary runtime and verifies actual commands, history filters and the existing session workflow.
 
 `shared-suite/inventory-browser-test.cjs` verifies multi-page selection, complete filtered exports, stale-snapshot rejection and codeiX AI-exclusion protection.

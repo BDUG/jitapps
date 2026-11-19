@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "formiX formula notebook",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "name",
+    "activeId",
+    "formulas",
+    "settings"
+  ],
+  "properties": {
+    "format": {
+      "const": "formix-project"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "activeId": {
+      "type": "string"
+    },
+    "formulas": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "latex",
+          "notes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$",
+            "maxLength": 80
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "latex": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "required": [
+        "fontSize",
+        "color",
+        "transparent",
+        "padding"
+      ],
+      "properties": {
+        "fontSize": {
+          "type": "integer",
+          "minimum": 12,
+          "maximum": 96
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "transparent": {
+          "type": "boolean"
+        },
+        "padding": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120
+        }
+      }
+    }
+  }
+}

@@ -9,7 +9,7 @@ vm.runInNewContext(
   context,
 );
 const apps = context.window.SuiteApps;
-assert.equal(apps.length, 18);
+assert.equal(apps.length, 24);
 for (const app of apps) {
   const recipes = C.starters(app.id);
   assert.equal(recipes.length, 3, app.id);
@@ -43,5 +43,5 @@ assert.ok(
 assert.deepEqual(C.starters("__proto__"), []);
 assert.equal(C.starters("sketchiX shape editor").length, 3);
 console.log(
-  "PASS: three actionable native starting points for each of 18 apps, explicit success criteria, immutable recipes, shell planning default and mockiX design/flow guidance.",
+  "PASS: three actionable native starting points for each of 24 apps, explicit success criteria, immutable recipes, shell planning default and mockiX design/flow guidance.",
 );

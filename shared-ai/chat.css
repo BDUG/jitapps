@@ -69,3 +69,5 @@
 .sai-file-label{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
 .sai-file-row img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
 .sai-file-row button{margin-left:auto}
+.sai-card-question select,.sai-question select{display:block;width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--tlal-border,#d9dde1);border-radius:8px;background:white;color:var(--tlal-graphite,#343b43)}
+@media(max-width:600px){.sai-launch{bottom:max(42px,calc(var(--suite-tools-clearance,64px) + 12px))}.sai-panel{bottom:calc(var(--suite-tools-clearance,64px) + 12px);max-height:calc(100dvh - var(--suite-tools-clearance,64px) - 28px);min-height:min(350px,calc(100dvh - var(--suite-tools-clearance,64px) - 28px))}}

@@ -375,6 +375,58 @@
       contextRestored: true,
     };
   }
-  root.SuiteAgentContext = { pack, presets, recoverMissing, recoverRead };
+  function compressConversation(events = [], { keepRecent = 12, maxSummaryItems = 12 } = {}) {
+    if (!Array.isArray(events) || events.length <= keepRecent) {
+      const chars = JSON.stringify(events || []).length;
+      return {
+        events: events || [],
+        summary: null,
+        stats: { originalEvents: (events || []).length, keptEvents: (events || []).length, compactedEvents: 0, originalChars: chars, compressedChars: chars, savedPercent: 0 },
+      };
+    }
+    const cutoff = Math.max(0, events.length - keepRecent);
+    const older = events.slice(0, cutoff);
+    const recent = events.slice(cutoff);
+    const actions = new Map();
+    const files = new Set();
+    const commands = [];
+    const failures = [];
+    const followUps = [];
+    for (const ev of older) {
+      const v = ev?.value || {};
+      if (ev.kind === 'action' && v.id) actions.set(v.id, v);
+      else if (ev.kind === 'user' && v.status === 'follow_up') followUps.push(String(v.text || '').slice(0, 160));
+      else if (ev.kind === 'observation' && !v.parentCallId) {
+        const args = actions.get(v.id)?.args || {};
+        if (v.ok && args.path) files.add(args.path);
+        const res = v.result || {};
+        if (['run_command', 'run_script', 'script_run'].includes(v.tool)) {
+          commands.push({ tool: v.tool, target: String(args.command || args.path || args.libraryId || ''), exitCode: res.exitCode ?? null, ok: v.ok === true && res.exitCode === 0 });
+        }
+        if (v.ok === false || (Number.isInteger(res.exitCode) && res.exitCode !== 0)) {
+          failures.push({ index: ev.index, tool: v.tool, error: String(v.error || ('exit ' + res.exitCode)).slice(0, 140) });
+        }
+      }
+    }
+    const summary = {
+      format: 'suite-conversation-summary/v1',
+      compactedEvents: older.length,
+      keptRecentEvents: recent.length,
+      followUps: followUps.slice(-maxSummaryItems),
+      filesChanged: [...files].slice(-maxSummaryItems),
+      commandsRun: commands.slice(-maxSummaryItems),
+      failures: failures.slice(-maxSummaryItems),
+      note: 'Older conversation turns were compressed. Use read_history(index=...) to inspect any full original event.',
+    };
+    const originalChars = JSON.stringify(events).length;
+    const compressedChars = JSON.stringify(recent).length + JSON.stringify(summary).length;
+    const savedPercent = originalChars > 0 ? Math.max(0, Math.round(((originalChars - compressedChars) / originalChars) * 100)) : 0;
+    return {
+      events: recent,
+      summary,
+      stats: { originalEvents: events.length, keptEvents: recent.length, compactedEvents: older.length, originalChars, compressedChars, savedPercent },
+    };
+  }
+  root.SuiteAgentContext = { pack, presets, recoverMissing, recoverRead, compressConversation };
   if (typeof module !== "undefined") module.exports = root.SuiteAgentContext;
 })(typeof window === "undefined" ? globalThis : window);

@@ -17,7 +17,8 @@ class UnifiedServerTest(unittest.TestCase):
             folder = pathlib.Path(directory)
             providers = folder/'providers.json'
             search = folder/'search.json'
-            process = subprocess.Popen([sys.executable, str(ROOT/'server/server.py'), '--port', '0', '--config', str(providers), '--search-config', str(search), '--allow-origin', 'https://trusted.example'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            library = folder/'private-tools.sqlite3'
+            process = subprocess.Popen([sys.executable, str(ROOT/'server/server.py'), '--port', '0', '--config', str(providers), '--search-config', str(search), '--agent-tool-library', str(library), '--allow-origin', 'https://trusted.example'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
                 line = process.stdout.readline()
                 self.assertIn('listening on', line)
@@ -45,7 +46,7 @@ class UnifiedServerTest(unittest.TestCase):
                 self.assertEqual(hidden.exception.code, 404)
                 self.assertIn('profiles', json.loads(get('/api/admin/config', {'X-Architex-Admin':'1'})[0]))
                 self.assertIn('configured', json.loads(get('/api/research/settings', {'X-Architex-Request':'1'})[0]))
-                for tool in ['architex','graphiX','textiX','sheetiX','codeiX','automatextiX','reportiX','appiX','presentiX','sketchiX','mindiX','projectiX']:
+                for tool in ['schematiX','mergiX','rstiX','architex','graphiX','textiX','sheetiX','codeiX','automatextiX','reportiX','appiX','presentiX','sketchiX','mindiX','projectiX']:
                     self.assertIn(b'<html', get('/'+tool+'/')[0].lower())
                 for editor in ['sketch','shape']:
                     self.assertIn(b'artwork.js', get('/sketchiX/'+editor+'.html')[0])
@@ -53,6 +54,10 @@ class UnifiedServerTest(unittest.TestCase):
                 self.assertIn(b'projectiX', get('/shared-suite/apps.js')[0])
                 self.assertIn(b'<svg', get('/assets/icons/projectiX.svg')[0])
                 self.assertIn(b'<html', get('/relay')[0].lower())
+                self.assertTrue(library.is_file())
+                with self.assertRaises(urllib.error.HTTPError) as private_library:
+                    get('/'+str(library.relative_to(ROOT)))
+                self.assertEqual(private_library.exception.code,404)
                 for file in [providers, search]:
                     file.write_text('{"secret":"must-not-be-served"}')
                     with self.assertRaises(urllib.error.HTTPError) as error:

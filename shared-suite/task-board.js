@@ -11,7 +11,8 @@
     rows = [],
     chosen = new Set(),
     limit = 100,
-    storageNotice = "";
+    storageNotice = "",
+    lastChange = null;
   const el = (tag, text) => {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -20,14 +21,14 @@
   const style = el("link");
   style.rel = "stylesheet";
   style.href = new URL(
-    "shared-suite/task-board.css?v=worklists-20261031",
+    "shared-suite/task-board.css?v=task-undo-20261108",
     base,
   ).href;
   document.head.append(style);
   const dialog = el("dialog");
   dialog.id = "suite-task-board";
   dialog.setAttribute("aria-labelledby", "tb-title");
-  dialog.innerHTML = `<header><div><h2 id="tb-title">Tasks across your apps</h2><p>Saved browser notebooks · task status does not certify completed work</p></div><button id="tb-close" aria-label="Close task dashboard">×</button></header><div class="tb-filters"><label>Find work<input id="tb-query" type="search" placeholder="Tasks, notes, project titles…"></label><label>App<select id="tb-app"><option value="">All apps</option></select></label><label>Status<select id="tb-filter"><option value="open">Unfinished</option><option value="done">Completed</option><option value="all">All tasks</option></select></label></div><p id="tb-count" role="status"></p><div class="tb-actions"><button id="tb-add">Add task</button><button id="tb-refresh">Refresh</button><button id="tb-notes">Current app notes</button><button id="tb-select">Select filtered tasks</button><button id="tb-clear">Clear selection</button><button id="tb-ai">Draft AI brief</button><button id="tb-export">Export filtered Markdown</button><button id="tb-worklist">Export selected JSON</button><button id="tb-import">Import worklist</button><input id="tb-file" type="file" accept=".json,application/json" hidden></div><div id="tb-list"></div><button id="tb-more" hidden>Show 100 more</button><p id="tb-status" role="status" aria-live="polite"></p>`;
+  dialog.innerHTML = `<header><div><h2 id="tb-title">Tasks across your apps</h2><p>Saved browser notebooks · task status does not certify completed work</p></div><button id="tb-close" aria-label="Close task dashboard">×</button></header><div class="tb-filters"><label>Find work<input id="tb-query" type="search" placeholder="Tasks, notes, project titles…"></label><label>App<select id="tb-app"><option value="">All apps</option></select></label><label>Status<select id="tb-filter"><option value="open">Unfinished</option><option value="done">Completed</option><option value="all">All tasks</option></select></label></div><p id="tb-count" role="status"></p><div class="tb-actions"><button id="tb-add">Add task</button><button id="tb-refresh">Refresh</button><button id="tb-undo" title="Restore the last dashboard save in this page session. Refuses if the notebook has changed since." disabled>Undo last dashboard change</button><button id="tb-notes">Current app notes</button><button id="tb-select">Select filtered tasks</button><button id="tb-clear">Clear selection</button><button id="tb-ai">Draft AI brief</button><button id="tb-export">Export filtered Markdown</button><button id="tb-worklist">Export selected JSON</button><button id="tb-import">Import worklist</button><input id="tb-file" type="file" accept=".json,application/json" hidden></div><div id="tb-list"></div><button id="tb-more" hidden>Show 100 more</button><p id="tb-status" role="status" aria-live="polite"></p>`;
   document.body.append(dialog);
   const q = (id) => dialog.querySelector("#" + id);
   for (const app of apps) {
@@ -39,6 +40,44 @@
   function status(message) {
     q("tb-status").textContent = message;
   }
+  function commitNotebook(tool, beforeRaw, afterRaw, label) {
+    const key = C.key(tool),
+      record = C.change(tool, beforeRaw, afterRaw, label);
+    if (localStorage.getItem(key) !== beforeRaw)
+      throw Error("This notebook changed. Refresh and try the action again.");
+    if (!record) return;
+    localStorage.setItem(key, afterRaw);
+    lastChange = record;
+  }
+  function undoControl() {
+    q("tb-undo").disabled = !lastChange;
+    q("tb-undo").textContent = lastChange
+      ? "Undo " +
+        lastChange.label +
+        " · " +
+        (apps.find((a) => a.id === lastChange.tool)?.name || lastChange.tool)
+      : "Undo last dashboard change";
+  }
+  q("tb-undo").onclick = () => {
+    try {
+      const record = lastChange,
+        key = record ? C.key(record.tool) : null,
+        previous = C.undo(record, key ? localStorage.getItem(key) : null);
+      if (previous === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, previous);
+      lastChange = null;
+      read();
+      status(
+        "Undid " +
+          record.label +
+          " in " +
+          (apps.find((a) => a.id === record.tool)?.name || record.tool) +
+          ". Native documents and open note drafts are unchanged.",
+      );
+    } catch (error) {
+      status(error.message);
+    }
+  };
   const editor = el("dialog");
   editor.id = "suite-task-editor";
   editor.setAttribute("aria-labelledby", "te-title");
@@ -145,7 +184,12 @@
           text: e("te-text").value,
           create: editing.create,
         });
-      localStorage.setItem(key, raw);
+      commitNotebook(
+        editing.tool,
+        editing.raw,
+        raw,
+        editing.create ? "task creation" : "task text edit",
+      );
       editor.close();
       read();
       status(
@@ -159,6 +203,7 @@
   };
   q("tb-add").onclick = () => taskEditor();
   function render() {
+    undoControl();
     const focused = document.activeElement,
       focusKey = focused?.closest("#tb-list article")?.dataset.task,
       focusKind = focused?.getAttribute("aria-label")?.startsWith("Select ")
@@ -216,7 +261,7 @@
               complete.checked,
               localStorage.getItem(key),
             );
-          localStorage.setItem(key, raw);
+          commitNotebook(row.tool, book.raw, raw, "task status change");
           read();
           status("Task status saved. App documents are unchanged.");
         } catch (error) {
@@ -272,7 +317,7 @@
     if (document.querySelector('script[data-task-load="' + name + '"]')) return;
     const tag = el("script");
     tag.dataset.taskLoad = name;
-    tag.src = new URL("shared-suite/" + name + "?v=20261031", base).href;
+    tag.src = new URL("shared-suite/" + name + "?v=notebook-drafts-20261108", base).href;
     await new Promise((resolve, reject) => {
       tag.onload = resolve;
       tag.onerror = () => {
@@ -496,9 +541,11 @@
         throw Error(
           "The destination notebook changed. Choose the destination again to refresh the preview.",
         );
-      localStorage.setItem(
-        C.key(pendingImport.tool),
+      commitNotebook(
+        pendingImport.tool,
+        pendingImport.raw,
         JSON.stringify(pendingImport.plan.doc),
+        "worklist import",
       );
       const added = pendingImport.plan.added;
       closeImport();

@@ -3,6 +3,9 @@
   "use strict";
   const copy = (v) => JSON.parse(JSON.stringify(v));
   const names = {
+    schematiX: ["Document knowledge examples", "Example contract discovery"],
+    mergiX: ["Release branch comparison", "Document change review"],
+    rstiX: ["Safety requirement trace", "Change request verification"],
     mockiX: ["Service request portal", "Course onboarding"],
     colabriX: ["Product discovery workshop", "Team decision workshop"],
     designiX: ["Community event poster", "Product announcement"],
@@ -98,6 +101,9 @@
   function entries(tool) {
     if (!names[tool]) throw Error("Unknown app catalogue.");
     const specific = {
+      schematiX: ["Column knowledge sketch", "Stacked knowledge sketch", "Rearranges graph cards while preserving evidence and schemas."],
+      mergiX: ["Side-by-side comparison", "Unified comparison", "Changes only the comparison layout; input bytes and merge decisions remain intact."],
+      rstiX: ["Layered dependency sketch", "Stacked dependency sketch", "Repositions need cards while preserving RST source and dependency options."],
       projectiX: [
         "Compact timeline",
         "Spacious timeline",
@@ -167,6 +173,12 @@
         cwd: ".",
         timeout: 10000,
       };
+    if (tool === "schematiX") d.nodes.forEach((n,i)=>{n.x=id==="warm"?60:40+(i%4)*260;n.y=id==="warm"?40+i*80:40+Math.floor(i/4)*100;});
+    if (tool === "mergiX") d.view={...d.view,layout:id==="warm"?"unified":"side-by-side"};
+    if (tool === "rstiX") {
+      const ids=[...new Set(d.files.flatMap(f=>[...f.content.matchAll(/^\s+:id:\s*([A-Za-z0-9][A-Za-z0-9_.-]{0,99})\s*$/gm)].map(m=>m[1])))];
+      d.positions=Object.fromEntries(ids.map((need,i)=>[need,{x:id==="warm"?80:50+(i%3)*300,y:id==="warm"?40+i*160:50+Math.floor(i/3)*170}]));
+    }
     if (tool === "textiX") {
       d.html =
         '<div style="color:' +

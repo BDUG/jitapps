@@ -48,6 +48,16 @@ def augment(catalog,data,messages):
         except (ValueError,TypeError,AttributeError):query=content[-4000:]
         break
     context=catalog.context(app,str(query)[:8000])
+    session_skills=[]
+    raw_session=data.get('sessionSkills')
+    if isinstance(raw_session,list):
+        for item in raw_session[:20]:
+            if isinstance(item,dict) and isinstance(item.get('name'),str) and item['name'].strip() and isinstance(item.get('content'),str) and item['content'].strip() and item.get('enabled',True) is not False:
+                session_skills.append({'id':str(item.get('id') or item['name'])[:120],'name':item['name'][:200],'description':str(item.get('description',''))[:500],'content':item['content'][:20000],'scope':'session'})
+    if session_skills:
+        override_ids={s['id'] for s in session_skills}
+        existing=[s for s in context.get('skills',[]) if s.get('id') not in override_ids]
+        context={**context,'skills':[*session_skills,*existing]}
     if not context.get('skills') and not context.get('references'):return messages,context
     insertion={'role':'user','content':json.dumps({'retrievedSkillContext':context,'handling':NOTICE})}
     return [*messages[:-1],insertion,*messages[-1:]],context

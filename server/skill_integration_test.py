@@ -38,7 +38,7 @@ class IntegrationTests(unittest.TestCase):
                 self.assertEqual(result['text'],'OK');context=json.loads(provider.messages[-2]['content'])['retrievedSkillContext'];self.assertEqual(context['app'],'colabriX');self.assertTrue(context['skills'])
                 app_source=(ROOT/'shared-suite/apps.js').read_text()
                 app_ids=re.findall(r"[\"']?id[\"']?\s*:\s*[\"']([^\"']+)[\"']",app_source)
-                self.assertEqual(len(app_ids),18)
+                self.assertEqual(len(app_ids),21)
                 with patch.object(relay.urllib.request,'build_opener',return_value=provider):
                     for app in app_ids:
                         with self.subTest(app=app):

@@ -116,3 +116,36 @@ Native `apply_edits` accepts `path`, `expectedHash` and 1–32 `edits` with `fin
 ## Evidence-driven model handoff
 
 Native `ModelHandoff`, `Agent::run_with_handoff` and `resume_with_handoff` support shadow and one-way automatic routing with persistent session metadata and host-supplied primary/continuation/detector callbacks. See the [shared guide](../MODEL_HANDOFF.md#native-rust-integration) for configuration, evidence requirements, examples and limits. No Python dependency is introduced.
+
+## Native task dependency validation
+
+Rust model submissions now use `codingagentlib::planning::validate` and `planning::action` to enforce the task DAG and ready-task binding already used by the JavaScript/Python coding drivers. `planning::latest` retrieves the latest accepted assistant checklist; new native requests expose it as `tasks`. The graph is limited to 30 tasks (IDs up to 80 characters, titles up to 300), unique known dependency IDs, one active task and no cycles. Active/done tasks require done prerequisites. With dependencies, use `action.taskId` for the ready active task. Invalid incoming plans/actions are rejected before tool execution and may be repaired using a fresh turn. A complete corrected task list can replace invalid archived metadata.
+
+Checklists without dependencies retain legacy unbound actions. This applies to model `submit` orchestration; low-level host-directed tool dispatch does not require task binding. Task statuses are planning claims, never execution proof or permission grants. Existing verification and completion gates remain authoritative.
+
+Shared fixtures in `rust/tests/fixtures/task-planning.json` exercise JavaScript, Python and Rust validation. Run `node --test codingagentlib/javascript/task-planning-test.cjs`, `python3 -m unittest codingagentlib.test_task_planning`, and the Rust/VS Code suites. Native integration tests cover rejection without side effects, repair, prerequisites and persisted plans after restart.
+
+## Native terminal retry guard
+
+Native Rust `Agent::submit` / `Agent::run` now pause before a fourth unchanged failed `run_command` or `run_script` invocation. Comparison uses the tool and literal arguments, independently of checks, task IDs or changing error output. Only unique native observations matched to accepted model actions count. Matching zero-exit success, a successful matching file-tool edit or a new explicit user follow-up resets the applicable counter; reads and Resume alone do not. The entire current follow-up segment is inspected rather than only a recent receipt window, and saved history survives restart.
+
+Results use `status: waiting`, `reason: repeated_terminal_failure` and a `recovery` object (`codingagentlib/terminal-recovery/v1`) containing the tool, failure count, last three call IDs with original `read_history` offsets, `automaticRetry:false` and guidance. No fourth action is executed; earlier side effects remain. Hosts can call the pure `codingagentlib::recovery::terminal_retry(&events, &action)` helper for one native session's audit. `recovery::policy()` is exposed as `terminalRetryPolicy` in native health and planning requests.
+
+Low-level host-directed tool dispatch remains explicit and is outside this guard. Workflow-internal invocations are not treated as separate matched model actions. Provider request retry policy, permissions, approvals and verification gates are unchanged. Changed invocations are evaluated separately, and successful matching file edits can reset counters; neither certifies a fix or prevents every possible repetition pattern. Recovery suggestions never execute themselves.
+
+Tests: native `recovery` tests cover failure/check variations, duplicate observations, unknown exit codes, reset boundaries, actual command side-effect counts and restart. VS Code tests also check the native fallback beyond its recent-window heuristic.
+
+## Current verification snapshots for host integrations
+
+Native Rust planning requests now add three fields to `verificationFreshness` when a command binding exists:
+
+| Field | Meaning |
+| --- | --- |
+| `inputDigest` | The latest command's recorded tracked-input digest (existing field). |
+| `currentInputDigest` | Digest of the currently captured known-input set. |
+| `currentComplete` | Whether current capture completed without coverage warnings. |
+| `currentTrackedFiles` | Number of entries in that current snapshot. |
+
+Hosts with several required checks can compare each receipt's `result.verificationBinding.inputDigest` with `currentInputDigest`, requiring stable, complete command input capture and complete current coverage. A later command pass does not refresh an earlier check's binding. VS Code now enforces this for every configured command and exposes stale/unavailable results. The snapshot reuses the native freshness capture; it does not add another filesystem read pass. With no previous command binding, status remains `none` and these additive snapshot fields are absent.
+
+Known inputs, limits and non-atomic coverage remain as documented under source-bound verification. An empty known-input set remains unbound, not proof of whole-workspace correctness. Host-directed policy is separate from native permissions and the native completion recheck. No verification commands are run automatically by comparing digests.

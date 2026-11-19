@@ -176,5 +176,5 @@ pub(crate) fn freshness(runtime: &Runtime, id: &str) -> Value {
     } else {
         "current"
     };
-    json!({"format":"codingagentlib/verification-freshness/v1","status":status,"passed":(["current","unbound"].contains(&status)),"jobId":binding["jobId"],"inputDigest":binding["inputDigest"],"trackedFiles":count,"changed":if changed.is_empty(){binding["changedDuringCommand"].clone()}else{json!(changed)},"warnings":current["warnings"],"note":NOTE})
+    json!({"currentInputDigest":hash(serde_json::to_string(&current["files"]).unwrap().as_bytes()),"currentComplete":current["complete"],"currentTrackedFiles":current["files"].as_array().unwrap().len(),"format":"codingagentlib/verification-freshness/v1","status":status,"passed":(["current","unbound"].contains(&status)),"jobId":binding["jobId"],"inputDigest":binding["inputDigest"],"trackedFiles":count,"changed":if changed.is_empty(){binding["changedDuringCommand"].clone()}else{json!(changed)},"warnings":current["warnings"],"note":NOTE})
 }

@@ -7,11 +7,65 @@ repository = "https://github.com/BDUG/singlepageapps"
 readme = "README.md"
 description = "Native Rust headless coding agent with guarded workspace tools and model callbacks"
 
+[features]
+default = ["coding"]
+coding = ["dep:sha2", "dep:fs2", "dep:zip", "dep:libc"]
+
 [dependencies]
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = "0.10"
-fs2 = "0.4"
-zip = { version = "2", default-features = false }
+sha2 = { version = "0.10", optional = true }
+fs2 = { version = "0.4", optional = true }
+zip = { version = "2", default-features = false, optional = true }
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2"
+libc = { version = "0.2", optional = true }
+
+[[bin]]
+name = "codingagent-worker"
+path = "src/bin/codingagent-worker.rs"
+required-features = ["coding"]
+
+[[test]]
+name = "collaboration"
+required-features = ["coding"]
+
+[[test]]
+name = "command_resolution"
+required-features = ["coding"]
+
+[[test]]
+name = "command_resolution_windows"
+required-features = ["coding"]
+
+[[test]]
+name = "handoff"
+required-features = ["coding"]
+
+[[test]]
+name = "native"
+required-features = ["coding"]
+
+[[test]]
+name = "runtime"
+required-features = ["coding"]
+
+[[example]]
+name = "list"
+required-features = ["coding"]
+
+[[example]]
+name = "ui"
+required-features = ["coding"]
+
+[[test]]
+name = "knowledge"
+required-features = ["coding"]
+
+[[test]]
+name = "planning"
+required-features = ["coding"]
+
+[[test]]
+name = "recovery"
+required-features = ["coding"]

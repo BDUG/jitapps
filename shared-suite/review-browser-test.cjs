@@ -249,7 +249,7 @@ const assert = require("node:assert/strict"),
     );
     assert.equal(aiCalls, 0);
     console.log(
-      "PASS: real read-only snapshots in all 18 apps, specific HTML/SVG checks, selected findings to existing notebook tasks, deduplication, stale-document rejection, corrupt-notebook protection, scoped JSON/Markdown export, empty-selection protection and mobile review.",
+      "PASS: real read-only snapshots in all registered apps, specific HTML/SVG checks, selected findings to existing notebook tasks, deduplication, stale-document rejection, corrupt-notebook protection, scoped JSON/Markdown export, empty-selection protection and mobile review.",
     );
   } finally {
     await browser.close();

@@ -159,7 +159,7 @@ const assert = require("node:assert/strict"),
     );
     assert.equal(calls, 0);
     console.log(
-      "PASS: guided native starting points across all 18 apps, preserved documents/drafts, explicit build/preview/insert, no automatic AI calls, shell plan default, length/read-only protection, mockiX workflow persistence and mobile layout.",
+      "PASS: guided native starting points across all registered apps, preserved documents/drafts, explicit build/preview/insert, no automatic AI calls, shell plan default, length/read-only protection, mockiX workflow persistence and mobile layout.",
     );
   } finally {
     await browser.close();

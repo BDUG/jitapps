@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="236" viewBox="0 0 920 236" role="img" aria-labelledby="title description">
+  <title id="title">Agentic Desktop Tool Suite</title>
+  <desc id="description">Seven connected purple tiles inside a desktop window, beside the suite name and the words Create, connect, automate.</desc>
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b69bdb"/><stop offset="1" stop-color="#7957ac"/></linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fcfaff"/><stop offset="1" stop-color="#f1eaf9"/></linearGradient>
+  </defs>
+  <rect x="1" y="1" width="918" height="234" rx="28" fill="url(#paper)" stroke="#e6dcef"/>
+  <g transform="translate(30 30)">
+    <rect x="0" y="0" width="218" height="158" rx="18" fill="#fff" stroke="#b99dd5" stroke-width="2"/>
+    <path d="M1 34H217" stroke="#e8def1" stroke-width="2"/>
+    <g fill="#c3afd9"><circle cx="18" cy="18" r="3"/><circle cx="29" cy="18" r="3"/><circle cx="40" cy="18" r="3"/></g>
+    <path d="M109 158V175M77 176H141" stroke="#b99dd5" stroke-width="5" stroke-linecap="round"/>
+    <g stroke="#c2a9db" stroke-width="2" fill="none"><path d="M54 70L109 70L164 70M54 70L54 119L109 119L164 119L164 70M109 70L109 119M54 119L109 95L164 119"/></g>
+    <g fill="url(#accent)"><rect x="39" y="55" width="30" height="30" rx="8"/><rect x="94" y="55" width="30" height="30" rx="8"/><rect x="149" y="55" width="30" height="30" rx="8"/><rect x="39" y="104" width="30" height="30" rx="8"/><rect x="94" y="104" width="30" height="30" rx="8"/><rect x="149" y="104" width="30" height="30" rx="8"/></g>
+    <rect x="96" y="82" width="26" height="26" rx="7" fill="#463154" stroke="#fff" stroke-width="2"/>
+    <path d="M104 90L114 100M114 90L104 100" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+    <g fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M48 70H60M54 64V76M102 64H116M102 69H113M102 74H116M158 65H170V76H158ZM164 65V76M158 70H170M47 114L53 120L60 113M103 114H115M103 119H112M103 124H115M158 120L162 116L166 122L171 113"/></g>
+  </g>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif">
+    <text x="282" y="69" font-size="11" font-weight="600" letter-spacing="3" fill="#9b7bb5">LOCAL FIRST · AGENT ASSISTED</text>
+    <text x="280" y="120" font-size="39" font-weight="700" letter-spacing="-1" fill="#493452">Agentic Desktop</text>
+    <text x="282" y="157" font-size="28" font-weight="400" fill="#8e6aab">Tool Suite</text>
+    <text x="283" y="193" font-size="14" letter-spacing="1" fill="#a18aaf">Create. Connect. Automate.</text>
+  </g>
+</svg>

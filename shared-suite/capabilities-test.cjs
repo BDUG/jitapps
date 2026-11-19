@@ -8,3 +8,16 @@ const app={designer:{screens:[{id:'home',name:'Home'},{id:'next',name:'Next'}],n
 assert.ok(C.csv([{text:'=IMPORTXML("evil")'}]).includes("'=IMPORTXML"));assert.ok(C.csv([{text:'  +1'}]).includes("'  +1"));assert.ok(C.markdown([{text:'a|b\nc'}]).includes('a\\|b<br>c'));console.log('PASS: nonmutating tool edits, idempotent workflow/slide/navigation actions, formula preservation, weighted progress, lock guards and safe CSV/Markdown escaping.');
 
 const workbook=C.workbook(Array.from({length:201},(_,i)=>({id:i,text:i?'Value':'=SUM(A1)'})),'Test');assert.equal(workbook.sheets.length,2);assert.equal(workbook.sheets[0].rows,200);assert.equal(workbook.sheets[1].rows,3);assert.equal(workbook.sheets[0].cells.B2.value,"'=SUM(A1)");assert.throws(()=>C.workbook(Array.from({length:3981},()=>({x:1})),'Test'));console.log('PASS: paginated sheetiX workbook inventories, header styles, formula-safe literals and explicit size rejection.');
+
+globalThis.window=globalThis;
+require('./apps.js');
+for(const app of globalThis.SuiteApps){
+ assert.ok(C.actions(app.id).length>=1,app.id+' must expose at least one SuiteCapabilities action');
+}
+assert.equal(C.apply('markiX','ensure-newline',{syntax:'markdown',source:'# Title'}).source,'# Title\n');
+assert.equal(C.inventory('markiX',{syntax:'markdown',source:'# Title\n## Sub'}).length,2);
+assert.equal(C.apply('formiX','fill-titles',{formulas:[{id:'f1',title:'',latex:'x^2'}]}).formulas[0].title,'Formula 1');
+assert.equal(C.apply('cncfiX','normalize-maturity',{items:[{id:'k8s',name:'K8s',maturity:''}]}).items[0].maturity,'sandbox');
+assert.equal(C.apply('mockiX','snap-grid',{screens:[{id:'s1',name:'Home',elements:[{id:'e1',x:13,y:19}]}]}).screens[0].elements[0].x,16);
+assert.equal(C.apply('shelliX','dedupe-history',{history:['ls','ls','pwd']}).history.length,2);
+console.log('PASS: all 24 registered SuiteApps expose SuiteCapabilities actions and inventories.');

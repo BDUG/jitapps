@@ -2,7 +2,7 @@
   "name": "codingagentlib",
   "displayName": "codingagentlib \u00b7 Native Coding Agent",
   "description": "Standalone native coding agent with workspace tools, model chat, live trace, sessions and result ZIPs. No Python or suite server required.",
-  "version": "0.26.0",
+  "version": "0.30.0",
   "publisher": "bdug",
   "license": "MIT",
   "repository": {

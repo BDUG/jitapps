@@ -1,0 +1,443 @@
+[
+  {
+    "name": "empty legacy plan",
+    "tasks": [],
+    "valid": true
+  },
+  {
+    "name": "simple legacy tasks",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect",
+        "status": "in_progress"
+      }
+    ],
+    "valid": true,
+    "actions": [
+      {
+        "action": {
+          "tool": "read_file",
+          "args": {}
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "name": "ready dependency plan",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress"
+      },
+      {
+        "id": "implement",
+        "title": "Implement change",
+        "status": "pending",
+        "dependsOn": [
+          "inspect"
+        ]
+      }
+    ],
+    "valid": true,
+    "actions": [
+      {
+        "action": {
+          "tool": "read_file",
+          "args": {},
+          "taskId": "inspect"
+        },
+        "valid": true
+      },
+      {
+        "action": {
+          "tool": "read_file",
+          "args": {}
+        },
+        "valid": false
+      },
+      {
+        "action": {
+          "tool": "read_file",
+          "args": {},
+          "taskId": "implement"
+        },
+        "valid": false
+      }
+    ]
+  },
+  {
+    "name": "advanced dependency plan",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "done"
+      },
+      {
+        "id": "implement",
+        "title": "Implement change",
+        "status": "in_progress",
+        "dependsOn": [
+          "inspect"
+        ]
+      }
+    ],
+    "valid": true,
+    "actions": [
+      {
+        "action": {
+          "tool": "write_file",
+          "args": {},
+          "taskId": "implement"
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "name": "unknown dependency",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress",
+        "dependsOn": [
+          "missing"
+        ]
+      },
+      {
+        "id": "implement",
+        "title": "Implement change",
+        "status": "pending",
+        "dependsOn": [
+          "inspect"
+        ]
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "cycle",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "pending",
+        "dependsOn": [
+          "implement"
+        ]
+      },
+      {
+        "id": "implement",
+        "title": "Implement change",
+        "status": "pending",
+        "dependsOn": [
+          "inspect"
+        ]
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "self dependency",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress",
+        "dependsOn": [
+          "inspect"
+        ]
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "duplicate dependencies",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress"
+      },
+      {
+        "id": "implement",
+        "title": "Implement change",
+        "status": "pending",
+        "dependsOn": [
+          "inspect",
+          "inspect"
+        ]
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "unfinished prerequisite",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "pending"
+      },
+      {
+        "id": "implement",
+        "title": "Implement change",
+        "status": "in_progress",
+        "dependsOn": [
+          "inspect"
+        ]
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "premature done",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "pending"
+      },
+      {
+        "id": "implement",
+        "title": "Implement change",
+        "status": "done",
+        "dependsOn": [
+          "inspect"
+        ]
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "duplicate IDs",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress"
+      },
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "two active tasks",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress"
+      },
+      {
+        "id": "other",
+        "title": "Other",
+        "status": "in_progress"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "invalid dependency type",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "Inspect source",
+        "status": "in_progress",
+        "dependsOn": "inspect"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "empty ID",
+    "tasks": [
+      {
+        "id": "",
+        "title": "Inspect source",
+        "status": "in_progress"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "long title",
+    "tasks": [
+      {
+        "id": "inspect",
+        "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "status": "in_progress"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "too many tasks",
+    "tasks": [
+      {
+        "id": "0",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "1",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "2",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "3",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "4",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "5",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "6",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "7",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "8",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "9",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "10",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "11",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "12",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "13",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "14",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "15",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "16",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "17",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "18",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "19",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "20",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "21",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "22",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "23",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "24",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "25",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "26",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "27",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "28",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "29",
+        "title": "Task",
+        "status": "pending"
+      },
+      {
+        "id": "30",
+        "title": "Task",
+        "status": "pending"
+      }
+    ],
+    "valid": false
+  }
+]

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>memoriX · Memory &amp; Session Studio</title>
+  <link rel="stylesheet" href="../shared-suite/suite.css">
+  <link rel="stylesheet" href="../shared-suite/theme.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-size: 14px; background: var(--tlal-surface, #fafafa); color: var(--tlal-ink, #343b43); }
+    header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 14px 22px; background: white; border-bottom: 1px solid var(--tlal-border, #d9dde1); }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; min-width: 190px; }
+    .brand-name { font-size: 26px; letter-spacing: -1px; color: var(--tlal-ink, #343b43); }
+    .brand-name span { color: var(--tlal-maroon, #8b1e3f); }
+    .brand small { display: block; font-size: 10px; color: var(--tlal-secondary, #626a73); letter-spacing: .08em; }
+    .mb-tabs { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+    .mb-tabs button[aria-selected="true"] { background: #f7eef1; border-color: #dcb5c1; color: var(--tlal-maroon, #8b1e3f); font-weight: 600; }
+    main { display: grid; grid-template-columns: 270px minmax(360px, 1fr) 290px; min-height: calc(100dvh - 74px); }
+    aside { background: white; border-right: 1px solid var(--tlal-border, #d9dde1); padding: 18px; overflow: auto; }
+    aside:last-child { border-right: 0; border-left: 1px solid var(--tlal-border, #d9dde1); }
+    section.mb-main { padding: 20px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+    .mb-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+    .mb-fill { flex: 1; min-width: 120px; }
+    .mb-list { display: grid; gap: 6px; margin-top: 8px; }
+    .mb-list button { text-align: left; width: 100%; background: white; }
+    .mb-list button[aria-current="true"] { background: #f7eef1; border-color: #dcb5c1; color: var(--tlal-maroon, #8b1e3f); }
+    .mb-list small { display: block; font-size: 11px; color: var(--tlal-secondary, #626a73); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    label { display: block; font-size: 12px; font-weight: 600; margin: 8px 0; }
+    label input, label select, label textarea { display: block; width: 100%; margin-top: 4px; }
+    button, input, select, textarea { font: inherit; color: inherit; background: white; border: 1px solid var(--tlal-border, #d9dde1); border-radius: 8px; padding: 7px 10px; }
+    button { cursor: pointer; }
+    button.primary { background: var(--tlal-maroon, #8b1e3f); color: white; border-color: var(--tlal-maroon, #8b1e3f); }
+    details { margin-bottom: 16px; }
+    summary { font-size: 13px; font-weight: 650; cursor: pointer; margin-bottom: 6px; }
+    pre { background: white; border: 1px solid var(--tlal-border, #d9dde1); border-radius: 8px; padding: 10px; overflow: auto; max-height: 260px; font-size: 11.5px; margin: 6px 0; }
+    #mb-status { font-size: 12px; color: var(--tlal-secondary, #626a73); }
+    @media (max-width: 1080px) { main { grid-template-columns: 240px 1fr; } aside:last-child { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--tlal-border, #d9dde1); } }
+    @media (max-width: 700px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--tlal-border, #d9dde1); } }
+  </style>
+</head>
+<body>
+<header>
+  <a class="brand" href="../"><div><strong class="brand-name">memori<span>X</span></strong><small>Memory &amp; Session Studio</small></div></a>
+  <nav class="mb-tabs" role="tablist" aria-label="Data foundation sections">
+    <button type="button" role="tab" data-tab="sessions" aria-selected="true">Agent Sessions</button>
+    <button type="button" role="tab" data-tab="memory" aria-selected="false">Long-Term Memory</button>
+    <button type="button" role="tab" data-tab="architectures" aria-selected="false">Memory Architectures</button>
+    <button type="button" role="tab" data-tab="browser" aria-selected="false">Chat &amp; Browser Data</button>
+  </nav>
+  <span id="mb-status" role="status" aria-live="polite">Ready</span>
+  <button type="button" id="mb-import">Import JSON</button>
+  <button type="button" id="mb-export" class="primary">Export JSON</button>
+  <input type="file" id="mb-file" accept=".json,application/json" hidden>
+</header>
+
+<main>
+  <aside id="mb-sidebar" aria-label="Browse items"></aside>
+  <section class="mb-main" id="mb-detail" aria-label="Item editor"></section>
+  <aside id="mb-inspector" aria-label="Statistics and tools"></aside>
+</main>
+
+<script src="memory-browser.js"></script>
+</body>
+</html>

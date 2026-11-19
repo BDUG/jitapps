@@ -19,7 +19,7 @@ class CatalogTests(unittest.TestCase):
         import re
         source=(Path(__file__).resolve().parent.parent/'shared-suite/apps.js').read_text()
         apps=re.findall(r"[\"']?id[\"']?\s*:\s*[\"']([^\"']+)[\"']",source)
-        self.assertEqual(len(apps),18)
+        self.assertEqual(len(apps),24)
         for app in apps:
             with self.subTest(app=app):
                 self.assertIn(app,APPS)

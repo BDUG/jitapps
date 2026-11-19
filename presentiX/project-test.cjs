@@ -2,4 +2,10 @@ const assert=require('node:assert/strict'),P=require('./project.js');
 const deck=P.starter();assert.equal(deck.slides.length,3);assert.deepEqual(P.validate(deck),deck);const ids=deck.slides.flatMap(s=>[s.id,...s.elements.map(e=>e.id)]);assert.equal(new Set(ids).size,ids.length);
 for(const bad of [{...deck,slides:[]},{...deck,name:''},{...deck,width:NaN},{...deck,slides:[{...deck.slides[0],elements:[{...deck.slides[0].elements[0],type:'script'}]}]},{...deck,slides:[{...deck.slides[0],elements:[P.element('image',{src:'https://evil.example/image.svg'})]}]},{...deck,slides:[deck.slides[0],deck.slides[0]]}])assert.throws(()=>P.validate(bad));
 assert.equal(P.validate({...deck,slides:[{...deck.slides[0],elements:[P.element('text',{text:'<script>alert(1)</script>'})]}]}).slides[0].elements[0].text,'<script>alert(1)</script>');assert.equal(deck.slides[0].elements[0].fontSize,48);
-console.log('PASS: deck/schema normalization, unique IDs, starter, unsafe element/image rejection and size/dimension validation.');
+console.log('PASS: deck/schema normalization, unique IDs, starter, unsafe element/image rejection and dimension validation without content-size caps.');
+
+// Former content limits must not reject native projects or AI proposals.
+const many=Array.from({length:101},(_,i)=>({id:'slide-'+i,title:'T'.repeat(300),background:'#ffffff',notes:'N'.repeat(21000),elements:Array.from({length:21},(_,j)=>P.element('text',{id:'element-'+i+'-'+j,text:'Text'}))}));assert.equal(P.validate({...deck,name:'N'.repeat(200),slides:many}).slides.length,101);
+const large='x'.repeat(21*1024*1024);assert.equal(P.validate({...deck,slides:[{...deck.slides[0],elements:[P.element('text',{text:large})]}]}).slides[0].elements[0].text.length,large.length);
+const image='data:image/png;base64,'+'A'.repeat(4500000);assert.equal(P.validate({...deck,slides:[{...deck.slides[0],elements:Array.from({length:5},()=>P.element('image',{src:image}))}]}).slides[0].elements.length,5);
+assert.equal(P.validate({...deck,slides:[{...deck.slides[0],elements:Array.from({length:201},()=>P.element('text'))}]}).slides[0].elements.length,201);assert.equal(P.schema.properties.slides.maxItems,undefined);assert.equal(P.schema.properties.name.maxLength,undefined);console.log('PASS: former slide/object/text/image/total-JSON limits are removed from native and AI validation.');

@@ -11,7 +11,7 @@ cd codingagentlib/vscode
 npm ci
 npm run verify
 npm run package -- --target linux-x64
-code --install-extension codingagentlib-linux-x64-0.26.0.vsix
+code --install-extension codingagentlib-linux-x64-0.30.0.vsix
 ```
 
 On Windows x64 use `--target win32-x64`; on macOS use `darwin-arm64` or `darwin-x64`. Build on the corresponding OS/architecture; the build script compiles and copies the host worker. This is not an automatic cross-compilation pipeline. Set `CARGO` to an absolute Cargo executable if it is not on PATH. No Rust compiler is needed to run an installed VSIX. Packages are local artifacts; the build does not publish to the Marketplace. The `bdug` publisher identifier is metadata, not a claim of Marketplace publication.
@@ -370,3 +370,120 @@ node --expose-gc scripts/benchmark-history.cjs /tmp/history-baseline.cjs
 **Project memory** opens the same categorized note manager as the browser agent, entirely inside VS Code. It supports source references, pinning, archival, expiry, revision-safe editing/deletion, indexed lexical recall, export/backup inspection and reviewed handoff drafts. Persistent notes live in private extension storage, separated by workspace path and project label. No native worker or provider call is needed to manage notes.
 
 Enable recall explicitly and review its project/count in the run approval. Up to six selected notes are captured into the native run, with full text retrievable through paged `read_project_memory`. The read tool sees only that approved snapshot. Persistent memory writes remain manual. Saved runs retain their project binding. Stores are bounded to 500 notes/5 MB per project, replaced atomically under an exclusive lock and indexed in a bounded per-process cache. File-lock recovery after a crash is manual; back up/export important knowledge. Rebuild the extension to include the updated Rust worker and bundled manager assets.
+
+## Native worker recovery (0.26.1)
+
+Worker health checks have a 10-second deadline. Stop waits at most 2.5 seconds
+for the native interrupt acknowledgement, and worker shutdown has its own
+2.5-second deadline starting before interrupt. An unresponsive or malformed
+worker connection rejects pending requests and is terminated (with a force-kill
+fallback). Normal tool execution keeps its existing command/run budgets; long
+valid actions do not acquire a new transport deadline.
+
+A later operation reconnects a failed worker and restores the saved workspace
+session. It does not replay requests or resume the model loop. Inspect saved
+changes and command output, then use **Resume / send follow-up** explicitly.
+An interrupted connection can leave action effects whose receipt was not
+received; a transport error does not prove rollback. The worker starts with the
+selected workspace as its process working directory.
+
+## Bounded history preparation
+
+History sizing streams one event at a time instead of allocating a JSON string
+for the complete archive. Recent encodings are reused within the request only;
+their cached text stays within the configured history budget. Oversized recent
+records use their measured lengths when selecting context. Pinned instructions,
+attachments, retrieved history, audit offsets and deep-copy isolation retain
+their existing behavior, including exceeding the soft budget when necessary.
+Mutable audit records are never cached across turns.
+
+Run `node --expose-gc scripts/benchmark-vscode-history.cjs` from the repository
+root for an isolated synthetic 62-million-character fixture. An optional absolute
+module path measures a previous implementation in a separate process. The local
+before/after check measured 219/95 ms and 146/35 MiB peak RSS, with identical
+original and retained character counts. Results vary by machine and fixture;
+this optimizes client context preparation, not provider latency or model quality.
+
+### Concurrent edit recovery
+
+Stale file edits now show the affected path and a **Draft recovery follow-up** button in the tool result. After pausing or stopping, use it to append an unsent request to reread current contents, preserve concurrent work and adapt the edit. Review the draft and Resume. The button preserves existing draft text and never replays a write or changes permissions. Exact expected/current hashes and the native structured recovery receipt remain under **Inspect result** and in saved observations.
+
+### Local turn-processing performance
+
+The controller now builds one private, bounded loop-review ledger per turn and reuses it before execution. This avoids hashing the same recent tool output twice. The ledger retains hashes and receipt identifiers rather than source/output bodies. Changes to model-visible history or review metadata cannot reset it; a fresh ledger is built on the next turn so edits and follow-ups still take effect.
+
+Verification policies are indexed by executable, literal arguments and normalized working directory. Matching a receipt no longer rebuilds every policy identity. Multiple named checks for the same invocation, latest-failure precedence and edit/follow-up freshness boundaries retain their existing behavior. Empty policies skip the command-matching pass.
+
+Run the synthetic host-processing benchmark against the trusted preceding revision from a Git checkout:
+
+```sh
+node codingagentlib/vscode/scripts/benchmark-turn.cjs 2ef4922
+```
+
+The benchmark alternates baseline/new samples, checks result equivalence and prints median timings for 500 receipts, 24 recent source pages and a 100-command verification policy. Timings exclude provider latency, tool execution and UI rendering; they do not measure end-to-end task speed. Regression tests additionally check single-pass receipt hashing, indexed identity lookup and private-ledger integrity with a real native worker.
+
+### Faster command-output inspection
+
+Command and managed-script result cards now offer **Inspect stdout** and **Inspect stderr** shortcuts. Pause or stop the run first. They open retained native log pages and never rerun a command or add log bodies to model context. The host accepts only jobs recorded in the selected session.
+
+Opening **Inspect command output** from Tools defaults to stderr for a failed job with retained stderr bytes; explicit stream choices remain authoritative. The inspector supports first, previous, next and **Last page**, plus **Go to position** (Enter also works). Positions count Unicode characters as reported by the native worker, not UTF-8 bytes or JavaScript string code units. Invalid/out-of-range positions produce a local message. Navigation is disabled while a page is loading or a run is active; inspecting old logs does not establish fresh verification.
+
+## Plan → review → Build
+
+Choose **Plan** in **New run mode** to investigate a change before granting editing or terminal permissions. The agent can inspect current source, repository instructions, recorded output and existing skills/workflows/project memory. It returns an implementation plan with source references, proposed stages, acceptance checks, risks and questions. A planning summary is labeled **Implementation plan · not applied**.
+
+Plan sessions start with native file-edit and command permissions disabled. The host also filters tool definitions and blocks all tools outside its fixed read-only list before submission, including workflows, skill updates and memory writes. It repeats this check after asynchronous host review. Model-visible flags cannot disable the restriction. Planning still saves its private session/audit and may refresh derived project knowledge; it is a source-inspection mode, not an OS sandbox.
+
+Use **Draft Build request** on a plan to append it to the composer. Existing draft text is preserved. The button switches the next new run to Build, but does not enable file edits, enable commands or start execution. Review the draft, choose permissions and select **Start new run**. The existing confirmation dialog names the mode and permissions. Build must inspect current source and verify its own changes; a past plan is not proof or automatic approval.
+
+**Resume / send follow-up** always retains the saved session's mode. A paused Plan cannot be upgraded to Build by changing the selector or permission checkboxes. Use a separate new Build instead. The saved mode also survives extension/worker restart and is displayed beside the selector. Legacy sessions without mode metadata retain their existing Build behavior. Existing session overview and handoff export can retain the planning result for later use.
+
+Plan mode does not run configured verification commands; these belong to an approved Build. Questions, pause/stop, step budgets, references, provider configuration and session history remain available. Deterministic native-worker, host-message, panel and Chromium tests cover source inspection, blocked mutations, resume restrictions, approval details and unsent handoff drafting.
+
+### Faster editor context for large workspaces
+
+Editor-context collection checks independent file paths with at most eight filesystem operations in flight and resolves each distinct path once per collection. Known dependency folders (`node_modules`, `.venv`, `venv`, `__pycache__`) are excluded before filesystem access; aliases into those folders and symlinks outside the workspace remain excluded after canonical-path checks. No filesystem cache survives a turn. Diagnostic sorting, limits, counts and omission reporting retain their existing behavior.
+
+Reproduce the local benchmark from a Git checkout against the trusted preceding revision:
+
+```sh
+node codingagentlib/vscode/scripts/benchmark-editor-context.cjs 5355f22
+```
+
+The benchmark compares equivalent output, alternates baseline/new runs and reports median collection time for 500 source files and 500 excluded dependency files. One Node 24/Linux run measured 110.5 ms before and 20.5 ms after (5.4×). This is local collection time, excluding provider latency and tool execution; results depend on filesystem and workload. Tests cover bounded concurrency, duplicate paths and fresh symlink exclusions between collections.
+
+### Reusing prepared provider requests on retry
+
+Transient provider retries now reuse one encoded request payload. Attachment processing and JSON serialization run once per call, rather than once per attempt. The payload and telemetry identity stay fixed during retry backoff; each attempt receives fresh headers. The cache exists only inside that call, so a new turn or provider/model call always prepares its own current input. Cancellation/pause checks still run before preparation and before each attempt; retry budgets and provider-requested waits are unchanged. This does not replay tool actions.
+
+Reproduce the benchmark against the trusted preceding Git revision:
+
+```sh
+node codingagentlib/vscode/scripts/benchmark-provider-retry.cjs 03eaba4
+```
+
+One Node 24/Linux run measured 48.4 ms before and 18.7 ms after (2.6×) for a 3.5 MB text/image request with three simulated attempts. The benchmark checks payload equivalence and alternates baseline/new samples. It measures local request processing only, excluding real network latency, model generation and backoff waits. Successful first-attempt requests still require normal preparation.
+
+## Prerequisite-aware execution
+
+The native agent now validates task plans before executing a model-proposed action: up to 30 unique tasks, one active task, known/nonduplicate prerequisites, no dependency cycles and no active/completed task with unfinished prerequisites. When any task has dependencies, every action must include `taskId` naming the ready `in_progress` task. Invalid plans produce repair feedback without executing their proposed tools. A corrected complete task list can replace invalid archived labels; the existing bounded repair loop still applies.
+
+Example: `inspect` must become `done` before `implement` becomes `in_progress`; the next action uses `"taskId":"implement"`. Task state persists across turns and restarts and is supplied in the request's `tasks` field. Simple legacy checklists without dependencies still work without action binding. Existing history can still show warnings for older labels.
+
+Statuses remain model claims. These structural checks do not prove that inspection, implementation or testing was adequate; native permissions, source hashes, verification receipts and completion checks remain independent requirements. The Plan → Build workflow retains its source-only restrictions.
+
+## Native terminal failure recovery
+
+The native worker now pauses before a fourth failed invocation with the same `run_command`/`run_script` tool and literal arguments. This complements VS Code's existing recent-window loop review: older matching failures still count after many intervening reads. Changing checks or task labels does not reset attempts. A matching successful retry with exit code zero, a successful matching file-tool edit, or an explicit user follow-up resets the relevant count. Resume alone, read operations and unknown exit codes do not.
+
+The paused result includes `reason: repeated_terminal_failure`, the last three actual call IDs with original history offsets and unscheduled recovery guidance. The extension shows its existing no-progress recovery controls, including an unsent investigation draft. Inspect recorded errors, available retained output and current source before changing the approach. Previous attempts may have changed files; pausing does not roll those effects back. Saved audit history preserves the guard across worker restart.
+
+The guard applies to direct model-proposed terminal actions, not provider HTTP retries or low-level host-directed tool calls. It is a deterministic repetition heuristic, not an OS sandbox or proof that a different command is appropriate. Existing permissions, action approval, source hashes and verification remain authoritative. No recovery command is run automatically.
+
+## Current source evidence for every configured check
+
+Each configured verification command is now checked against the current tracked source snapshot, rather than only against the latest recorded file-tool edit or follow-up. A prior lint pass does not become current because a later test command passed after changing the source. Checks with different input hashes or inputs that changed during their run are marked **stale**. Incomplete/unavailable source coverage is shown separately. Rerun affected checks after the final source change before claiming full completion; verification actions still require existing command permissions and approval.
+
+The private completion gate evaluates native receipt bindings before handing the request to the model. Editing model-visible verification fields cannot override it. Native completion also rechecks current source to catch later drift. The UI identifies affected checks and retains the existing unsent verification draft flow. Legacy receipts without usable bindings need fresh execution; commands with no tracked source inputs retain an explicit **unbound** coverage note.
+
+This covers the native runtime's known inspected/edited files and managed scripts, not every dependency or environment setting. It does not establish test adequacy or an atomic workspace snapshot. Archived session overviews remain historical receipt ledgers and explicitly do not recheck source. Tests use two configured checks, a command-side source change, selective re-verification and model-metadata mutation.

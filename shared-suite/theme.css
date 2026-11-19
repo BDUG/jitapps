@@ -95,3 +95,23 @@ body :is(.sai-messages,.sai-files,.sw-panel,.ag-panel){font-variant-numeric:tabu
 @media(prefers-reduced-motion:reduce){body :is(.sai-launch,.pg-panel,.ag-event,progress){animation:none!important;transition:none!important}}
 
 body :is(header,aside,.panel-title,.panel-head,.sai-panel,#suite-workspace,#suite-agent,#suite-skills) :is(h1,h2,h3){font-weight:600;line-height:1.25}
+
+/* Common editor chrome: keep document, terminal and canvas contents independent. */
+:root{--tlal-control-height:34px;--tlal-focus-ring:#3f6f98}
+body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,#suite-tools,.server-projects) :is(button,select){min-height:var(--tlal-control-height)}
+body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,.server-projects) :is(input,select,textarea){box-sizing:border-box;max-width:100%;min-width:0}
+body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,.server-projects) input:where(:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not([type=button]):not([type=submit])){min-height:var(--tlal-control-height);border:1px solid var(--tlal-border);border-radius:8px;padding:6px 10px;background:var(--tlal-white);color:var(--tlal-graphite)}
+body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,.server-projects) :is(input,textarea)[readonly]{background:var(--tlal-surface)}
+body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,#suite-tools,.server-projects) :is(button,input,select,textarea):disabled{opacity:.58;cursor:not-allowed}
+body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,.server-projects) :is(input,select,textarea)[aria-invalid=true]{border-color:var(--tlal-maroon);outline:1px solid var(--tlal-maroon);outline-offset:1px}
+body dialog{box-sizing:border-box;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+body dialog :where(pre,.sd-detail,.ag-note,.sai-error){overflow-wrap:anywhere;white-space:pre-wrap}
+body :where(aside,dialog,.server-projects,#suite-agent,.sai-panel) summary{cursor:pointer;padding-block:6px;line-height:1.45}
+body :where(aside,dialog,.server-projects,#suite-agent,.sai-panel) summary::marker{color:var(--tlal-maroon)}
+.suite-skip-link{position:fixed;top:8px;left:8px;z-index:2147483647;transform:translateY(calc(-100% - 16px));padding:10px 16px;border-radius:8px;background:var(--tlal-maroon);color:white;font:600 14px var(--tlal-font);text-decoration:none;box-shadow:0 4px 12px #343b4330}
+.suite-skip-link:focus{transform:none;outline:2px solid var(--tlal-focus-ring);outline-offset:3px;color:white}
+@media(max-width:600px){body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,#suite-tools,.server-projects) :is(button,select){min-height:40px}body dialog{padding:16px}body :where(.sd-toolbar,.sp-actions,.sw-actions){flex-wrap:wrap;gap:8px}}
+@media(pointer:coarse){body :where(header,.toolbar,aside,dialog,.sai-panel,#suite-agent,#suite-tools,.server-projects) button{min-height:44px}}
+@media(forced-colors:active){body :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid Highlight}body :where(header,.toolbar,aside,dialog,#suite-agent,#suite-tools) :disabled{opacity:1;color:GrayText}}
+body #suite-shortcuts{width:min(560px,calc(100vw - 24px));padding:24px}#suite-shortcuts .sd-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}#suite-shortcuts h2{margin:0}#suite-shortcuts dt{font-weight:600;color:var(--tlal-maroon);margin-top:12px}#suite-shortcuts dd{margin:2px 0 8px;color:var(--tlal-secondary)}
+body #suite-upload-error{width:min(520px,calc(100vw - 24px));padding:24px}#suite-upload-error h2{color:var(--tlal-maroon)}#suite-upload-error p{overflow-wrap:anywhere}#suite-upload-error button{min-height:40px}

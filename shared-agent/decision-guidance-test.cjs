@@ -28,3 +28,7 @@ test('verification guidance keeps task blockers explicit without inventing succe
  const state={events:[{kind:'observation',value:{tool:'apply_project',ok:true,result:{}}}],tools:[],tasks:[{id:'verify',title:'Verify game',status:'blocked'}]};
  const result=L.decisionGuidance(state);assert.equal(result.phase,'verify');assert.equal(result.blockedTasks[0].id,'verify');assert.deepEqual(result.readyTaskIds,[]);assert.equal(state.tasks[0].status,'blocked');
 });
+test('paused repeating cycle guides adaptation without replaying the repeated loop',()=>{
+ const state={events:[{kind:'assistant',value:{status:'ask',plan:'Paused a repeating action cycle with unchanged observations.',question:'A cycle of 3 actions repeated three times with unchanged results. What should change before retrying?'}}],tools:[{name:'read_file'}]};
+ const result=L.decisionGuidance(state);assert.equal(result.phase,'adapt');assert.match(result.reason,/repeating action cycle/);
+});

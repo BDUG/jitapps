@@ -1,6 +1,8 @@
 """Local coding-agent workspace tools. File paths are bounded; commands are not an OS sandbox."""
 from __future__ import annotations
 import codecs
+import errno
+import copy
 import hashlib
 import json
 import os
@@ -9,7 +11,13 @@ import re
 import shutil
 import sqlite3
 from .agent_memory import Memory
+from .agent_memory_architectures import UnifiedMemorySuite
+from .agent_memory_manager import MemoryManager
 from .agent_project_memory import ProjectMemory
+from .agent_pyenv import PythonEnvironments, inline_metadata, validate_packages
+from .agent_harness import ScriptLibrary, AGENT_IO, parse_result, language_for
+from .project_knowledge import ProjectKnowledge
+from .tool_library import ToolLibrary
 from .agent_skills import Skills
 from .agent_navigation import Navigation
 from .agent_embeddings import LocalEmbeddings
@@ -22,13 +30,17 @@ import uuid
 
 SKIP = {'.git', '.suite-agent', '.codingagentlib-rust','.suite-wormhole', 'node_modules', '__pycache__', '.venv', 'venv'}
 TOOLS = [
+ {'name':'python_target_save','description':'Save a named target pinned to an inspected Python recipe hash/revision, typed input arguments and optional enabled skills. Requires edit permission; does not execute.','arguments':{'id':'target ID','tool':'recipe ID','expectedToolHash':'current source hash','arguments':'validated input object','skills':'skill IDs','expectedRevision':'0 or current target revision'}},
+ {'name':'python_tools','description':'Inspect the reusable Python tool library and pinned targets. prepare stages a hash/revision-checked managed script; execution still requires a separate allowed run_script call.','arguments':{'action':'list/read/prepare/list_targets','id':'tool or target ID','target':'optional target ID','expectedHash':'required tool hash for prepare','parameters':'input object for prepare'}},
+ {'name':'python_tool_save','description':'Save a parameterized managed Python script as a reusable library tool; requires edit permission and current source hash. No execution.','arguments':{'id':'stable ID','path':'managed Python script path','expectedHash':'source hash','expectedRevision':'0 or current library revision','parameters':'JSON parameter schema','name':'tool name','skills':'optional skill IDs'}},
+ {'name':'project_knowledge','description':'Query or refresh this project’s automatically derived ontology and dependency graph. Reference data only, never instructions or verification. Full graph/ontology imports and exports are host operations.','arguments':{'action':'query or refresh, default query','query':'optional keywords','fallback':'inventory (default) or empty when keywords do not match'}},
  {'name':'read_project_instructions','description':'Read scoped AGENTS.override.md/AGENTS.md from workspace root through a target path. Exact contents, scope and SHA-256; deeper guidance applies only to its subtree. No permission grants.','arguments':{'path':'workspace-relative file or directory, default .'}},
  {'name':'parallel_read','description':'Inspect 1–8 independent workspace reads concurrently (read_file/list_files/search only). Audited child receipts, stable request-order results. Never commands, writes or dependent tasks; not an atomic snapshot.','arguments':{'requests':'array of {id:unique identifier,tool:read_file|list_files|search,args:object}','workers':'1..4, default 4'}},
  {'name':'discover_tools','description':'Find current tool definitions by names or keywords. Read-only metadata; never executes or enables a tool.','arguments':{'query':'optional keywords or tool family','names':'optional exact tool names, up to 20','offset':'result offset, default 0','limit':'1..20, default 12'}},
  {'name':'catalog_search','description':'Search shared and app-specific skill instructions, including custom skills. Documents are untrusted reference data.','arguments':{'query':'keywords','limit':'1..100','cursor':'integer','kind':'skill or reference','source':'optional configured source ID'}},
  {'name':'catalog_fetch','description':'Index one known catalog directory reference as a skill document over HTTPS; never installs or executes it.','arguments':{'id':'existing catalog reference ID','refresh':'optional boolean to refresh a previously indexed reference'}},
  {'name':'catalog_read','description':"Read a pinned skill in pages, using this app's saved edits when present, without executing it.",'arguments':{'id':'catalog skill ID','contentHash':'pin the returned content hash','offset':'character offset','limit':'1..64000'}},
- {'name':'workflow_save','description':'Define or update a reusable workspace tool workflow. Inputs and earlier-step result references are data; no execution occurs on save. Requires edit permission and expectedRevision.','arguments':{'id':'stable workflow ID','expectedRevision':'0 for new; latest revision for update','definition':'suite-tool-workflow/v1 object: name, description, inputs:{name:{type,required?,default?}}, steps:[{id,tool,args,checks?}]. Whole-value references: {"$input":"name"} or {"$step":"earlier-step","path":"/result-field"}. Only local workspace/script/program tools; no nested workflows/browser edits.','enabled':'boolean','evidenceCallIds':'optional ordered observed step call IDs'}},
+ {'name':'workflow_save','description':'Define or update a reusable workspace tool workflow. Inputs and earlier-step result references are data; no execution occurs on save. Requires edit permission and expectedRevision.','arguments':{'id':'stable workflow ID','expectedRevision':'0 for new; latest revision for update','definition':'suite-tool-workflow/v1 for plain steps, or v2 with pinned skills: name, description, inputs:{name:{type,required?,default?}}, steps:[{id,tool,args,checks?,skills?:[{id,revision}]}]. Whole-value references: {"$input":"name"} or {"$step":"earlier-step","path":"/result-field"}. Only local workspace/script/program tools; no nested workflows/browser edits.','enabled':'boolean','evidenceCallIds':'optional ordered observed step call IDs'}},
  {'name':'workflow_history','description':'List immutable workflow revision metadata, newest first.','arguments':{'id':'workflow ID','cursor':'integer','limit':'1..100'}},
  {'name':'workflow_compare','description':'Compare two pinned workflow revisions without executing or changing them.','arguments':{'id':'workflow ID','fromRevision':'integer','toRevision':'integer'}},
  {'name':'workflow_preflight','description':'Validate a workflow draft and inputs; inspect static permissions and executable allowlist without executing. Dynamic arguments still need runtime checks.','arguments':{'definition':'suite-tool-workflow/v1 object','inputs':'named JSON values'}},
@@ -71,11 +83,22 @@ TOOLS = [
  {'name':'write_script','description':'Create/update a managed working script, separate from project sources.','arguments':{'path':'relative script name','content':'complete script text'}},
  {'name':'read_script','description':'Read a page of a managed script.','arguments':{'path':'relative script name','offset':'character offset','limit':'1..64000'}},
  {'name':'delete_script','description':'Remove a managed script in this session.','arguments':{'path':'relative script name'}},
- {'name':'run_command','description':'Run an allowlisted executable with literal argv in a workspace subdirectory; returns real exit status and output log IDs.','arguments':{'command':'allowlisted name','args':'array of strings','cwd':'relative directory, default .','stdin':'optional text','timeout':'milliseconds, 100..600000'}},
- {'name':'run_script','description':'Execute a managed script using an allowlisted interpreter.','arguments':{'path':'managed script name','command':'allowlisted interpreter','args':'array','cwd':'relative directory','timeout':'milliseconds'}},
+ {'name':'run_command','description':'Run an allowlisted executable with literal argv in a workspace subdirectory; returns real exit status, resolvedExecutable and output log IDs. Missing paths fall back to PATH by approved basename.','arguments':{'command':'allowlisted name','args':'array of strings','cwd':'relative directory, default .','stdin':'optional text','timeout':'milliseconds, 100..600000'}},
+ {'name':'run_script','description':'Execute a managed script using an allowlisted interpreter; missing interpreter paths fall back to PATH by approved basename.','arguments':{'path':'managed script name','command':'allowlisted interpreter','args':'array','cwd':'relative directory','timeout':'milliseconds'}},
  {'name':'read_command_output','description':'Read full stdout/stderr logs in pages; previews are not complete logs. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes.','arguments':{'jobId':'returned command job ID','stream':'stdout or stderr','offset':'character offset','limit':'1..64000'}},
  {'name':'changes','description':'Compare current project files with the initial manifest, including command-created changes.','arguments':{}},
  {'name':'restore_file','description':'Restore a file changed through file tools from its original session recovery copy; expectedHash guards the current content. Command-only edits have no automatic copy.','arguments':{'path':'relative file','expectedHash':'current SHA-256 or missing'}},
+ {'name':'python_env','description':'Manage isolated Python virtual environments (preferring uv, falling back to stdlib venv + pip). Environments live in the private agent state directory.','arguments':{'action':'list|status|create|install|uninstall|packages|freeze|remove','name':'environment name, default default','packages':'array of PEP 508 package specs','python':'optional Python version for uv','upgrade':'boolean'}},
+ {'name':'script_run','description':'Run a managed script, inline source, or saved libraryId inside a managed Python virtual environment with structured JSON input (AGENT_INPUT_JSON / agent_io.load_input()), result capture (AGENT_RESULT: / agent_io.emit()), PEP 723 dependency bootstrap, and optional auto-capture into script_library.','arguments':{'path':'managed script path','source':'inline script source','filename':'filename for inline source (default inline.py)','libraryId':'saved script library ID','revision':'optional library revision','env':'environment name, default default','requirements':'optional array of pip packages','input':'JSON input object','args':'CLI argv array','cwd':'relative directory','timeout':'milliseconds','autoCapture':'boolean, default true','save':'optional {id,description,tags} to save/update'}},
+ {'name':'script_library','description':'Search, list, read, save, update, delete, inspect history/runs, or export/import reusable scripts in the workspace script library.','arguments':{'action':'search|list|read|save|update|delete|history|runs|stats|export|import','id':'script ID','query':'search keywords','source':'script source for save','filename':'filename','description':'summary','tags':'array of tags','requirements':'array of pip packages','env':'default env name','expectedRevision':'current revision (0 for new)','pinned':'boolean','archived':'boolean'}},
+ {'name':'memory_remember','description':'Store or update a durable layered agent memory (fact, lesson, episode, preference, procedure, note) with importance, confidence, tags, pinning and optional ttlDays. Deduplicates near-identical memories.','arguments':{'content':'memory text','kind':'fact|lesson|episode|preference|procedure|note','title':'short title','tags':'array of tags','importance':'0..1','confidence':'0..1','pinned':'boolean','ttlDays':'optional expiry days','scope':'workspace or session:<id>','id':'optional existing ID','expectedRevision':'optional revision'}},
+ {'name':'memory_recall','description':'Search long-term agent memories by query, kinds, tags, or scope, ranked by similarity, keyword overlap, importance, recency decay and usage.','arguments':{'query':'search keywords','kinds':'optional array of kinds','tags':'optional array of tags','scope':'optional scope','limit':'1..100, default 8','budgetChars':'200..200000'}},
+ {'name':'memory_forget','description':'Forget unpinned (or forced) agent memories by id, ids, tag, kind, olderThanDays or query.','arguments':{'id':'memory ID','ids':'array of IDs','tag':'tag filter','kind':'kind filter','olderThanDays':'age threshold','query':'similarity filter','force':'boolean to allow pinned'}},
+ {'name':'memory_manage','description':'Manage long-term agent memory: inspect stats, list/read items, update metadata, pin/unpin, consolidate (expire, merge duplicates, prune), or export.','arguments':{'action':'stats|list|read|update|pin|unpin|consolidate|export','id':'memory ID','kind':'kind filter','tag':'tag filter','sort':'retention|updated|importance|accessed','pinned':'boolean','expectedRevision':'revision for update'}},
+ {'name':'scratchpad','description':'Manage this run\'s key/value working scratchpad, injected into every planning turn.','arguments':{'action':'set|get|delete|list','key':'short identifier','value':'string or JSON value','append':'boolean for set'}},
+ {'name':'memory_struct','description':'Store or query StructMem typed, schema-validated structured records (entity, file_summary, api_contract, error_pattern, decision, config, dependency).','arguments':{'action':'schemas|store|query|get|delete','schema':'schema name','data':'record object','query':'keywords','subject':'subject filter','tag':'tag filter','id':'record ID','limit':'1..100'}},
+ {'name':'memory_graph','description':'Query or update graph-based agent memories: egGENT episodic trajectories, A-MEM Zettelkasten linked/evolving notes, and MAGMA 4-view (semantic, temporal, causal, entity) multi-graph with RRF fusion.','arguments':{'action':'eggent_query|amem_add|amem_search|magma_add|magma_link|magma_query','query':'search keywords','content':'note/node text','context':'note context','tags':'tag array','entities':'entity array','views':'MAGMA views array','hops':'1..3','limit':'1..50'}},
+ {'name':'memory_research','description':'Run GAM (General Agent Memory) iterative multi-hop Researcher retrieval across StructMem, egGENT, A-MEM, MAGMA, GAM pages, and MemoryManager, or memorize a GAM page.','arguments':{'action':'research|memorize','query':'research question','title':'page title for memorize','body':'page body for memorize','maxHops':'1..5, default 3','budgetChars':'500..100000, default 5000'}},
 ]
 
 def digest(data): return hashlib.sha256(data).hexdigest()
@@ -90,11 +113,47 @@ def integer(v, default, low, high):
     if isinstance(v, bool) or not isinstance(v, int) or not low <= v <= high: raise ValueError('Integer is outside its supported range')
     return v
 
+def command_log_receipts(paths,result):
+    for stream,p in paths.items():
+        with p.open('rb') as log:
+            hasher=hashlib.sha256()
+            while chunk:=log.read(65536):hasher.update(chunk)
+            digest=hasher.hexdigest()
+            log.seek(0);data=log.read(6000)
+        result[stream+'Sha256']=digest
+        result[stream+'Bytes']=p.stat().st_size
+        decoder=codecs.getincrementaldecoder('utf-8')('replace')
+        result[stream]=decoder.decode(data,final=len(data)>=result[stream+'Bytes'])
+        result[stream+'NextOffset']=len(data)-len(decoder.getstate()[0])
+    result['outputPaged']=any(result[stream+'Bytes']>result[stream+'NextOffset'] for stream in paths)
+
+
+class CommandLaunchError(OSError):
+    """A launch attempt with retained logs; no child process returned an exit code."""
+    def __init__(self, receipt):
+        self.receipt=receipt
+        super().__init__(receipt['launchError']['message'])
+
 class FileRevisionConflict(ValueError):
     """A guarded edit used a revision other than the current file contents."""
     def __init__(self,path,expected,actual):
         super().__init__('File changed or was not read first. Read it and supply its current expectedHash (or missing for a new file)')
         self.conflict={'path':path,'expectedHash':expected if isinstance(expected,str) else None,'actualHash':actual,'requiresRead':True}
+
+def executable_path_exists(name):
+    if Path(name).exists():return True
+    if os.name=='nt':
+        return any(Path(name+ext).exists() for ext in os.environ.get('PATHEXT','.COM;.EXE;.BAT;.CMD').split(os.pathsep) if ext)
+    return False
+
+def find_executable(name):
+    """Try the requested location, then PATH by basename only if it is missing."""
+    if not isinstance(name,str) or not name or '\0' in name:return None
+    executable=shutil.which(name)
+    if not executable and os.path.dirname(name) and not executable_path_exists(name):
+        executable=shutil.which(Path(name).name)
+    # Keep launcher symlinks: resolving a venv Python or multicall binary changes its behavior.
+    return os.path.abspath(executable) if executable else None
 
 def command_allowlist(commands):
     commands=list(commands);allowed={}
@@ -102,13 +161,15 @@ def command_allowlist(commands):
         allowed['*']='*'
         commands=[name for name in ('python3','python','node','npm','git','sh') if shutil.which(name)]
     for name in commands:
-        executable=shutil.which(name)
+        executable=find_executable(name)
         if not executable:raise ValueError('Agent executable not found: '+name)
-        for alias in {name,Path(name).name,str(Path(executable).resolve())}:allowed[alias]=str(Path(executable).resolve())
+        for alias in {name,Path(name).name,str(Path(executable).resolve())}:allowed[alias]=executable
     return allowed
 
 class Runtime:
-    def __init__(self, workspace=None, commands=(), embedding_dir=None, navigation_dir=None):
+    def __init__(self, workspace=None, commands=(), embedding_dir=None, navigation_dir=None, tool_library=None, state_dir=None, remember_sessions=True):
+        if not isinstance(remember_sessions, bool): raise ValueError('remember_sessions must be boolean')
+        self.remember_sessions = remember_sessions
         self.root = Path(workspace).expanduser().resolve() if workspace else None
         if self.root and not self.root.is_dir(): raise ValueError('Agent workspace must be an existing directory')
         self.allowed = command_allowlist(commands)
@@ -120,18 +181,36 @@ class Runtime:
         self.lock = threading.RLock()
         self._file_edit_lock = threading.RLock()
         self.slots = threading.BoundedSemaphore(2)
-        self.state = self.root/'.suite-agent' if self.root else None
-        if self.state and self.state.is_symlink(): raise ValueError('Agent state directory cannot be a symlink')
+        self.state = (Path(state_dir).expanduser().absolute() if state_dir else self.root/'.suite-agent') if self.root else None
+        if self.state and any(p.is_symlink() for p in [self.state,*self.state.parents]): raise ValueError('Agent state directory cannot be a symlink')
+        if self.state:
+            self.state=self.state.resolve()
+            if self.root.is_relative_to(self.state):raise ValueError('Agent state directory cannot contain the workspace')
+            self.state.mkdir(parents=True,exist_ok=True,mode=0o700)
+            owner=self.state/'workspace.json'
+            if owner.is_symlink():raise ValueError('Agent workspace identity cannot be a symlink')
+            if owner.exists():
+                if json.loads(owner.read_text(encoding='utf-8')).get('workspace')!=str(self.root):raise ValueError('Agent state directory belongs to a different workspace; choose its original workspace or another state directory')
+            else:self.write(owner,json.dumps({'workspace':str(self.root)}).encode('utf-8'))
+            self.private_paths.add(self.state)
         self.navigation=Navigation(navigation_dir)
         self.private_paths.update(self.navigation.private_paths)
         semantic=LocalEmbeddings(embedding_dir) if embedding_dir and self.state else None
         if semantic:self.private_paths.update(semantic.private_paths)
         self.memory=Memory(self.state/'memory.sqlite3',semantic) if self.state else None
         self.project_memory=ProjectMemory(self.memory) if self.memory else None
+        self.knowledge=ProjectKnowledge(self.memory) if self.memory else None
+        self._knowledge_dirty=True
         self.skills=Skills(self.state/'skills.sqlite3') if self.state else None
+        self.tool_library=ToolLibrary(tool_library or self.state/'tool-library.sqlite3') if self.state else None
+        if self.tool_library:self.private_paths.update(Path(str(self.tool_library.path.resolve())+suffix) for suffix in ('','-wal','-shm','-journal'))
         self.workflows=agent_workflows.Workflows(self.state/'workflows.sqlite3') if self.state else None
+        self.pyenvs=PythonEnvironments(self.state/'pyenvs',resolve=self.resolve_command) if self.state else None
+        self.script_library=ScriptLibrary(self.state/'script-library.sqlite3') if self.state else None
+        self.agent_memory=MemoryManager(self.state/'agent-memory.sqlite3') if self.state else None
+        self.memory_suite=UnifiedMemorySuite(self.state/'agent-memory-suite.sqlite3',memory_manager=self.agent_memory) if self.state else None
     def health(self):
-        return {'sharedSkills':{'available':bool(self.shared_skills),'scope':'all suite apps','backend':'SQLite vector catalog'},'workflows':{'scope':'workspace','storage':'local SQLite revision library','format':'suite-tool-workflow/v1'},'skills':{'scope':'workspace','storage':'local SQLite revision library','format':'Markdown'},'navigation':self.navigation.health(),'memory':{**(self.memory.health() if self.memory else {}),'embeddingBackend':self.memory.health().get('backend') if self.memory else None,'backend':'sqlite','storage':'sqlite','scope':'session'},'enabled':bool(self.root),'workspace':str(self.root) if self.root else None,'commands':sorted(set(self.allowed)-{'*'}),'commandPolicy':'all' if '*' in self.allowed else 'allowlist','commandPolicyNote':'All resolvable executables allowed; commands lists installed starter examples, not a restriction.' if '*' in self.allowed else 'Only listed executable names are allowed.', 'tools':TOOLS,'protocol':'suite-coding-agent/v1','acceptanceVersion':1,'changeReviewVersion':1,'inspectVersion':1,'workflowVersion':1,'planningVersion':1,'independentReviewVersion':1,'commandIsolation':'OS permissions of the relay process; not sandboxed','fileRecovery':'File-tool edits only; command-side edits require your own backups/version control'}
+        return {'projectKnowledge':{'features':['ontology','source-provenance','graph-neighborhoods','annotations','history','revision-guards','query-fallback-v1'],'automatic':True,'scope':'project','format':'codingagentlib/project-knowledge-v1','ontologyFormat':'codingagentlib/project-ontology-v1'},'pythonTools':{'scope':'configured library','language':'python','implicitCapture':'tagged successful parameterized scripts only','execution':'separate permission-checked run_script'},'pythonEnvironments':self.pyenvs.health() if self.pyenvs else None,'scriptLibrary':self.script_library.stats() if self.script_library else None,'agentMemory':self.agent_memory.stats() if self.agent_memory else None,'memoryArchitectures':self.memory_suite.stats() if self.memory_suite else None,'rememberSessions':self.remember_sessions,'sharedSkills':{'available':bool(self.shared_skills),'scope':'all suite apps','backend':'SQLite vector catalog'},'workflows':{'scope':'workspace','storage':'local SQLite revision library','format':'suite-tool-workflow/v1'},'skills':{'scope':'workspace','storage':'local SQLite revision library','format':'Markdown'},'navigation':self.navigation.health(),'memory':{**(self.memory.health() if self.memory else {}),'embeddingBackend':self.memory.health().get('backend') if self.memory else None,'backend':'sqlite','storage':'sqlite','scope':'session'},'enabled':bool(self.root),'workspace':str(self.root) if self.root else None,'stateDirectory':str(self.state) if self.state else None,'commands':sorted(set(self.allowed)-{'*'}),'commandPolicy':'all' if '*' in self.allowed else 'allowlist','commandPolicyNote':'All resolvable executables allowed; commands lists installed starter examples, not a restriction.' if '*' in self.allowed else 'Only listed executable names are allowed.', 'tools':TOOLS,'protocol':'suite-coding-agent/v1','acceptanceVersion':1,'changeReviewVersion':1,'inspectVersion':1,'workflowVersion':2,'workflowContracts':['suite-tool-workflow/v1','suite-tool-workflow/v2'],'workflowFeatures':['skill-pins-v1'],'planningVersion':1,'independentReviewVersion':1,'commandIsolation':'OS permissions of the relay process; not sandboxed','fileRecovery':'File-tool edits only; command-side edits require your own backups/version control'}
     def enabled(self):
         if not self.root: raise PermissionError('Coding agent is disabled. Start the server with --agent-workspace /path/to/project')
     def path(self, value='.', directory=False, base=None, private=False):
@@ -146,14 +225,14 @@ class Runtime:
             if current.is_symlink(): raise PermissionError('Symlinks are not supported by file tools')
         result=(base/p).resolve()
         if not result.is_relative_to(base): raise PermissionError('Path leaves the configured workspace')
-        if not private and result in self.private_paths:raise PermissionError('Server configuration is excluded from agent file tools')
+        if not private and any(result==p or p.is_dir() and result.is_relative_to(p) for p in self.private_paths):raise PermissionError('Server configuration is excluded from agent file tools')
         if directory and not result.is_dir(): raise ValueError('Directory does not exist')
         return result
     def files(self, directory=None):
         directory=directory or self.root
         result=[]
         for current, dirs, files in os.walk(directory, followlinks=False):
-            dirs[:]=sorted(d for d in dirs if d not in SKIP and not d.startswith('.env') and not (Path(current)/d).is_symlink())
+            dirs[:]=sorted(d for d in dirs if d not in SKIP and not d.startswith('.env') and not (Path(current)/d).is_symlink() and (Path(current)/d).resolve() not in self.private_paths)
             for name in sorted(files):
                 p=Path(current)/name
                 if p.is_symlink() or name.startswith('.env') or p.resolve() in self.private_paths: continue
@@ -167,7 +246,7 @@ class Runtime:
             s['updatedAt']=now()
             target=s['_dir']/'session.json'
             data={k:v for k,v in s.items() if not k.startswith('_')}
-            temporary=target.with_suffix('.tmp');temporary.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8');temporary.replace(target)
+            self.write(target,json.dumps(data,ensure_ascii=False,indent=2).encode('utf-8'))
     def get(self, ident):
         self.enabled()
         if not isinstance(ident,str) or not re.fullmatch(r'[a-f0-9]{32}',ident): raise ValueError('Invalid agent session ID')
@@ -190,11 +269,15 @@ class Runtime:
         if any(r['tool'] not in {t['name'] for t in TOOLS} for r in acceptance_rules):raise ValueError('Acceptance rule refers to an unknown tool')
         memory_project=data.get('projectMemoryProject')
         if memory_project is not None:self.project_memory.scope(memory_project)
+        remember_sessions=data.get('rememberSessions',self.remember_sessions)
+        if not isinstance(remember_sessions,bool):raise ValueError('rememberSessions must be boolean')
         ident=uuid.uuid4().hex;directory=self.state/'sessions'/ident
         directory.mkdir(parents=True,mode=0o700);(directory/'scripts').mkdir();(directory/'logs').mkdir();(directory/'backups').mkdir()
-        s={'id':ident,'workspace':str(self.root),'goal':goal,'tool':str(data.get('tool','codeiX'))[:100],'status':'running','acceptanceRules':acceptance_rules,'allowEdits':data.get('allowEdits') is True,'allowProjectContext':data.get('allowProjectContext') is True,'allowProjectEdits':data.get('allowProjectEdits') is True,'reviewProjectEdits':data.get('reviewProjectEdits',True) is True,'independentReview':data.get('independentReview') is True,'allowCommands':data.get('allowCommands') is True,'createdAt':now(),'events':[],'jobs':{},'backups':{},'initial':self.manifest(),'_dir':directory,'_cancel':threading.Event(),'_lock':threading.RLock(),'_active':None,'_calls':set(),'_running':False}
+        s={'id':ident,'workspace':str(self.root),'goal':goal,'tool':str(data.get('tool','codeiX'))[:100],'status':'running','acceptanceRules':acceptance_rules,'rememberSessions':remember_sessions,'requireSpec':data.get('requireSpec') is True,'specApproved':False,'allowEdits':data.get('allowEdits') is True,'allowProjectContext':data.get('allowProjectContext') is True,'allowProjectEdits':data.get('allowProjectEdits') is True,'reviewProjectEdits':data.get('reviewProjectEdits',True) is True,'independentReview':data.get('independentReview') is True,'allowCommands':data.get('allowCommands') is True,'createdAt':now(),'events':[],'jobs':{},'backups':{},'initial':self.manifest(),'_dir':directory,'_cancel':threading.Event(),'_lock':threading.RLock(),'_active':None,'_calls':set(),'_running':False}
         if memory_project is not None:s['projectMemoryProject']=memory_project.strip()
+        s['knowledgeProject']=self.knowledge.project(data.get('knowledgeProject') or (memory_project.strip() if memory_project is not None else self.root.name[:200]))
         with self.lock: self.sessions[ident]=s
+        self.knowledge.refresh(self,s['knowledgeProject']);self._knowledge_dirty=False
         self.persist(s);return self.public(s)
     def event(self,s,kind,value):
         with s['_lock']:
@@ -245,10 +328,14 @@ class Runtime:
     def write(self,p,data):
         p.parent.mkdir(parents=True,exist_ok=True)
         temporary=p.with_name('.'+p.name+'.agent-'+uuid.uuid4().hex+'.tmp')
-        try: temporary.write_bytes(data);temporary.replace(p)
+        try:
+            with temporary.open('wb') as stream:
+                stream.write(data);stream.flush();os.fsync(stream.fileno())
+            temporary.replace(p)
         finally: temporary.unlink(missing_ok=True)
     def edits(self,s):
-        if not s['allowEdits']: raise PermissionError('File editing was not enabled for this session')
+        if not s['allowEdits']: raise PermissionError('File/script/skill edits are disabled for this session')
+        if s.get('requireSpec') and not s.get('specApproved'): raise PermissionError('Spec-Driven Development gate: approve a specification and plan (op="approve_spec") before editing files.')
     def changes(self,s):
         current=self.manifest();initial=s['initial'];result=[]
         for path in sorted(set(current)|set(initial)):
@@ -257,25 +344,60 @@ class Runtime:
     def resolve_command(self,name):
         if not isinstance(name,str) or not name or '\0' in name:return None
         if '*' in self.allowed:
-            executable=shutil.which(name)
-            return str(Path(executable).resolve()) if executable else None
-        return self.allowed.get(name)
-    def command(self,s,args,script=None):
+            return find_executable(name)
+        executable=self.allowed.get(name)
+        if not executable and os.path.dirname(name) and not executable_path_exists(name):
+            # A stale model-supplied path may use an approved name, never an
+            # unapproved existing binary with the same basename.
+            executable=self.allowed.get(Path(name).name)
+        if not executable:return None
+        resolved=find_executable(executable)
+        if not resolved and not Path(executable).exists():
+            # Canonical targets can have versioned names unlike the approved alias.
+            resolved=find_executable(Path(name).name)
+        return resolved
+    def _session_pyenvs(self,s):
+        def run(argv,*,env=None,cwd=None,timeout=600000,label=None,cancel_event=None):
+            return self.command(s,{'command':argv[0],'args':argv[1:],'timeout':timeout},env_override=env,executable_override=argv[0])
+        return PythonEnvironments(self.state/'pyenvs',runner=run,resolve=self.resolve_command,uv=self.pyenvs.uv_override,python=self.pyenvs.python_override)
+    def command(self,s,args,script=None,env_override=None,executable_override=None):
         if not s['allowCommands']: raise PermissionError('Commands were not enabled for this session')
-        executable=self.resolve_command(args.get('command'))
+        if executable_override is not None:
+            executable=executable_override
+        else:
+            executable=self.resolve_command(args.get('command'))
         if not executable:
             if '*' in self.allowed:raise FileNotFoundError('Executable not found: '+str(args.get('command')))
-            raise PermissionError('Executable is not on --agent-allow-command allowlist')
+            if args.get('command') in self.allowed:raise FileNotFoundError('Allowlisted executable not found after PATH search: '+str(args.get('command')))
+            raise PermissionError('Executable is not on --agent-allow-command allowlist or is unavailable after PATH search. Supply one executable in command and literal arguments in args; shell syntax requires an explicitly allowed shell such as sh with args ["-c", "..."].')
         argv=args.get('args',[]);stdin=args.get('stdin','')
         if not isinstance(argv,list) or len(argv)>200 or any(not isinstance(a,str) or '\0' in a for a in argv) or not isinstance(stdin,str): raise ValueError('Use literal text argv and stdin')
-        timeout=integer(args.get('timeout'),30000,100,600000);cwd=self.path(args.get('cwd','.'),directory=True)
+        timeout=integer(args.get('timeout'),30000,100,600000)
+        requested_cwd=args.get('cwd','.')
+        if requested_cwd is None or requested_cwd=='':requested_cwd='.'
+        if isinstance(requested_cwd,str) and Path(requested_cwd).is_absolute():
+            try:requested_cwd=str(Path(requested_cwd).relative_to(self.root)) or '.'
+            except ValueError:raise ValueError('Command working directory must stay inside the configured workspace') from None
+        cwd=self.path(requested_cwd,directory=True)
+        if script is not None and not Path(script).is_file():raise FileNotFoundError('Managed script not found; use write_script before run_script')
         if not self.slots.acquire(blocking=False): raise ValueError('Two commands are already running; retry later')
         job=uuid.uuid4().hex;paths={stream:s['_dir']/'logs'/(job+'.'+stream) for stream in ('stdout','stderr')};proc=None
         try:
             self.check(s)
             verification_before=agent_verification.capture(self,s)
+            script_hash_before=file_hash(Path(script)) if script else None
             with paths['stdout'].open('wb') as out,paths['stderr'].open('wb') as err:
-                proc=subprocess.Popen([executable,*([str(script)] if script else []),*argv],cwd=cwd,stdin=subprocess.PIPE,stdout=out,stderr=err,shell=False,start_new_session=os.name!='nt')
+                try:
+                    proc=subprocess.Popen([executable,*([str(script)] if script else []),*argv],cwd=cwd,env=env_override,stdin=subprocess.PIPE,stdout=out,stderr=err,shell=False,start_new_session=os.name!='nt')
+                except OSError as error:
+                    code={errno.ENOENT:'missing_executable_or_interpreter',errno.EACCES:'launch_permission',errno.ENOEXEC:'invalid_executable_format'}.get(error.errno,'launch_os_error')
+                    diagnostic=str(error);raw=diagnostic.encode('utf-8');err.write(raw);err.flush()
+                    result={'jobId':job,'command':args['command'],'launchedExecutable':executable,'resolvedExecutable':str(Path(executable).resolve()),'args':([str(script)] if script else [])+argv,'cwd':str(cwd.relative_to(self.root)),'exitCode':None,'started':False,'cancelled':False,'timedOut':False,'finishedAt':now(),'launchError':{'code':code,'errno':error.errno,'message':diagnostic},'outputPaged':len(raw)>6000}
+                    command_log_receipts(paths,result)
+                    with s['_lock']:
+                        agent_verification.record(self,s,verification_before,result)
+                        s['jobs'][job]=result;self.persist(s)
+                    raise CommandLaunchError(result) from error
                 with s['_lock']: s['_active']=proc
                 def feed():
                     try:proc.stdin.write(stdin.encode('utf-8'));proc.stdin.flush()
@@ -290,19 +412,13 @@ class Runtime:
                     s['_cancel'].wait(.025)
                 proc.wait(timeout=5)
                 if os.name!='nt': self.kill(proc)
-            result={'jobId':job,'command':args['command'],'args':([str(script)] if script else [])+argv,'cwd':str(cwd.relative_to(self.root)),'exitCode':proc.returncode,'cancelled':s['_cancel'].is_set(),'timedOut':timed_out,'finishedAt':now()}
-            for stream,p in paths.items():
-                with p.open('rb') as log:
-                    hasher=hashlib.sha256()
-                    while chunk:=log.read(65536):hasher.update(chunk)
-                    digest=hasher.hexdigest()
-                    log.seek(0);data=log.read(6000)
-                result[stream+'Sha256']=digest
-                result[stream+'Bytes']=p.stat().st_size
-                decoder=codecs.getincrementaldecoder('utf-8')('replace')
-                result[stream]=decoder.decode(data,final=len(data)>=result[stream+'Bytes'])
-                result[stream+'NextOffset']=len(data)-len(decoder.getstate()[0])
-            result['outputPaged']=any(result[stream+'Bytes']>result[stream+'NextOffset'] for stream in paths)
+            result={'jobId':job,'command':args['command'],'resolvedExecutable':str(Path(executable).resolve()),'launchedExecutable':executable,'args':([str(script)] if script else [])+argv,'cwd':str(cwd.relative_to(self.root)),'exitCode':proc.returncode,'cancelled':s['_cancel'].is_set(),'timedOut':timed_out,'finishedAt':now()}
+            command_log_receipts(paths,result)
+            if script:
+                try:
+                    captured=self.tool_library.harvest(Path(script),result,script_hash_before)
+                    if captured:result['reusableTool']={k:captured[k] for k in ('id','revision','sha256')}
+                except (ValueError,OSError,SyntaxError,TypeError) as error:result['toolLibraryNote']='Recipe not promoted: '+str(error)[:200]
             with s['_lock']:
                 agent_verification.record(self,s,verification_before,result)
                 s['jobs'][job]=result;self.persist(s)
@@ -335,16 +451,19 @@ class Runtime:
             result=agent_parallel.run(self,s,args,call_id) if name=='parallel_read' else self.execute(s,name,args);response={'ok':True,'result':result}
             if name=='parallel_read' and not result['allSucceeded']:response.update(ok=False,error='One or more independent reads failed or were cancelled; inspect individual receipts without replaying successful reads')
             if name in {'workflow_run','workflow_continue'} and result['status'] in {'failed','cancelled','interrupted'}:response.update(ok=False,error=result['reason'])
+            if name in {'write_file','apply_edits','replace_text','delete_file','restore_file','run_command','run_script','script_run'}:self._knowledge_dirty=True
             if checks:response['checks']=agent_checks.evaluate(result,checks)
-            if name in {'read_file','read_script','read_context','read_history','search','run_command','run_script','read_command_output'}:
-                text=result.get('text') if isinstance(result.get('text'),str) else (result.get('stdout','')+'\n'+result.get('stderr','') if name in {'run_command','run_script'} else json.dumps(result,ensure_ascii=False))
+            if name in {'read_file','read_script','read_context','read_history','search','run_command','run_script','script_run','read_command_output'}:
+                text=result.get('text') if isinstance(result.get('text'),str) else (result.get('stdout','')+'\n'+result.get('stderr','') if name in {'run_command','run_script','script_run'} else json.dumps(result,ensure_ascii=False))
                 if text.strip():
                     try:response['memory']=self.memory.store(s['id'],text,source=name+':'+str(args.get('path',result.get('jobId',''))),collection='observations',document=call_id,metadata={'tool':name,'callId':call_id,'hash':result.get('hash'),'snapshot':result.get('snapshot'),'jobId':result.get('jobId'),'offset':result.get('offset'),'outputPaged':result.get('outputPaged',False)})
                     except (sqlite3.Error,OSError,ValueError):response['memory']={'error':'Working-memory indexing is unavailable; the actual tool result remains in the audit log.'}
             self.event(s,'observation',{'id':call_id,'tool':name,**parent,**response});return response
         except (ValueError,PermissionError,OSError,UnicodeError,KeyError,TypeError) as error:
             result={'ok':False,'error':str(error)}
-            if isinstance(error,FileRevisionConflict):result.update(code='file_revision_conflict',conflict=error.conflict)
+            if isinstance(error,CommandLaunchError):result.update(code='command_launch_failed',result=error.receipt)
+            if isinstance(error,FileRevisionConflict):
+                result.update(code='file_revision_conflict',conflict=error.conflict,recovery={'strategy':'read_then_replan','automaticRetry':False,'nextAction':{'tool':'read_file','args':{'path':error.conflict['path']}},'note':'Read current contents, preserve concurrent edits and construct a new proposal. Never retry with only a substituted hash. Missing files require inspection of the parent folder before deliberate recreation.'})
             if isinstance(error,agent_context.SnapshotMissing):result.update(code='context_snapshot_missing',snapshot=error.snapshot)
             self.event(s,'observation',{'id':call_id,'tool':name,**parent,**result});return result
     def package(self,s,allow_active=False):
@@ -352,6 +471,38 @@ class Runtime:
             if s['_running'] and not allow_active:raise ValueError('Wait for the active tool to finish before packaging')
             return agent_package.build(self,s)
     def execute(self,s,name,a):
+        if name=='python_target_save':
+            self.edits(s);recipe=self.tool_library.read(a.get('tool'))
+            if recipe['sha256']!=a.get('expectedToolHash'):raise ValueError('Read the current recipe before pinning a target')
+            result=self.tool_library.target(a);self._knowledge_dirty=True;return result
+        if name=='python_tool_save':
+            self.edits(s);path=self.path(a.get('path'),base=s['_dir']/'scripts',private=True)
+            with path.open('rb') as stream:source=stream.read(100001)
+            if len(source)>100000 or digest(source)!=a.get('expectedHash'):raise ValueError('Read the current managed script (up to 100 KB) before saving it')
+            result=self.tool_library.save({**a,'source':source.decode('utf-8')});self._knowledge_dirty=True;return result
+        if name=='python_tools':
+            action=a.get('action','list')
+            if action=='list':return self.tool_library.list()
+            if action=='list_targets':return self.tool_library.list('targets')
+            if action=='read':return self.tool_library.read(a.get('id'))
+            if action!='prepare':raise ValueError('Unsupported Python tool action')
+            self.edits(s)
+            target=self.tool_library.read(a['target'],'targets') if a.get('target') else None
+            recipe=self.tool_library.read(target['tool'] if target else a.get('id'))
+            if recipe['sha256']!=a.get('expectedHash') or target and (target['toolHash']!=recipe['sha256'] or target['toolRevision']!=recipe['revision']):raise ValueError('Read current tool/target; source hash or pinned revision changed')
+            from .contracts import validate
+            parameters=a.get('parameters',target['arguments'] if target else {})
+            validate(recipe['parameters'],parameters)
+            for skill in [*recipe.get('skills',[]),*(target.get('skills',[]) if target else [])]:
+                if not self.skills.read(skill).get('enabled'):raise PermissionError('Target skill is disabled')
+            path='library-'+recipe['id']+'-'+recipe['sha256'][:12]+'.py'
+            staged=self.perform(s,'write_script',{'path':path,'content':recipe['source']},s.get('_activeCall','prepare')+'_script',parent_call_id=s.get('_activeCall'))
+            if not staged['ok']:raise ValueError(staged['error'])
+            return {'path':path,'sourceHash':recipe['sha256'],'toolRevision':recipe['revision'],'args':['--input-json',json.dumps(parameters)],'note':'Inspect source, then use run_script with an explicitly allowed Python interpreter. No program executed.'}
+        if name=='project_knowledge':
+            action=a.get('action','query')
+            if action not in {'query','refresh'}:raise PermissionError('Agent knowledge tools are read-only query/refresh')
+            return self.knowledge.dispatch({'project':s.get('knowledgeProject',self.root.name),'action':action,'query':a.get('query',''),'nodeIds':a.get('nodeIds',[]),'hops':a.get('hops',1),'limit':a.get('limit',12),'direction':a.get('direction','both'),'relations':a.get('relations',[]),'fallback':a.get('fallback','inventory')},self)
         if name=='read_project_instructions':return agent_instructions.read(self,a.get('path','.'))
         if name=='discover_tools':return agent_tool_discovery.search(TOOLS,a)
         if name in {'code_symbols','code_definition','code_references','code_diagnostics'}:return self.navigation.run(self,name.removeprefix('code_'),a)
@@ -384,12 +535,46 @@ class Runtime:
         if name=='read_context':return agent_context.read(self,s,a)
         if name.startswith('skill_'):
             try:
+                sess_skills=s.get('sessionSkills',{})
                 if name=='skill_search' and (not isinstance(a.get('query'),str) or not a['query'].strip()):raise ValueError('Provide skill search keywords')
-                if name=='skill_search':return self.skills.list(a['query'],a.get('cursor',0),a.get('limit',8))
-                if name=='skill_list':return self.skills.list(None,a.get('cursor',0),a.get('limit',20),a.get('includeDisabled',False))
-                if name=='skill_read':return self.skills.read(a.get('id'),a.get('revision'),a.get('offset',0),a.get('limit',12000))
+                if name=='skill_search':
+                    ws=self.skills.list(a['query'],a.get('cursor',0),a.get('limit',8))
+                    q=a['query'].casefold()
+                    overrides={k:v for k,v in sess_skills.items() if v.get('enabled',True) and q in (v.get('name','')+' '+v.get('description','')+' '+v.get('content','')).casefold()}
+                    merged=[{**v,'scope':'session'} for v in overrides.values()]+[sk for sk in ws['skills'] if sk['id'] not in sess_skills]
+                    return {**ws,'skills':merged}
+                if name=='skill_list':
+                    ws=self.skills.list(None,a.get('cursor',0),a.get('limit',20),a.get('includeDisabled',False))
+                    inc=bool(a.get('includeDisabled',False))
+                    by_id={sk['id']:{**sk,'scope':'workspace'} for sk in ws['skills']}
+                    for k,v in sess_skills.items():
+                        if inc or v.get('enabled',True):by_id[k]={k2:v[k2] for k2 in ('id','name','description','revision','enabled','updatedAt') if k2 in v}|{'scope':'session','evidenceStatus':'session-override'}
+                    return {**ws,'skills':list(by_id.values())}
+                if name=='skill_read':
+                    sid=a.get('id')
+                    if sid in sess_skills and a.get('revision') is None:
+                        sk=sess_skills[sid];text=sk['content'];off=integer(a.get('offset'),0,0,2**31);lim=integer(a.get('limit'),12000,1,64000);end=min(len(text),off+lim)
+                        return {**sk,'content':text[off:end],'offset':off,'nextOffset':end,'totalCharacters':len(text),'done':end>=len(text),'scope':'session','evidenceStatus':'session-override','sourceSession':s['id']}
+                    return {**self.skills.read(sid,a.get('revision'),a.get('offset',0),a.get('limit',12000)),'scope':'workspace'}
                 if name=='skill_history':return self.skills.history(a.get('id'),a.get('cursor',0),a.get('limit',20))
+                if name=='skill_reset':
+                    sid=a.get('id')
+                    with s['_lock']:
+                        existed=sid in s.get('sessionSkills',{})
+                        if existed:del s['sessionSkills'][sid];self.persist(s)
+                    return {'id':sid,'reset':existed}
                 if name=='skill_save':
+                    if a.get('scope')=='session':
+                        sid=str(a.get('id','')).strip();sname=str(a.get('name','')).strip();sdesc=str(a.get('description','')).strip();scontent=str(a.get('content',''))
+                        if not re.fullmatch(r'[a-z][a-z0-9_-]{0,79}',sid) or not sname or not sdesc or not scontent.strip() or len(scontent.encode('utf-8'))>200000:raise ValueError('Provide valid session skill id, name, description, and content')
+                        with s['_lock']:
+                            store=s.setdefault('sessionSkills',{})
+                            prev=store.get(sid,{}).get('revision',0)
+                            exp=a.get('expectedRevision',prev)
+                            if type(exp) is not int or exp!=prev:raise ValueError('Stale session skill revision')
+                            rec={'id':sid,'name':sname,'description':sdesc,'content':scontent,'enabled':bool(a.get('enabled',True)),'revision':prev+1,'reason':str(a.get('reason',''))[:400],'updatedAt':now(),'scope':'session'}
+                            store[sid]=rec;self.persist(s)
+                        return {**rec,'evidenceStatus':'session-override','sourceSession':s['id']}
                     if not s['allowEdits']:raise PermissionError('File/script/skill edits are disabled for this session')
                     ids=a.get('evidenceCallIds',[])
                     if not isinstance(ids,list) or any(not isinstance(id,str) for id in ids):raise ValueError('evidenceCallIds must be observation IDs')
@@ -488,13 +673,181 @@ class Runtime:
             decoder=codecs.getincrementaldecoder('utf-8')('replace');text=decoder.decode(data,final=offset+len(data)>=size);buffered=len(decoder.getstate()[0]);end=min(size,offset+len(data)-buffered)
             return {'text':text,'nextOffset':end,'offset':offset,'totalBytes':size,'done':end>=size}
         if name=='changes':return self.changes(s)
+        if name=='python_env':
+            return self._session_pyenvs(s).dispatch(a,cancel_event=s['_cancel'])
+        if name=='script_run':
+            return self._script_run(s,a)
+        if name=='script_library':
+            action=a.get('action','list')
+            if action=='list':return self.script_library.list(cursor=a.get('cursor',0),limit=a.get('limit',50),tag=a.get('tag'),include_archived=a.get('includeArchived') is True,language=a.get('language'))
+            if action=='search':return self.script_library.search(a.get('query',''),limit=a.get('limit',10),cursor=a.get('cursor',0),tag=a.get('tag'),include_archived=a.get('includeArchived') is True)
+            if action=='read':return self.script_library.read(a.get('id'),a.get('revision'),a.get('offset',0),a.get('limit',20000))
+            if action=='history':return self.script_library.history(a.get('id'))
+            if action=='runs':return self.script_library.runs(a.get('id'),a.get('limit',20))
+            if action=='stats':return self.script_library.stats()
+            if action=='export':return self.script_library.export(a.get('ids'))
+            self.edits(s)
+            if action=='save':return self.script_library.save(a,a.get('source',''),filename=a.get('filename'),origin='agent',session=s['id'],reason=a.get('reason',''),expected_revision=a.get('expectedRevision'))
+            if action=='update':return self.script_library.update(a.get('id'),{k:a[k] for k in ('name','description','tags','pinned','archived','parameters','requirements','env') if k in a},a.get('expectedRevision'))
+            if action=='delete':return self.script_library.delete(a.get('id'),a.get('expectedRevision'))
+            if action=='import':return self.script_library.import_bundle(a.get('payload'),overwrite=a.get('overwrite') is True)
+            raise ValueError('Unsupported script_library action')
+        if name=='memory_remember':
+            return self.agent_memory.remember(a.get('content',''),kind=a.get('kind','fact'),title=a.get('title'),tags=a.get('tags'),importance=a.get('importance'),confidence=a.get('confidence'),pinned=bool(a.get('pinned',False)),ttl_days=a.get('ttlDays'),scope=a.get('scope','workspace'),source={'session':s['id'],**(a.get('source') or {})},id=a.get('id'),expected_revision=a.get('expectedRevision'))
+        if name=='memory_recall':
+            return self.agent_memory.recall(a.get('query',''),kinds=a.get('kinds'),tags=a.get('tags'),scope=a.get('scope'),session=s['id'],limit=a.get('limit',8),budget_chars=a.get('budgetChars',4000))
+        if name=='memory_forget':
+            return self.agent_memory.forget(id=a.get('id'),ids=a.get('ids'),tag=a.get('tag'),kind=a.get('kind'),older_than_days=a.get('olderThanDays'),query=a.get('query'),scope=a.get('scope'),force=a.get('force') is True)
+        if name=='memory_manage':
+            return self.agent_memory.dispatch(a,session=s)
+        if name=='scratchpad':
+            action=a.get('action','list')
+            if action=='list':return self.agent_memory.scratch_list(s['id'])
+            if action=='get':return self.agent_memory.scratch_get(s['id'],a.get('key'))
+            if action=='set':return self.agent_memory.scratch_set(s['id'],a.get('key'),a.get('value',''),append=a.get('append') is True)
+            if action=='delete':return self.agent_memory.scratch_delete(s['id'],a.get('key'))
+            raise ValueError('Unsupported scratchpad action; use set, get, delete or list')
+        if name=='memory_struct':
+            action=a.get('action','query')
+            if action not in {'schemas','store','query','get','delete'}:raise ValueError('Unsupported memory_struct action')
+            return self.memory_suite.dispatch({**a,'action':'struct_'+action},session=s)
+        if name=='memory_graph':
+            action=a.get('action','magma_query')
+            if action not in {'eggent_query','amem_add','amem_search','magma_add','magma_link','magma_query'}:raise ValueError('Unsupported memory_graph action')
+            return self.memory_suite.dispatch({**a,'action':action},session=s)
+        if name=='memory_research':
+            action=a.get('action','research')
+            if action=='memorize':return self.memory_suite.dispatch({**a,'action':'gam_memorize'},session=s)
+            if action=='research':return self.memory_suite.dispatch({**a,'action':'gam_research'},session=s)
+            raise ValueError('Unsupported memory_research action; use research or memorize')
         raise ValueError('Unknown tool')
+    def _script_run(self,s,a):
+        if not s['allowCommands']: raise PermissionError('Commands were not enabled for this session')
+        lib_record,lib_revision=None,None
+        if a.get('libraryId'):
+            lib_record,lib_revision,source,_=self.script_library.source(a['libraryId'],a.get('revision'))
+            filename=lib_record['filename']
+            script_name='lib-'+lib_record['id']+'-r'+str(lib_revision)+Path(filename).suffix
+            script_path=self.path(script_name,base=s['_dir']/'scripts',private=True)
+            self.write(script_path,source.encode('utf-8'))
+        elif isinstance(a.get('source'),str):
+            filename=a.get('filename','inline.py')
+            if not isinstance(filename,str) or '/' in filename or '\\' in filename or '..' in filename:raise ValueError('Use a simple filename for inline scripts')
+            source=a['source']
+            if '\0' in source or len(source.encode('utf-8'))>200000:raise ValueError('Script source exceeds 200 KB')
+            script_path=self.path('inline-'+uuid.uuid4().hex[:8]+'-'+filename,base=s['_dir']/'scripts',private=True)
+            self.write(script_path,source.encode('utf-8'))
+        elif a.get('path'):
+            script_path=self.path(a['path'],base=s['_dir']/'scripts',private=True)
+            if not script_path.is_file():raise FileNotFoundError('Managed script not found: '+a['path'])
+            source=script_path.read_text(encoding='utf-8')
+            filename=script_path.name
+        else:
+            raise ValueError('Provide path, source or libraryId for script_run')
+        language=language_for(filename)
+        env_name=a.get('env') or (lib_record.get('env') if lib_record else None) or 'default'
+        pyenvs=self._session_pyenvs(s)
+        requirements=list(a.get('requirements') or [])
+        if lib_record and lib_record.get('requirements'):
+            requirements=list(dict.fromkeys([*lib_record['requirements'],*requirements]))
+        if language=='python':
+            meta=inline_metadata(source)
+            if meta.get('dependencies'):
+                requirements=list(dict.fromkeys([*meta['dependencies'],*requirements]))
+            pyenvs.ensure(env_name,python=a.get('python'))
+            missing=pyenvs.missing(env_name,requirements)
+            if missing:
+                install=pyenvs.install(env_name,missing)
+                if not install.get('installed'):
+                    raise ValueError('Failed to install script dependencies: '+', '.join(missing))
+            executable=str(pyenvs.interpreter(env_name))
+            proc_env=pyenvs.environment(env_name)
+        elif language=='node':
+            executable=self.resolve_command('node')
+            if not executable:raise PermissionError('node is not allowed by command policy')
+            proc_env=dict(os.environ)
+        elif language=='shell':
+            executable=self.resolve_command('bash') or self.resolve_command('sh')
+            if not executable:raise PermissionError('sh/bash is not allowed by command policy')
+            proc_env=dict(os.environ)
+        else:
+            raise ValueError('Unsupported script language for script_run: '+filename)
+        harness_dir=s['_dir']/'harness';harness_dir.mkdir(parents=True,exist_ok=True)
+        self.write(harness_dir/'agent_io.py',AGENT_IO.encode('utf-8'))
+        run_id=uuid.uuid4().hex[:12];run_dir=s['_dir']/'runs'/run_id;artifact_dir=run_dir/'artifacts'
+        artifact_dir.mkdir(parents=True,exist_ok=True)
+        input_data=a.get('input',{})
+        input_json=json.dumps(input_data,ensure_ascii=False)
+        input_path=run_dir/'input.json';result_path=run_dir/'result.json'
+        self.write(input_path,input_json.encode('utf-8'))
+        proc_env['AGENT_INPUT_PATH']=str(input_path)
+        if len(input_json.encode('utf-8'))<=32000:proc_env['AGENT_INPUT_JSON']=input_json
+        proc_env['AGENT_RESULT_PATH']=str(result_path)
+        proc_env['AGENT_ARTIFACT_DIR']=str(artifact_dir)
+        proc_env['PYTHONPATH']=str(harness_dir)+(os.pathsep+proc_env['PYTHONPATH'] if proc_env.get('PYTHONPATH') else '')
+        receipt=self.command(s,{'command':executable,'args':a.get('args',[]),'cwd':a.get('cwd','.'),'stdin':a.get('stdin',''),'timeout':a.get('timeout',60000)},script=script_path,env_override=proc_env,executable_override=executable)
+        structured,channel=parse_result(receipt.get('stdout',''),result_path)
+        artifacts=[{'name':p.name,'bytes':p.stat().st_size} for p in sorted(artifact_dir.iterdir()) if p.is_file()]
+        receipt['structuredResult']=structured;receipt['resultChannel']=channel;receipt['artifacts']=artifacts;receipt['env']=env_name;receipt['language']=language
+        if lib_record:
+            self.script_library.record_run(lib_record['id'],lib_revision,session=s['id'],receipt=receipt,summary=json.dumps(structured)[:200] if structured is not None else None)
+            receipt['libraryId']=lib_record['id'];receipt['libraryRevision']=lib_revision
+        elif receipt.get('exitCode')==0 and not receipt.get('timedOut') and not receipt.get('cancelled'):
+            save_spec=a.get('save')
+            if isinstance(save_spec,dict) and s['allowEdits']:
+                saved=self.script_library.save({**save_spec,'env':env_name,'requirements':requirements},source,filename=filename,origin='agent',session=s['id'])
+                receipt['libraryEntry']={'id':saved['id'],'revision':saved['revision'],'captured':True}
+            elif a.get('autoCapture',True) is not False:
+                captured,note=self.script_library.capture(filename,source,session=s['id'],receipt=receipt,env=env_name)
+                if captured:receipt['libraryEntry']={'id':captured['id'],'revision':captured['revision'],'note':note}
+                else:receipt['libraryCaptureNote']=note
+        return receipt
     def dispatch(self,data):
         operation=data.get('op')
         if operation=='health':return self.health()
+        if operation=='tool_library':
+            self.enabled()
+            result=self.tool_library.dispatch(data)
+            if data.get('action') in {'save','target_save','import'}:self._knowledge_dirty=True
+            return result
+        if operation=='project_knowledge':
+            self.enabled()
+            return self.knowledge.dispatch({**data,'project':data.get('project',self.root.name)},self)
         if operation=='project_memory':
             self.enabled()
             return self.project_memory.dispatch(data)
+        if operation=='python_env':
+            self.enabled()
+            return self.pyenvs.dispatch(data)
+        if operation=='script_library':
+            self.enabled()
+            action=data.get('action','list')
+            if action=='list':return self.script_library.list(cursor=data.get('cursor',0),limit=data.get('limit',50),tag=data.get('tag'),include_archived=data.get('includeArchived') is True,language=data.get('language'))
+            if action=='search':return self.script_library.search(data.get('query',''),limit=data.get('limit',10),cursor=data.get('cursor',0),tag=data.get('tag'),include_archived=data.get('includeArchived') is True)
+            if action=='read':return self.script_library.read(data.get('id'),data.get('revision'),data.get('offset',0),data.get('limit',20000))
+            if action=='history':return self.script_library.history(data.get('id'))
+            if action=='runs':return self.script_library.runs(data.get('id'),data.get('limit',20))
+            if action=='stats':return self.script_library.stats()
+            if action=='export':return self.script_library.export(data.get('ids'))
+            if action=='save':return self.script_library.save(data,data.get('source',''),filename=data.get('filename'),origin='user',reason=data.get('reason',''),expected_revision=data.get('expectedRevision'))
+            if action=='update':return self.script_library.update(data.get('id'),{k:data[k] for k in ('name','description','tags','pinned','archived','parameters','requirements','env') if k in data},data.get('expectedRevision'))
+            if action=='delete':return self.script_library.delete(data.get('id'),data.get('expectedRevision'))
+            if action=='import':return self.script_library.import_bundle(data.get('payload'),overwrite=data.get('overwrite') is True)
+            raise ValueError('Unsupported script_library action')
+        if operation=='agent_memory':
+            self.enabled()
+            action=data.get('action','stats')
+            if action=='remember':return self.agent_memory.remember(data.get('content',''),kind=data.get('kind','fact'),title=data.get('title'),tags=data.get('tags'),importance=data.get('importance'),confidence=data.get('confidence'),pinned=bool(data.get('pinned',False)),ttl_days=data.get('ttlDays'),scope=data.get('scope','workspace'),source=data.get('source'),id=data.get('id'),expected_revision=data.get('expectedRevision'))
+            if action=='recall':return self.agent_memory.recall(data.get('query',''),kinds=data.get('kinds'),tags=data.get('tags'),scope=data.get('scope'),limit=data.get('limit',8),budget_chars=data.get('budgetChars',4000))
+            if action=='forget':return self.agent_memory.forget(id=data.get('id'),ids=data.get('ids'),tag=data.get('tag'),kind=data.get('kind'),older_than_days=data.get('olderThanDays'),query=data.get('query'),scope=data.get('scope'),force=data.get('force') is True)
+            return self.agent_memory.dispatch(data)
+        if operation=='memory_suite':
+            self.enabled()
+            return self.memory_suite.dispatch(data)
+        if not data.get('session') and operation in {'skill_search','skill_list','skill_read','skill_history','skill_save','workflow_list','workflow_read','workflow_history','workflow_compare','workflow_save'}:
+            self.enabled()
+            pseudo={'id':'workspace','goal':'Workspace library edit','allowEdits':True,'events':[],'_lock':threading.RLock(),'_running':False}
+            return self.execute(pseudo,operation,{k:v for k,v in data.items() if k not in {'op','session'}})
         if operation=='start':return self.start(data)
         if operation in {'list','run_history'}:
             self.enabled();folder=self.state/'sessions';values=[]
@@ -517,6 +870,26 @@ class Runtime:
             cursor=integer(data.get('cursor'),0,0,2**31);limit=integer(data.get('limit'),20,1,100);end=min(len(values),cursor+limit)
             return {'runs':values[cursor:end],'total':len(values),'cursor':cursor,'nextCursor':end,'done':end>=len(values)}
         s=self.get(data.get('session'))
+        if operation in {'model_mosaic_state','model_mosaic_reserve','model_mosaic_configure'}:
+            with s['_lock']:
+                policy=next((e['value'].get('policy') for e in s['events'] if e['kind']=='user' and e['value'].get('format')=='codingagentlib/model-mosaic-policy-v1'),None)
+                count=sum(e['kind']=='user' and e['value'].get('status')=='model_mosaic_request' for e in s['events'])
+                if operation=='model_mosaic_state':return {'policy':copy.deepcopy(policy),'calls':count}
+                if operation=='model_mosaic_configure':
+                    proposed=data.get('policy')
+                    if not isinstance(proposed,dict) or set(proposed)!={'enabled','maxCalls','routes'} or proposed.get('enabled') is not True or type(proposed.get('maxCalls')) is not int or not 1<=proposed['maxCalls']<=500 or not isinstance(proposed.get('routes'),dict) or set(proposed['routes'])!={'plan','code','review'}:raise ValueError('Invalid model mosaic policy')
+                    for profile in proposed['routes'].values():
+                        if not isinstance(profile,dict) or any(not isinstance(profile.get(key),str) or not profile[key] or len(profile[key])>300 for key in ('id','profileId')) or not isinstance(profile.get('modalities'),list) or not profile['modalities'] or any(kind not in {'text','image','audio','file'} for kind in profile['modalities']) or set(profile)-{'id','profileId','name','modalities'} or 'name' in profile and (not isinstance(profile['name'],str) or len(profile['name'])>200):raise ValueError('Invalid pinned model profile')
+                    if policy is not None:
+                        if policy!=proposed:raise ValueError('Model mosaic policy is fixed for this session')
+                        return copy.deepcopy(next(e for e in s['events'] if e['kind']=='user' and e['value'].get('format')=='codingagentlib/model-mosaic-policy-v1'))
+                    return copy.deepcopy(self.event(s,'user',{'format':'codingagentlib/model-mosaic-policy-v1','status':'model_mosaic_policy','policy':copy.deepcopy(proposed)}))
+                if not isinstance(policy,dict) or type(policy.get('maxCalls')) is not int or not 1<=policy['maxCalls']<=500:raise ValueError('Configure a valid model mosaic policy first')
+                if count>=policy['maxCalls']:raise ValueError('Mosaic model-call budget exhausted')
+                role=data.get('role');profile=policy.get('routes',{}).get(role)
+                if not isinstance(profile,dict) or profile.get('id')!=data.get('model'):raise ValueError('Use the pinned model mosaic profile')
+                step=integer(data.get('step'),None,1,1000000)
+                return copy.deepcopy(self.event(s,'user',{'format':'codingagentlib/model-mosaic-v1','status':'model_mosaic_request','attempt':count+1,'step':step,'role':role,'model':profile['id']}))
         if operation in {'workflow_list','workflow_read','workflow_save','workflow_status','workflow_history','workflow_compare','workflow_preflight'}:
             if operation=='workflow_save' and s['_running']:raise ValueError('Wait for the active tool before editing workflows')
             result=self.execute(s,operation,{k:v for k,v in data.items() if k not in {'op','session'}})
@@ -530,7 +903,7 @@ class Runtime:
         if operation=='change_preview':return agent_review.preview(self,s,data)
         if operation=='change_patch':return agent_review.patch(self,s,data)
         if operation=='acceptance_report':return {'rules':s.get('acceptanceRules',[]),'report':agent_acceptance.evaluate(s.get('acceptanceRules'),s['events'])}
-        if operation in {'memory_store','memory_search','memory_read','memory_list','memory_delete','skill_search','skill_list','skill_read','skill_history','skill_save'}:
+        if operation in {'memory_store','memory_search','memory_read','memory_list','memory_delete','skill_search','skill_list','skill_read','skill_history','skill_save','skill_reset'}:
             args={k:v for k,v in data.items() if k not in {'op','session'}}
             result=self.execute(s,operation,args)
             if operation in {'memory_store','memory_delete','skill_save','skill_read'}:self.event(s,'user_action',{'operation':operation,'id':result['id'],**({'revision':result['revision']} if operation in {'skill_save','skill_read'} else {})})
@@ -552,10 +925,23 @@ class Runtime:
                 expected=data.get('expectedUserRevision')
                 if expected is not None and integer(expected,-1,-1,2**31)!=current:return {'steeringChanged':True}
                 latest=max((e['value'].get('step',0) for e in s['events'] if e['kind'] in {'turn','assistant','protocol_error'} and isinstance(e.get('value'),dict) and isinstance(e['value'].get('step'),int) and not isinstance(e['value']['step'],bool)),default=0)
+                project=s.get('knowledgeProject',self.root.name)
+                self.knowledge.refresh(self,project);self._knowledge_dirty=False
+                knowledge=self.knowledge.recall(project,s['goal'])
                 step=latest+1;guidance=agent_instructions.current(self,s['events'])
                 provenance={'target':guidance['target'],'sources':[{k:d[k] for k in ('path','scope','sha256','bytes')} for d in guidance['documents']],'complete':guidance['complete'],'warnings':guidance['warnings']}
                 self.event(s,'turn',{'step':step,'userRevision':current,'projectInstructions':provenance})
-                return {'step':step,'userRevision':current,'projectInstructions':guidance,'verificationFreshness':agent_verification.freshness(self,s)}
+                remember=s.get('rememberSessions',self.remember_sessions)
+                if remember:
+                    agent_memory=self.agent_memory.context(s['id'],s['goal']) if self.agent_memory else None
+                    if agent_memory is not None:
+                        agent_memory['rememberSessions']=True
+                        agent_memory['previousSessions']=self.recent_sessions(exclude=s['id'],limit=5)
+                        if self.memory_suite is not None:
+                            agent_memory['architectures']=self.memory_suite.context(s['goal'],session=s['id'])
+                else:
+                    agent_memory={'rememberSessions':False,'items':[],'previousSessions':[],'scratchpad':self.agent_memory.scratch_snapshot(s['id']) if self.agent_memory else {},'note':'Session memory recall/persistence is disabled for this session.'}
+                return {'projectKnowledge':knowledge,'agentMemory':agent_memory,'step':step,'userRevision':current,'projectInstructions':guidance,'verificationFreshness':agent_verification.freshness(self,s)}
         if operation=='feedback':
             with s['_lock']:
                 self.check(s)
@@ -570,6 +956,27 @@ class Runtime:
                 if response is not None and not isinstance(response,str):raise ValueError('Rejected response must be text')
                 return self.event(s,'protocol_error',{'step':step,'error':error,**({'response':response} if response is not None else {})})
         if operation=='session':return self.public(s)
+        if operation=='session_update':
+            with s['_lock']:
+                if s['_running']:raise ValueError('Stop the active tool before editing this session')
+                if 'goal' in data:
+                    g=data['goal']
+                    if not isinstance(g,str) or not g.strip() or len(g)>100000:raise ValueError('Goal must be nonempty text up to 100,000 characters')
+                    s['goal']=g
+                if 'rememberSessions' in data:
+                    if not isinstance(data['rememberSessions'],bool):raise ValueError('rememberSessions must be boolean')
+                    s['rememberSessions']=data['rememberSessions']
+                if 'sessionSkills' in data and isinstance(data['sessionSkills'],dict):
+                    s['sessionSkills']=data['sessionSkills']
+                self.persist(s)
+            return self.public(s)
+        if operation=='session_delete':
+            with s['_lock']:
+                if s['_running']:raise ValueError('Stop the active tool before deleting this session')
+            with self.lock:
+                self.sessions.pop(s['id'],None)
+            shutil.rmtree(s['_dir'],ignore_errors=True)
+            return {'id':s['id'],'deleted':True}
         if operation=='events':
             after=integer(data.get('after'),-1,-1,2**31)
             with s['_lock']:return {'events':s['events'][after+1:],'status':s['status']}
@@ -586,6 +993,13 @@ class Runtime:
                 return {'state':'not_found','message':'No recorded call was found. Do not assume the action is safe to replay.'}
         if operation=='cancel':return self.cancel(s)
         if operation=='resume':return self.resume(s)
+        if operation=='approve_spec':
+            spec_text=data.get('spec','')
+            if not isinstance(spec_text,str) or not spec_text.strip():raise ValueError('Provide a nonempty specification summary')
+            with s['_lock']:
+                s['specApproved']=True;s['specSummary']=spec_text.strip()[:20000]
+                self.event(s,'user',{'status':'spec_approved','spec':s['specSummary']})
+            return self.public(s)
         if operation in {'handoff_event','collaboration_event'}:
             value=data.get('value')
             expected=('codingagentlib/model-collaboration/v1',{'model_collaboration_policy','model_collaboration_round'}) if operation=='collaboration_event' else ('codingagentlib/model-handoff/v1',{'model_handoff_policy','model_handoff_decision','model_handoff'})
@@ -630,7 +1044,7 @@ class Runtime:
                     value=event.get('value',{})
                     if event['kind']=='observation' and value.get('ok') and value.get('tool') in {'write_file','replace_text','apply_edits','delete_file','write_script','delete_script','restore_file','apply_project'}:last_edit=index
                     if event['kind']=='user_action' and value.get('operation') in {'script_write','script_delete','restore_file'}:last_edit=index
-                    if event['kind']=='observation' and value.get('tool') in {'run_command','run_script'}:last_command=index;latest_command=value
+                    if event['kind']=='observation' and value.get('tool') in {'run_command','run_script','script_run'}:last_command=index;latest_command=value
                 command_result=latest_command.get('result',{}) if latest_command else {}
                 verified=latest_command is not None and latest_command.get('ok') is True and type(command_result.get('exitCode')) is int and command_result['exitCode']==0 and not command_result.get('timedOut') and not command_result.get('cancelled')
                 needs_verification=last_edit>=0 and (last_command<last_edit or not verified)
@@ -645,11 +1059,34 @@ class Runtime:
                 jobs=list(s['jobs'].values())
                 evidence={'checksPassed':last_checks['passed'] if last_checks else None,'unresolvedChecks':check_history['unresolved'],'needsVerification':needs_verification,'commands':len(jobs),'passed':sum(j.get('exitCode')==0 and not j.get('timedOut') and not j.get('cancelled') for j in jobs),'failed':sum(j.get('exitCode')!=0 or j.get('timedOut',False) or j.get('cancelled',False) for j in jobs),'latest':{k:jobs[-1].get(k) for k in ('jobId','exitCode','timedOut','cancelled')} if jobs else None,'note':'Observed command exits, not a certification of task correctness.'}
                 agent_independent_review.require_approval(self,s,data)
-                s['status']='complete';self.event(s,'completion',{'summary':str(data.get('summary','')),'outcome':outcome,'verification':data.get('verification',[]),'evidence':evidence,'acceptance':acceptance});return self.public(s)
+                s['status']='complete';self.event(s,'completion',{'summary':str(data.get('summary','')),'outcome':outcome,'verification':data.get('verification',[]),'evidence':evidence,'acceptance':acceptance})
+                if s.get('rememberSessions',self.remember_sessions):
+                    if self.agent_memory:
+                        try:self.agent_memory.capture_session(s)
+                        except (sqlite3.Error,OSError,ValueError):pass
+                    if self.memory_suite:
+                        try:self.memory_suite.ingest_session(s)
+                        except (sqlite3.Error,OSError,ValueError):pass
+                return self.public(s)
         if operation=='tool':return self.tool(s,data.get('tool'),data.get('args',{}),data.get('callId'),data.get('expectedUserRevision'),data.get('checks'),data.get('taskId'))
         if operation=='changes':return self.changes(s)
         raise ValueError('Unknown agent operation')
 
+    def recent_sessions(self,*,exclude=None,limit=5):
+        if not self.state:return []
+        folder=self.state/'sessions'
+        if not folder.exists():return []
+        items=[]
+        for p in folder.glob('*/session.json'):
+            if exclude and p.parent.name==exclude:continue
+            try:
+                data=json.loads(p.read_text(encoding='utf-8'))
+                if data.get('workspace')!=str(self.root):continue
+                completion=next((e.get('value') for e in reversed(data.get('events',[])) if e.get('kind')=='completion'),{})
+                items.append({'id':data['id'],'goal':str(data.get('goal',''))[:200],'status':data.get('status'),'outcome':completion.get('outcome'),'summary':str(completion.get('summary',''))[:300],'updatedAt':data.get('updatedAt') or data.get('createdAt') or ''})
+            except (ValueError,OSError,KeyError):continue
+        items.sort(key=lambda v:v['updatedAt'],reverse=True)
+        return items[:limit]
     def close(self):
         self._context_cache=None
         for session in list(self.sessions.values()):

@@ -106,3 +106,5 @@ Requests, AI plans/questions and command responses share one chronological termi
 While a command or agent operation runs, command entry, the AI input, mode switching and execution settings are blocked. Repeated submissions are ignored, not queued. The prompt is enabled and focused again after completion or cancellation cleanup. If a previously running server tool is still active, it stays blocked until the runtime reports that operation finished. **Stop** and Ctrl+C (when no text is selected) remain available during execution. Ctrl+L clears the visible transcript while retaining the saved session.
 
 The unified display does not add interactive stdin or a persistent PTY. Set **Working directory** to retain the starting directory between commands; a `cd` inside one `sh -c` command affects only that command.
+
+From the command input, **Ctrl+R** focuses history search without executing or replacing the draft. **Escape** from history search returns to that command input. The agent-goal keyboard shortcut ignores composition and repeated key events.

@@ -1,0 +1,638 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://automatextix.local/workflow.schema.json",
+  "title": "automatextiX workflow",
+  "type": "object",
+  "required": [
+    "version",
+    "name",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 150
+    },
+    "nodes": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "name",
+          "x",
+          "y",
+          "config"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "enum": [
+              "trigger",
+              "set",
+              "condition",
+              "merge",
+              "http",
+              "delay",
+              "log",
+              "web",
+              "ai",
+              "command",
+              "readFile",
+              "writeFile",
+              "listFiles"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "x": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "config": {
+            "type": "object"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "trigger"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "default": "[{\"name\":\"Alex\",\"amount\":140},{\"name\":\"Sam\",\"amount\":40}]"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "set"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "fields",
+                    "keepInput"
+                  ],
+                  "properties": {
+                    "fields": {
+                      "type": "string",
+                      "default": "{\"message\":\"Hello {{ item.name }}\"}"
+                    },
+                    "keepInput": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "condition"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "field",
+                    "operator",
+                    "value"
+                  ],
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "default": "amount"
+                    },
+                    "operator": {
+                      "type": "string",
+                      "default": "gte"
+                    },
+                    "value": {
+                      "type": "string",
+                      "default": "100"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "merge"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {}
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "http"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "url",
+                    "method",
+                    "headers",
+                    "body",
+                    "timeout"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "default": "https://example.com/api"
+                    },
+                    "method": {
+                      "type": "string",
+                      "default": "GET"
+                    },
+                    "headers": {
+                      "type": "string",
+                      "default": "{}"
+                    },
+                    "body": {
+                      "type": "string",
+                      "default": "{}"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 15000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "delay"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "ms"
+                  ],
+                  "properties": {
+                    "ms": {
+                      "type": "number",
+                      "default": 500
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "log"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "message"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "default": "Processed {{ item.name }}"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "web"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "url",
+                    "method",
+                    "headers",
+                    "body",
+                    "timeout",
+                    "resultKey",
+                    "keepInput"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "default": "https://example.com/api"
+                    },
+                    "method": {
+                      "type": "string",
+                      "default": "GET"
+                    },
+                    "headers": {
+                      "type": "string",
+                      "default": "{}"
+                    },
+                    "body": {
+                      "type": "string",
+                      "default": "{}"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 15000
+                    },
+                    "resultKey": {
+                      "type": "string",
+                      "default": "web"
+                    },
+                    "keepInput": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "ai"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "system",
+                    "prompt",
+                    "timeout",
+                    "resultKey",
+                    "keepInput"
+                  ],
+                  "properties": {
+                    "system": {
+                      "type": "string",
+                      "default": "You are a helpful workflow assistant. Return the requested answer or JSON without taking external actions."
+                    },
+                    "prompt": {
+                      "type": "string",
+                      "default": "Summarize this input: {{ item }}"
+                    },
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10,
+                      "default": 1
+                    },
+                    "followUpPrompt": {
+                      "type": "string",
+                      "default": "Review your previous answer and improve it. Return the revised answer."
+                    },
+                    "history": {
+                      "type": "string",
+                      "default": "[]"
+                    },
+                    "stopWhen": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "stopValue": {
+                      "type": "string",
+                      "default": "true"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 30000
+                    },
+                    "resultKey": {
+                      "type": "string",
+                      "default": "ai"
+                    },
+                    "keepInput": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "command"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "command",
+                    "args",
+                    "stdin",
+                    "timeout",
+                    "resultKey",
+                    "keepInput",
+                    "failOnError"
+                  ],
+                  "properties": {
+                    "command": {
+                      "type": "string",
+                      "default": "python3"
+                    },
+                    "args": {
+                      "type": "string",
+                      "default": "[\"--version\"]"
+                    },
+                    "stdin": {
+                      "type": "string",
+                      "default": "{{ item }}"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 15000
+                    },
+                    "resultKey": {
+                      "type": "string",
+                      "default": "command"
+                    },
+                    "keepInput": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "failOnError": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "readFile"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "encoding",
+                    "resultKey",
+                    "keepInput"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "default": "{{ item.path }}"
+                    },
+                    "encoding": {
+                      "type": "string",
+                      "default": "text"
+                    },
+                    "resultKey": {
+                      "type": "string",
+                      "default": "file"
+                    },
+                    "keepInput": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "writeFile"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "content",
+                    "encoding",
+                    "mimeType",
+                    "overwrite",
+                    "expectedRevision",
+                    "resultKey",
+                    "keepInput"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "default": "results/output.txt"
+                    },
+                    "content": {
+                      "type": "string",
+                      "default": "{{ item }}"
+                    },
+                    "encoding": {
+                      "type": "string",
+                      "default": "text"
+                    },
+                    "mimeType": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "overwrite": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "expectedRevision": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "resultKey": {
+                      "type": "string",
+                      "default": "savedFile"
+                    },
+                    "keepInput": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "listFiles"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "config": {
+                  "type": "object",
+                  "required": [
+                    "folder",
+                    "recursive",
+                    "suffix",
+                    "resultKey",
+                    "keepInput"
+                  ],
+                  "properties": {
+                    "folder": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "recursive": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "suffix": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "resultKey": {
+                      "type": "string",
+                      "default": "file"
+                    },
+                    "keepInput": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "edges": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "target",
+          "port"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "port": {
+            "enum": [
+              "out",
+              "true",
+              "false"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "description": "DAG with at most one manual trigger. Item templates supply call arguments. AI outputs {text,data,history,roundsCompleted,historyDropped}; AI rounds (1–10) retain conversation context per item, accept previous history and can stop early on a parsed-result path/value match; web outputs {status,data}; command outputs {stdout,stderr,exitCode,cancelled,timedOut,truncated}. Virtual-disk readFile returns metadata, revision and content; writeFile saves text/JSON/base64 content and returns metadata; listFiles emits one item per file. File data is limited to 300 KB and workflow item limits apply. Writes are create-only unless overwrite is explicitly enabled; expectedRevision guards stale updates. Call/file results use config.resultKey; keepInput retains input fields. Commands require an explicit run authorization and a local server allowlist; no shell execution. Configurations and graph references are additionally checked by the runtime.",
+  "examples": []
+}

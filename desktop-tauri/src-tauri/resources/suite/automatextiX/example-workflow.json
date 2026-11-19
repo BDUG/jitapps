@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "name": "A little customer follow-up",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "name": "New customers",
+      "x": 55,
+      "y": 150,
+      "config": {
+        "data": "[{\"name\":\"Alex\",\"amount\":140},{\"name\":\"Sam\",\"amount\":40}]"
+      }
+    },
+    {
+      "id": "check",
+      "type": "condition",
+      "name": "Priority customer?",
+      "x": 365,
+      "y": 150,
+      "config": {
+        "field": "amount",
+        "operator": "gte",
+        "value": "100"
+      }
+    },
+    {
+      "id": "priority",
+      "type": "set",
+      "name": "Personal welcome",
+      "x": 675,
+      "y": 60,
+      "config": {
+        "fields": "{\"message\":\"Welcome {{ item.name }}, your priority onboarding is ready.\",\"priority\":true}",
+        "keepInput": true
+      }
+    },
+    {
+      "id": "regular",
+      "type": "set",
+      "name": "Friendly hello",
+      "x": 675,
+      "y": 285,
+      "config": {
+        "fields": "{\"message\":\"Hello {{ item.name }}, thanks for joining us!\",\"priority\":false}",
+        "keepInput": true
+      }
+    },
+    {
+      "id": "combine",
+      "type": "merge",
+      "name": "Bring it together",
+      "x": 985,
+      "y": 150,
+      "config": {}
+    },
+    {
+      "id": "finish",
+      "type": "log",
+      "name": "Ready to share",
+      "x": 1295,
+      "y": 150,
+      "config": {
+        "message": "{{ item.message }}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "start",
+      "target": "check",
+      "port": "out"
+    },
+    {
+      "id": "e2",
+      "source": "check",
+      "target": "priority",
+      "port": "true"
+    },
+    {
+      "id": "e3",
+      "source": "check",
+      "target": "regular",
+      "port": "false"
+    },
+    {
+      "id": "e4",
+      "source": "priority",
+      "target": "combine",
+      "port": "out"
+    },
+    {
+      "id": "e5",
+      "source": "regular",
+      "target": "combine",
+      "port": "out"
+    },
+    {
+      "id": "e6",
+      "source": "combine",
+      "target": "finish",
+      "port": "out"
+    }
+  ]
+}

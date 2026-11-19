@@ -52,7 +52,8 @@ const assert = require("node:assert/strict"),
     });
     await page.goto(base + "/");
     const apps = await page.evaluate(() => SuiteApps.map((a) => a.id));
-    assert.equal(apps.length, 18);
+    assert.ok(apps.length >= 21);
+    assert.equal(new Set(apps).size, apps.length);
     const names = await page.evaluate(() =>
       Object.fromEntries(SuiteApps.map((a) => [a.id, a.name])),
     );
@@ -79,7 +80,7 @@ const assert = require("node:assert/strict"),
       await page.locator("#suite-task-board").waitFor({ state: "visible" });
       assert.match(
         await page.locator("#tb-count").textContent(),
-        /18 matching tasks/,
+        new RegExp(apps.length + " matching tasks"),
       );
       await page.locator("#tb-app").selectOption(app);
       assert.equal(await page.locator("#tb-list article").count(), 1);
@@ -154,8 +155,11 @@ const assert = require("node:assert/strict"),
       await fs.readFile(await (await download).path(), "utf8"),
       /Updated elsewhere/,
     );
-    await page.locator("#tb-close").click();
-    await page.locator("#suite-notebook-open").click();
+    await page.locator("#tb-notes").click();
+    assert.equal(
+      await page.locator("#nb-notes").inputValue(),
+      "Keep this local draft",
+    );
     await page.locator("#nb-save").click();
     assert.match(
       await page.locator("#nb-status").textContent(),
@@ -178,7 +182,7 @@ const assert = require("node:assert/strict"),
     assert.match(await page.locator("#tb-count").textContent(), /0 selected/);
     assert.equal(aiCalls, 0);
     console.log(
-      "PASS: all 18 apps open the shared dashboard, completion persists, mockiX notes fallback, additive AI brief without calls, cross-window refresh, notebook conflict protection, Markdown export and mobile keyboard access.",
+      "PASS: all registered apps open the shared dashboard, completion persists, notes navigation with draft preservation, additive AI brief without calls, cross-window refresh, notebook conflict protection, Markdown export and mobile keyboard access.",
     );
   } finally {
     await browser.close();
