@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Agent SDK · Two views</title>
+<style>
+body{font:16px system-ui;margin:0;background:#101724;color:#e4ecfa}header,main,footer{padding:20px}h1{font-size:23px}main{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}section{background:#1b283b;padding:18px;border-radius:12px}svg,article{background:white;color:#182337;width:100%;min-height:180px;border-radius:8px}article{box-sizing:border-box;padding:20px;overflow-wrap:anywhere}button,input{font:inherit;padding:9px;margin:4px 0;border-radius:6px}input{width:90%}pre{white-space:pre-wrap;overflow-wrap:anywhere}#log{max-height:280px;overflow:auto;font-size:12px}#chat{min-height:80px;white-space:pre-wrap}small{color:#b9c9df}@media(max-width:850px){main{grid-template-columns:1fr}}
+</style>
+<header><h1>One agent, two editable views</h1><small>MODEL_MODE Trace contains public steps and messages.</small></header>
+<main><section><h2>SVG view</h2><svg viewBox="0 0 300 180" role="img" aria-label="Editable colored circle"><circle id="shape" cx="150" cy="90" r="60" fill="blue"/></svg><p>Tool: <code>svg_color</code></p><button id="purple">Make purple</button></section>
+<section><h2>Rich text view</h2><article><h3>Project note</h3><p id="paragraph">Hello from the SDK</p></article><p>Tool: <code>rich_text</code></p><small>Styled document; tool replaces paragraph text safely.</small></section>
+<section><h2>AI chat</h2><div id="chat" role="log" aria-live="polite"></div><form id="form"><label for="goal">Message</label><input id="goal" value="svg_color purple" maxlength="4000" required><button id="send">Send</button></form><small>Try <code>svg_color green</code> or <code>rich_text A new project note</code>.</small></section></main>
+<footer><h2>Communication and steps</h2><button id="export">Export trace JSON</button><pre id="log" aria-live="polite"></pre></footer>
+<script>
+'use strict';
+let state={color:'blue',text:'Hello from the SDK'},trace=[];
+const $=id=>document.getElementById(id);
+function record(kind,value){trace.push({time:new Date().toISOString(),kind,value});$('log').textContent=trace.map(e=>JSON.stringify(e,null,2)).join('\n');$('log').scrollTop=$('log').scrollHeight;}
+async function run(goal){
+ $('send').disabled=true;$('purple').disabled=true;record('user',{text:goal});$('chat').textContent+='You: '+goal+'\n';
+ try{const response=await fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal,state})});const data=await response.json();if(!response.ok)throw Error(data.error||'Request failed');
+ state=data.state;for(const event of data.trace)record(event.kind,event.value);record('result',data.result);
+ $('shape').setAttribute('fill',state.color);$('paragraph').textContent=state.text;
+ $('chat').textContent+='Agent: '+(data.result.summary||data.result.question||data.result.status)+'\n';
+ }catch(error){record('error',{message:error.message});$('chat').textContent+='Error: '+error.message+'\n';}
+ finally{$('send').disabled=false;$('purple').disabled=false;}
+}
+$('form').onsubmit=e=>{e.preventDefault();run($('goal').value);};$('purple').onclick=()=>run('svg_color purple');
+$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({format:'two-views-trace/v1',state,events:trace},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='two-views-trace.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+</script></html>

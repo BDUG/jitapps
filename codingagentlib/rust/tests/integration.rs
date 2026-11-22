@@ -73,8 +73,10 @@ fn revocation_and_failed_sources() -> Result<()> {
     agent.add_tool("inspect", "Inspect", ToolPermission::Read, |_, _| {
         panic!("Revoked tool executed")
     })?;
-    let mut options = RunOptions::default();
-    options.max_steps = Some(1);
+    let options = RunOptions {
+        max_steps: Some(1),
+        ..Default::default()
+    };
     let outcome = agent.run("Inspect", &options, |r| {
         allowed.store(false, Ordering::SeqCst);
         Ok(reply(

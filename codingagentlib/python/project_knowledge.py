@@ -266,7 +266,7 @@ class ProjectKnowledge:
         def provider(state,cancel=None):
             if cancel is not None and cancel.is_set():raise InterruptedError('Project graph context cancelled')
             if runtime is not None:self.refresh(runtime,project)
-            return dict(projectKnowledge=self.recall(project,query=options.get('query',state.get('goal','')),**{k:v for k,v in options.items() if k!='query'}))
+            return dict(projectKnowledge=self.recall(project,query=(options['query'] if 'query' in options else str(state.get('goal',''))[:4000]),**{k:v for k,v in options.items() if k!='query'}))
         return provider
 
     def dispatch(self,data,runtime=None):

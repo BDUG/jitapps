@@ -23,5 +23,6 @@ const assert=require('node:assert/strict'),{ProjectGraphMemory,buildProjectGraph
  const sources=[{path:'before.py',content:'class Before: pass\n'}],building=buildProjectGraph({project:'snapshot',files:sources});sources[0].content='class After: pass\n';assert.ok((await building).nodes.some(n=>n.label==='Before'));
  const updating=memory.refresh('frozen',sources);sources[0].content='class ChangedAgain: pass\n';assert.ok((await updating).nodes.some(n=>n.label==='After'));
  const ids=[node.id],result=queryGraph(current,{nodeIds:ids});result.seeds.length=0;result.annotations[node.id].text='Mutated query';assert.equal(ids.length,1);assert.notEqual(current.annotations[node.id].text,'Mutated query');
+ const longProvider=memory.contextProvider('flight');assert.ok((await longProvider({goal:'x'.repeat(5000)})).projectKnowledge.nodes.length>0);
  console.log('PASS graph store snapshot isolation, atomic revisions, standalone ontology exchange, no-op refresh, edge deduplication, bounded local history and project scope.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

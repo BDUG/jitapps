@@ -3,7 +3,7 @@
 function phase(request){
  if(request.step===1)return 'plan';
  const observation=[...(request.events||[])].reverse().find(e=>['observation','tool_result'].includes(e.kind))?.value;
- if(observation?.ok===true&&['run_command','run_script','read_command_output'].includes(observation.tool)&&observation.result?.exitCode===0)return 'review';
+ if(observation?.ok===true&&['run_command','run_script','script_run','read_command_output'].includes(observation.tool)&&observation.result?.exitCode===0)return 'review';
  return 'code';
 }
 function createModelMosaic({models,routes,select=phase,maxCalls=500,onEvent=()=>{}}={}){

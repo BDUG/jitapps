@@ -1,4 +1,4 @@
-# codingagentlib · Native VS Code extension
+# RabbitHole · Native VS Code extension
 
 A standalone VS Code coding agent built on [codingagentlib's native Rust runtime](../rust/README.md). It runs without Python, Node tool installations, the suite desktop or a relay server. VS Code's extension host provides JavaScript execution; the platform-specific native worker is bundled in the VSIX. Model requests go directly to an OpenAI-compatible chat-completions provider, or optionally to an existing suite relay.
 
@@ -11,18 +11,24 @@ cd codingagentlib/vscode
 npm ci
 npm run verify
 npm run package -- --target linux-x64
-code --install-extension codingagentlib-linux-x64-0.30.0.vsix
+code --install-extension rabbithole-linux-x64-0.30.0.vsix
 ```
 
 On Windows x64 use `--target win32-x64`; on macOS use `darwin-arm64` or `darwin-x64`. Build on the corresponding OS/architecture; the build script compiles and copies the host worker. This is not an automatic cross-compilation pipeline. Set `CARGO` to an absolute Cargo executable if it is not on PATH. No Rust compiler is needed to run an installed VSIX. Packages are local artifacts; the build does not publish to the Marketplace. The `bdug` publisher identifier is metadata, not a claim of Marketplace publication.
+
+The development packaging tool is VSCE 4.x (Node.js 22+). Its scoped `minimatch`
+override selects the patched 11.x line; keep the lockfile and archive/ignore-rule
+checks together when updating it. These development dependencies are excluded
+from the installed extension. `npm audit` describes known dependency advisories,
+not a security audit of the extension's own code.
 
 Alternatively choose **Extensions → … → Install from VSIX**. To debug from source, build the worker then launch VS Code with `code --extensionDevelopmentPath=/absolute/path/to/codingagentlib/vscode /absolute/workspace`.
 
 ## Use
 
 1. Open and trust a filesystem workspace. For multi-root workspaces, select the root when prompted. Virtual filesystem workspaces and browser-only VS Code are unsupported.
-2. Run **Coding Agent: Configure Model Provider**. Select **OpenAI-compatible provider**, enter its HTTPS chat-completions endpoint, model and API key. The key is stored in VS Code SecretStorage, separately for each provider origin. A blank key preserves a stored key; an unauthenticated local endpoint may use no key. Loopback HTTP is supported. Optional **Existing suite relay** uses its `/api/chat` endpoint and provider configuration.
-3. Open **Coding Agent: Open Chat**, or select the status-bar **Coding Agent** button. Describe a goal. Edits and commands are disabled by default. To allow commands, first configure `codingagent.allowedCommands` with the exact executable names/paths you trust, then check **Allow commands**.
+2. Run **RabbitHole: Configure Model Provider**. Select **OpenAI-compatible provider**, enter its HTTPS chat-completions endpoint, model and API key. The key is stored in VS Code SecretStorage, separately for each provider origin. A blank key preserves a stored key; an unauthenticated local endpoint may use no key. Loopback HTTP is supported. Optional **Existing suite relay** uses its `/api/chat` endpoint and provider configuration.
+3. Open **RabbitHole: Open Chat**, or select the status-bar **RabbitHole** button. Describe a goal. Edits and commands are disabled by default. To allow commands, first configure `codingagent.allowedCommands` with the exact executable names/paths you trust, then check **Allow commands**.
 4. Choose **Start new run**. Review the workspace, edit permission and actual executable allowlist in VS Code's confirmation dialog. Nothing is sent to the model or edited until you approve. Save dirty files before proceeding. File-tool edits apply directly to disk after approval, and the agent observes the actual result before planning again.
 5. Watch the plans, observations and foldable live trace. Questions pause the run; enter your answer and choose **Resume / send follow-up**. Runs pause after 500 steps by default, configurable to 1–500. **Stop** aborts provider requests and signals the native worker even during a command. Approval is requested again on resume, with the saved session's permissions.
 6. Select a changed file for its file-tool recovery comparison. Commands/external edits without recovery images show a captured current-file snapshot with a notice; a fabricated baseline is not shown. Review the changes with your normal VS Code/Git tools.
@@ -47,7 +53,7 @@ The extension checks Workspace Trust and uses the native executable allowlist an
 | `codingagent.historyBudgetCharacters` | `80000` | Soft history JSON-character budget, 8,000–500,000; preserved records may exceed it. |
 | `codingagent.maxModelRetries` | `2` | Additional temporary-failure model attempts, 0–3; never tool retries. |
 
-Provider and executable settings use VS Code's machine setting scope. The setup wizard saves provider settings to global settings; API keys stay in SecretStorage, never in the webview, workspace settings, logs or model prompt. The extension does not set an artificial output-token limit; truncated provider output is rejected before execution. Direct authentication currently uses a Bearer key and the chat-completions JSON API. Provider-specific OAuth, Azure `api-key` authentication, images, native provider tool-call protocols and streaming are not implemented.
+Provider and executable settings use VS Code's machine setting scope. The setup wizard saves provider settings to global settings; API keys stay in SecretStorage, never in the webview, workspace settings, logs or model prompt. The extension does not set an artificial output-token limit; truncated provider output is rejected before execution. Direct authentication currently uses a Bearer key and the chat-completions JSON API. Image, WAV/MP3 audio and PDF references use native multipart input when the selected provider supports those formats. Provider-specific OAuth, Azure `api-key` authentication, native provider tool-call execution and incremental provider streaming are not implemented. Multipart response text is supported; generated provider media is not previewed or persisted.
 
 Native sessions, scripts, recovery files, skills/workflows and tool receipts live in `<workspace>/.codingagentlib-rust/`. The directory is locked while the worker is open; another native agent cannot open that same workspace concurrently. State is local and separate from the Python runtime. Closing the chat panel leaves a running task active; **Stop** ends it, and deactivating the extension interrupts and closes its worker. A bounded panel trace is retained for display; original events remain in native sessions and ZIPs.
 
@@ -59,13 +65,35 @@ Native sessions, scripts, recovery files, skills/workflows and tool receipts liv
 - `media/`: theme-aware webview, nonce/CSP, text-only rendering of untrusted output; no credentials or Node integration in the panel.
 - `../rust/src/bin/codingagent-worker.rs`: standalone JSON-lines bridge over the native Rust library. Worker methods `package` and `changes` inspect paused/completed sessions without changing their status.
 
-`npm run verify` builds the release worker and runs provider tests, a mocked VS Code host test with real native execution, file permissions/step budgets, invalid-plan repair, question/resume, completed-result ZIP export and interruption of a real command. No paid model calls are made. `npm run package -- --target linux-x64` creates an installable host-specific VSIX. Actual VS Code desktop host/platform testing remains necessary; these automated tests simulate the VS Code API rather than launching an Electron Extension Development Host.
+`npm run verify` builds the release worker and runs provider tests, a mocked VS Code host test with real native execution, file permissions/step budgets, invalid-plan repair, question/resume, completed-result ZIP export and interruption of a real command. No paid model calls are made. `npm run package -- --target linux-x64` creates an installable host-specific VSIX.
+
+Run the separate actual editor-host check against an installed VS Code executable:
+
+```sh
+VSCODE_EXECUTABLE=/absolute/path/to/code npm run test:editor-host
+```
+
+On Linux, use the Electron executable (for example `/usr/share/code/code`) and an
+available graphical display. The runner uses a disposable profile, extensions
+directory and workspace. It verifies activation, registered commands, real editor
+selections/diagnostics, attachment commands, the production controller with its
+bundled native worker, source-bound verification and ZIP export. It requires a
+result written by the actual extension host; a launcher returning zero is
+insufficient. It uses deterministic model callbacks and does not automate run
+approval dialogs or establish live-provider quality. Windows/macOS need their own
+host runs. `test/conflict-browser.cjs` separately exercises the webview in Chromium.
+
+Text references can select a one-based page with `@file:src/large.txt#page=2`.
+Invalid or unavailable pages produce an attachment error and never substitute the
+first or last page. Combined text previews have a 48,000-character budget, preserve
+Unicode pairs and label omitted content; native file tools can inspect later
+pages. Media references retain their separate transport budget.
 
 The extension uses the [native Rust tool set and limits](../rust/README.md#native-capabilities). Advanced Python/browser features are not silently substituted or advertised. The suite's browser applications and Python server remain independent of this extension.
 
 ## Version 0.2 workspace workflow
 
-- In Explorer, right-click one or more files and choose **Coding Agent: Attach Workspace Files**. Or select text in an editor and use **Attach Editor Selection**. The panel shows removable references with their names and character counts. File references are UTF-8 snapshots with a SHA-256 digest; selections include source line ranges. They enter native session history only after run approval. The model is instructed to treat them as reference data and reread actual files before edits.
+- In Explorer, right-click one or more files and choose **RabbitHole: Attach Workspace Files**. Or select text in an editor and use **Attach Editor Selection**. The panel shows removable references with their names and character counts. File references are UTF-8 snapshots with a SHA-256 digest; selections include source line ranges. They enter native session history only after run approval. The model is instructed to treat them as reference data and reread actual files before edits.
 - Native session records keep approved reference snapshots, including their contents; transcript/ZIP exports can contain them. Pending references are held only in extension memory. Private state directories, `.git`, `.env*`, binary files and symlink escapes are rejected. Files are limited to 8 MB and combined references to the native transport's 12 MB input budget; attach shorter selections when needed. There is no fixed reference-count limit.
 - Valid model task lists appear as a live checklist with pending, in-progress, blocked and completed states. Completed sessions disable Resume; start a new run for a new task.
 - **Saved sessions** restores recent public plans, observations, questions and task progress. The most recently used session ID is remembered per workspace; reopening never automatically executes it. Run approval is required again to resume.
@@ -78,7 +106,7 @@ The native worker and existing permissions remain authoritative. References do n
 
 Each approved planning turn refreshes `ideContext` from VS Code's current diagnostics, active editor/selection location and open-file metadata. Paths and locations are relative to the selected workspace and 1-based; open files include document version, language and unsaved status. Buffer contents and selected text are not collected automatically: use Attach Editor Selection for an explicit snapshot.
 
-The start/resume confirmation shows whether diagnostics are included. Disable `codingagent.includeDiagnostics` in VS Code settings to omit the entire context; the choice is fixed for that approved run. **Editor problems** or **Coding Agent: Show Editor Problems** opens the native Problems view. The chat panel reports included/total diagnostics, errors, warnings and omissions.
+The start/resume confirmation shows whether diagnostics are included. Disable `codingagent.includeDiagnostics` in VS Code settings to omit the entire context; the choice is fixed for that approved run. **Editor problems** or **RabbitHole: Show Editor Problems** opens the native Problems view. The chat panel reports included/total diagnostics, errors, warnings and omissions.
 
 Errors are prioritized before warnings, information and hints, then the active file and stable file locations. Up to 80 diagnostics (configurable to 200), 20,000 serialized diagnostic characters and 30 open-file metadata entries are included. Individual messages are capped at 1,200 characters with `messageTruncated`; omitted diagnostics/open-file counts and coverage are explicit. Private state, `.git`, `.env*`, dependency/cache directories, non-file URIs, unresolved paths and symlinks outside the root are excluded. Diagnostics can themselves quote source text; review the inclusion choice before approving a run.
 
@@ -98,7 +126,7 @@ Review refresh errors appear as informational feedback and never replay an accep
 
 ## Version 0.5 pause and follow-up drafts
 
-**Pause** or **Coding Agent: Pause After Current Action** asks the controller to stop at a safe planning/action boundary. An already submitted native action finishes and its observation is retained; no next action starts. A model reply still being prepared is discarded before submission. The saved session can be resumed with a fresh turn and optional follow-up, with the usual approval dialog. Pause waits for an active model request to return (or time out); use **Stop** to abort it or interrupt an active command. Completion already accepted by the runtime remains complete. Neither pause nor interruption rolls back effects.
+**Pause** or **RabbitHole: Pause After Current Action** asks the controller to stop at a safe planning/action boundary. An already submitted native action finishes and its observation is retained; no next action starts. A model reply still being prepared is discarded before submission. The saved session can be resumed with a fresh turn and optional follow-up, with the usual approval dialog. Pause waits for an active model request to return (or time out); use **Stop** to abort it or interrupt an active command. Completion already accepted by the runtime remains complete. Neither pause nor interruption rolls back effects.
 
 The composer remains editable during a run so you can prepare the next instruction. It is never sent automatically: pause, inspect the result, then choose Resume / send follow-up. Unsent draft text persists in VS Code webview state and extension workspace state under a workspace-root hash and is restored after panel reload or reopening. In a multi-root workspace, select a root before drafts can be saved. Drafts are local editor state, not encrypted SecretStorage; delete the composer text to clear that workspace's saved draft. They are not added to native session history or model requests until submitted and approved. Permission checkboxes are not restored from draft state.
 
@@ -124,7 +152,7 @@ Telemetry contains no credentials, request text, response text or arbitrary prov
 
 ## Version 0.8 selected problems to task drafts
 
-Choose **Draft task from problems** in the panel or **Coding Agent: Draft Task From Editor Problems** in the command palette. Select one or more current workspace diagnostics in VS Code's multi-select picker. The extension appends a focused investigation/fix request to the existing composer, including selected paths, 1-based locations, source/code and document versions when available. It does not read source buffers, invoke the model, run tools, change permissions or start a run. Review the draft, then explicitly choose Start or Resume with the normal approval.
+Choose **Draft task from problems** in the panel or **RabbitHole: Draft Task From Editor Problems** in the command palette. Select one or more current workspace diagnostics in VS Code's multi-select picker. The extension appends a focused investigation/fix request to the existing composer, including selected paths, 1-based locations, source/code and document versions when available. It does not read source buffers, invoke the model, run tools, change permissions or start a run. Review the draft, then explicitly choose Start or Resume with the normal approval.
 
 You can prepare the draft while the agent works, then Pause and review before resuming. Existing text is preserved and queued additions are acknowledged once, including panel reloads; workspace identity prevents applying them to a different root. The host retains queued text until the composer draft is saved. Cancelling the picker adds nothing.
 
@@ -138,7 +166,7 @@ The task panel summarizes completed, unfinished and blocked work and filters by 
 
 **Draft unfinished work** appends non-completed tasks, dependencies, notes and plan warnings to the current composer. It preserves existing text, saves the unsent draft and never runs or submits it automatically. Review the current workspace and actual receipts before resuming. Accepted task lists restore from session history on load/resume even when the next model reply omits tasks, and authoritative host state restores the board after panel reload.
 
-**Export task report** or **Coding Agent: Export Accepted Task Report** writes a Markdown checklist from the native session's latest accepted task list, not arbitrary webview data. Pause a running agent before exporting. The report contains task status/dependencies and advisory warnings, not full source snapshots or test evidence. Tests cover native report export, prerequisite warnings, immutable filters, unsent drafts and restoring previous tasks.
+**Export task report** or **RabbitHole: Export Accepted Task Report** writes a Markdown checklist from the native session's latest accepted task list, not arbitrary webview data. Pause a running agent before exporting. The report contains task status/dependencies and advisory warnings, not full source snapshots or test evidence. Tests cover native report export, prerequisite warnings, immutable filters, unsent drafts and restoring previous tasks.
 
 ## Version 0.10 retrievable history views
 
@@ -188,7 +216,7 @@ This gate belongs to the VS Code JavaScript controller; direct native Rust clien
 
 ## Version 0.13 retained command output inspector
 
-Choose **Inspect command output** in the panel or **Coding Agent: Inspect Retained Command Output** in the command palette. Pause an active run first. Choose a recorded command/script job and stdout or stderr, then use First/Previous/Next page. The job picker shows step when available, exit status, cancellation, timeout and output-limit flags. The inspector displays one 12,000-character page at a time; it never reruns a command or resumes a session.
+Choose **Inspect command output** in the panel or **RabbitHole: Inspect Retained Command Output** in the command palette. Pause an active run first. Choose a recorded command/script job and stdout or stderr, then use First/Previous/Next page. The job picker shows step when available, exit status, cancellation, timeout and output-limit flags. The inspector displays one 12,000-character page at a time; it never reruns a command or resumes a session.
 
 Next uses the native nextOffset. Previous moves back by the fixed page size; switching jobs/streams starts at zero. Offsets count Unicode characters in decoded output, not bytes or JavaScript UTF-16 units. Invalid UTF-8 follows the native replacement-character decoding policy. Raw pages render as text and are not appended to the live trace or model request. They remain in panel memory while inspected and can be reopened from retained native logs.
 
@@ -200,7 +228,7 @@ Checks cover actual native Unicode/multipage stdout/stderr, paused/completed rea
 
 Saved sessions now show native step counts, known unfinished tasks and historical failure-receipt counts, with searchable status/ID details. The currently selected session is prioritized, followed by unfinished sessions. Native sessions contain no timestamps, so the picker does not invent creation dates or sort by assumed recency.
 
-**Session overview & handoff** refreshes after a run ends or a saved session is selected. It can also be opened through **Coding Agent: Show Session Overview**. The collapsed panel shows a deterministic snapshot of the source goal/status, recorded command/file-tool activity, last accepted task plan, recent failure references and archived verification state. Unknown/missing plans remain unknown. Old failures remain explicitly historical even when a later matching check passed. Archived verification uses the last saved approved policy, not current user settings. Paths come from file-tool receipts and do not cover every possible command/external edit.
+**Session overview & handoff** refreshes after a run ends or a saved session is selected. It can also be opened through **RabbitHole: Show Session Overview**. The collapsed panel shows a deterministic snapshot of the source goal/status, recorded command/file-tool activity, last accepted task plan, recent failure references and archived verification state. Unknown/missing plans remain unknown. Old failures remain explicitly historical even when a later matching check passed. Archived verification uses the last saved approved policy, not current user settings. Paths come from file-tool receipts and do not cover every possible command/external edit.
 
 **Draft session handoff** appends an unsent snapshot to the existing composer through the acknowledged workspace-scoped draft queue. **Export handoff Markdown** saves the same snapshot for review or transfer. Both have command-palette entries. Pause the run before manual inspection/export; creating a handoff does not resume, execute commands, alter permissions or call a model. Goal, task, question and completion-summary text may contain user/agent-provided content; no tool-output bodies, attachment bodies or command argv are copied automatically.
 
@@ -214,7 +242,7 @@ After an exhausted or nonretryable model-provider failure, a recovery card offer
 
 No recovery action automatically resumes, repeats a tool, changes permissions, weakens configured verification or applies partial text. Earlier accepted workspace effects remain. Resolve provider access/settings before explicitly resuming; recovery notes append to your existing draft and remain unsent. The card clears on a new run/session selection or Dismiss. Dismissal remains authoritative when old trace events replay.
 
-**Export diagnostic report** or **Coding Agent: Export Provider Recovery Report** saves a whitelisted snapshot: safe error category/status/requested wait, source native session ID, current-run attempt counters and history-budget counts. Counters include earlier steps in the run, not just the failed request. The export excludes credentials, endpoint URLs, model prompts/replies, raw provider bodies, raw exception messages and command arguments. Review before sharing; this minimal report does not replace provider logs or native transcripts.
+**Export diagnostic report** or **RabbitHole: Export Provider Recovery Report** saves a whitelisted snapshot: safe error category/status/requested wait, source native session ID, current-run attempt counters and history-budget counts. Counters include earlier steps in the run, not just the failed request. The export excludes credentials, endpoint URLs, model prompts/replies, raw provider bodies, raw exception messages and command arguments. Review before sharing; this minimal report does not replace provider logs or native transcripts.
 
 Recovery state lives in extension memory; reopening the panel during that extension lifetime restores it, while extension restart/dismissal/new sessions can clear it. Export first if it must be retained. Export captures its report before the file dialog so later state changes do not alter the selected diagnostic. Tests cover category guidance, unknown/malformed metadata, report privacy and independent advice copies, the host's actual failure/export/settings/dismiss path, unsent notes and replay-safe dismissal. Native results remain authoritative; desktop/live-provider validation remains pending.
 
@@ -245,7 +273,7 @@ This is a cooperative host control, not a hard OS deadline or rollback: an in-fl
 
 ## Version 0.18 reusable AI prompt workflows
 
-Open **Reusable AI prompt workflows** above the chat composer and choose **Use prompt workflow**, or run **Coding Agent: Use Reusable AI Prompt Workflow** from the command palette. The six bundled examples are:
+Open **Reusable AI prompt workflows** above the chat composer and choose **Use prompt workflow**, or run **RabbitHole: Use Reusable AI Prompt Workflow** from the command palette. The six bundled examples are:
 
 | Workflow | Suggested steps |
 | --- | --- |
@@ -338,7 +366,7 @@ Multipart provider responses are accepted when explicit `text`/`output_text` blo
 
 ### Evidence-driven model handoff (v0.26)
 
-Configure Model Provider now supports primary, continuation and evaluator roles. The Model handoff button opens mode and role settings. Shadow mode is the default; without a continuation profile there are no extra calls. Automatic mode can switch once after a substantive workspace artifact has real execution feedback and the evaluator identifies localized remaining work. Saved model IDs, decisions and evidence survive session resume. Unsupported continuation input formats or changed role configuration pause instead of silently rerouting. See the [complete handoff guide](../MODEL_HANDOFF.md) for setup, native SDK integration, evaluation and limits. This is a prompted evaluator, not a trained AgentBaton reproduction; savings and accuracy are unmeasured.
+Configure Model Provider now supports primary, continuation and evaluator roles. The Model handoff button opens mode and role settings. Shadow mode is the default; without a continuation profile there are no extra calls. Automatic mode can switch once after a substantive workspace artifact has real execution feedback and the evaluator identifies localized remaining work. Saved model IDs, decisions and evidence survive session resume. Unsupported continuation input formats or changed role configuration pause instead of silently rerouting. See the [complete handoff guide](../README.md#model-handoff) for setup, native SDK integration, evaluation and limits. This is a prompted evaluator, not a trained AgentBaton reproduction; savings and accuracy are unmeasured.
 
 ### Responsive chat and inspection
 

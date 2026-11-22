@@ -42,7 +42,7 @@ def prepare(runtime,session,data):
         candidate={'summary':candidate['summary'],'verification':candidate.get('verification',[]),'outcome':candidate.get('outcome','complete')}
         manifest=runtime.manifest();changes=[{'path':path,'status':'added' if path not in session['initial'] else 'deleted' if path not in manifest else 'modified','hash':manifest.get(path,{}).get('hash','missing'),'bytes':manifest.get(path,{}).get('bytes',0)} for path in sorted(set(manifest)|set(session['initial'])) if manifest.get(path)!=session['initial'].get(path)]
         checkpoint={'id':uuid.uuid4().hex,'state':state(runtime,session,manifest),'candidate':candidate};session['independentCheckpoint']=checkpoint
-        observations=[e['value'] for e in session['events'] if e['kind']=='observation'];commands=[{'id':o.get('id'),'tool':o.get('tool'),'ok':o.get('ok'),'checks':o.get('checks'),'result':o.get('result')} for o in observations if o.get('tool') in {'run_command','run_script'}]
+        observations=[e['value'] for e in session['events'] if e['kind']=='observation'];commands=[{'id':o.get('id'),'tool':o.get('tool'),'ok':o.get('ok'),'checks':o.get('checks'),'result':o.get('result')} for o in observations if o.get('tool') in {'run_command','run_script','script_run'}]
         inspections=[{'id':o.get('id'),'tool':o.get('tool'),'ok':o.get('ok'),'result':o.get('result')} for o in observations if o.get('tool') in {'read_file','search','list_files','read_command_output'} or o.get('tool','').startswith('code_')][-20:]
         checks=[{'id':o.get('id'),'tool':o.get('tool'),'ok':o.get('ok'),'checks':o['checks']} for o in observations if o.get('checks')]
         evidence_index=[{'id':'goal','kind':'instruction','description':'Original user goal'}]

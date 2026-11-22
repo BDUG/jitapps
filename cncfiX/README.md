@@ -9,3 +9,8 @@ Local-first CNCF landscape diagram builder for mapping cloud native categories, 
 - **Interactive Vector Preview**: Click cards in the SVG landscape to inspect/edit them, filter by maturity or keyword, and zoom/fit the canvas.
 - **Exports & Imports**: Export standalone vector **SVG** (with embedded editable project metadata), **CNCF `landscape.yml`-compatible YAML**, or editable **JSON**.
 - **Suite Integration**: Shared AI chat proposals with review/undo, workspace templates, Content Hub publishing, and virtual disk/project ZIP support.
+
+
+## Workspace inventory and capabilities
+
+Use **Workspace → Tool actions → Sort items within each category** to preview natural name ordering within existing category/subcategory slots. Item IDs, classifications and links remain intact. The inventory supports maturity/name filters, numeric sorting and full filtered export.

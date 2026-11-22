@@ -16,8 +16,8 @@ embeddings = ["onnxruntime==1.22.1", "tokenizers==0.21.4"]
 codingagentlib = "codingagentlib.__main__:main"
 
 [tool.setuptools]
-packages = ["codingagentlib", "codingagentlib.python"]
+packages = ["codingagentlib", "codingagentlib.python", "codingagentlib.extension_pack"]
 package-dir = {codingagentlib = "."}
 
 [tool.setuptools.package-data]
-codingagentlib = ["protocol.json", "integration-context.schema.json", "javascript/*.js", "javascript/package.json", "python/code-navigation/*.cjs", "python/code-navigation/*.json"]
+codingagentlib = ["protocol.json", "integration-context.schema.json", "javascript/*.js", "javascript/package.json", "python/code-navigation/*.cjs", "python/code-navigation/*.json", "extension_pack/agents/*.md", "extension_pack/policies/*.json", "extension_pack/skills/*/SKILL.md", "extension_pack/sandbox-image/Dockerfile", "extension_pack/README.md"]

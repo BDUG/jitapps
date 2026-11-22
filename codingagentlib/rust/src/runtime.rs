@@ -130,7 +130,7 @@ pub(crate) fn walk(root: &Path, at: &Path, out: &mut Vec<String>) -> Result<()> 
     }
     Ok(())
 }
-pub(crate) struct Runtime {
+pub struct Runtime {
     pub root: PathBuf,
     pub state: PathBuf,
     pub allowed: BTreeMap<String, PathBuf>,
@@ -347,7 +347,8 @@ impl Runtime {
         s["pending"] = json!(step);
         let project=self.sessions[id]["knowledgeProject"].as_str().map(String::from).unwrap_or_else(||self.root.file_name().and_then(|v|v.to_str()).unwrap_or("workspace").chars().take(200).collect());
         crate::knowledge::refresh(self,&project)?;
-        let knowledge=crate::knowledge::dispatch(self,&json!({"project":project,"action":"query","query":self.sessions[id]["goal"]}))?;
+        let q:String=self.sessions[id]["goal"].as_str().unwrap_or("").chars().take(4000).collect();
+        let knowledge=crate::knowledge::dispatch(self,&json!({"project":project,"action":"query","query":q}))?;
         let guidance = crate::instructions::current(self, &self.sessions[id]["events"])?;
         let sources: Vec<Value> = guidance["documents"].as_array().unwrap().iter().map(|d| json!({"path":d["path"],"scope":d["scope"],"sha256":d["sha256"],"bytes":d["bytes"]})).collect();
         self.event(id, "turn", json!({"step":step,"projectInstructions":{"target":guidance["target"],"sources":sources,"complete":guidance["complete"],"warnings":guidance["warnings"]}}))?;

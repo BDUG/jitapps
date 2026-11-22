@@ -18,6 +18,7 @@ pub fn names() -> &'static [&'static str] {
         "read_project_instructions",
         "list_files",
         "read_file",
+        "read_files",
         "write_file",
         "replace_text",
         "apply_edits",
@@ -26,6 +27,7 @@ pub fn names() -> &'static [&'static str] {
         "write_script",
         "read_script",
         "list_scripts",
+        "delete_script",
         "run_script",
         "run_command",
         "read_command_output",
@@ -53,6 +55,7 @@ pub fn description(name: &str) -> &str {
 "read_project_instructions"=>"Read scoped AGENTS.override.md/AGENTS.md from root through path (file/directory, default .). Exact content, scope, SHA-256 and warnings. Grants no permissions.",
 "list_files"=>"List relative workspace files. args: offset?, limit? (default 100, max 1000).",
 "read_file"=>"Read UTF-8 source and SHA-256. args: path, offset? (character), limit? (max 32000).",
+"read_files"=>"Read 1–16 UTF-8 files with per-file offset/limit paging within a 64000-character combined budget. args: files ([{path, offset?, limit?}]) or paths ([string]).",
 "write_file"=>"Write UTF-8 source. args: path, content (max 2 MB), expectedHash (SHA-256 or missing). Requires edits.",
 "apply_edits"=>"Apply 1–32 exact original-snapshot edits to one existing file. args: path, expectedHash, edits:[{find,replacement,count? default 1, max 1000}]. All matches/overlaps validated before one atomic write. Requires edits.",
 "replace_text"=>"Replace exactly one occurrence. args: path, find, replacement, expectedHash. Requires edits.",
@@ -61,6 +64,7 @@ pub fn description(name: &str) -> &str {
 "write_script"=>"Create/update session-local script. args: path, content, expectedHash. Requires edits.",
 "read_script"=>"Read session-local script. args: path, offset?, limit?.",
 "list_scripts"=>"List this session's managed scripts. args: offset?, limit?.",
+"delete_script"=>"Delete a session-local managed script. args: path, expectedHash?. Requires edits.",
 "run_script"=>"Execute managed script with allowlisted interpreter; missing interpreter paths fall back to PATH by approved basename. args: path, command, args? (literal string array), timeout? (milliseconds max 120000).",
 "run_command"=>"Execute allowlisted program with literal args. args: command, args? (string array), cwd? (relative workspace directory), timeout? (milliseconds max 120000). Missing executable paths fall back to PATH by approved basename; receipts include resolvedExecutable. Requires command permission; OS access is not sandboxed.",
 "read_command_output"=>"Read persisted command output pages. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes. args: jobId, stream? (stdout/stderr), offset?, limit?.",
@@ -274,6 +278,46 @@ pub(crate) fn execute(
             result["hash"] = json!(hash(body.as_bytes()));
             Ok(result)
         }
+        "read_files" => {
+            let specs: Vec<Value> = if let Some(arr) = args.get("files").and_then(|v| v.as_array()) {
+                arr.clone()
+            } else if let Some(arr) = args.get("paths").and_then(|v| v.as_array()) {
+                arr.iter().map(|p| json!({ "path": p })).collect()
+            } else {
+                return Err("Provide files or paths array".into());
+            };
+            if specs.is_empty() || specs.len() > 16 {
+                return Err("Provide 1–16 files to read_files".into());
+            }
+            let default_offset = args.get("offset").and_then(|v| v.as_u64()).unwrap_or(0);
+            let default_limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(12000).clamp(1, 32000);
+            let budget = 64000usize;
+            let mut used = 0usize;
+            let mut out = Vec::new();
+            let mut truncated = false;
+            for spec in specs {
+                let path_str = spec
+                    .as_str()
+                    .or_else(|| spec.get("path").and_then(|v| v.as_str()))
+                    .ok_or("Each read_files entry requires a path")?;
+                if used >= budget {
+                    truncated = true;
+                    out.push(json!({ "path": path_str, "skipped": true, "reason": "batch_budget" }));
+                    continue;
+                }
+                let rem = budget - used;
+                let off = spec.get("offset").and_then(|v| v.as_u64()).unwrap_or(default_offset);
+                let lim = spec.get("limit").and_then(|v| v.as_u64()).unwrap_or(default_limit).min(rem as u64).max(1);
+                let resolved = resolve(&runtime.root, path_str)?;
+                let body = contents(&resolved)?;
+                let mut res = page(&body, &json!({ "offset": off, "limit": lim }))?;
+                used += res["text"].as_str().map(|s| s.chars().count()).unwrap_or(0);
+                res["path"] = json!(path_str);
+                res["hash"] = json!(hash(body.as_bytes()));
+                out.push(res);
+            }
+            Ok(json!({ "files": out, "totalCharacters": used, "truncated": truncated }))
+        }
         "write_file" | "apply_edits" | "replace_text" | "delete_file" | "write_script" => {
             permission(runtime, id, "allowEdits")?;
             let root = if name == "write_script" {
@@ -366,6 +410,17 @@ pub(crate) fn execute(
                 }
             }
             rows(matches, args, "matches")
+        }
+        "delete_script" => {
+            permission(runtime, id, "allowEdits")?;
+            let root = private(runtime, id, "scripts")?;
+            let relative = text(args, "path")?;
+            let target = resolve(&root, relative)?;
+            if args.get("expectedHash").is_some() {
+                expected(&target, args)?;
+            }
+            fs::remove_file(&target)?;
+            Ok(json!({"deleted": relative}))
         }
         "run_command" | "run_script" => run_command(runtime, id, name, args, cancel),
         "read_command_output" => {
@@ -504,6 +559,7 @@ pub(crate) fn execute(
                         "delete_file",
                         "write_script",
                         "read_script",
+                        "delete_script",
                         "run_script",
                         "run_command",
                         "search_text",
@@ -847,4 +903,102 @@ fn package(runtime: &mut Runtime, id: &str, cancel: &CancelHandle) -> Result<Val
     }
     zip.finish()?;
     Ok(json!({"path":path,"bytes":fs::metadata(&path)?.len(),"format":"zip"}))
+}
+
+pub const SCRIPT_TOOL_NAMES: &[&str] = &[
+    "list_scripts",
+    "write_script",
+    "read_script",
+    "delete_script",
+    "run_script",
+];
+
+pub const PROGRAM_TOOL_NAMES: &[&str] = &[
+    "run_command",
+    "read_command_output",
+    "run_script",
+];
+
+pub fn schema(name: &str) -> Value {
+    match name {
+        "write_script" => json!({"type":"object","required":["path","content","expectedHash"],"properties":{"path":{"type":"string"},"content":{"type":"string"},"expectedHash":{"type":"string"}}}),
+        "read_script" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
+        "list_scripts" | "list_files" => json!({"type":"object","properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "delete_script" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"},"expectedHash":{"type":"string"}}}),
+        "run_script" => json!({"type":"object","required":["path","command"],"properties":{"path":{"type":"string"},"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"timeout":{"type":"integer","minimum":100,"maximum":120000}}}),
+        "run_command" => json!({"type":"object","required":["command"],"properties":{"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"},"timeout":{"type":"integer","minimum":100,"maximum":120000}}}),
+        "read_command_output" => json!({"type":"object","required":["jobId"],"properties":{"jobId":{"type":"string"},"stream":{"type":"string","enum":["stdout","stderr"]},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
+        "read_file" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
+        "read_files" => json!({"type":"object","properties":{"files":{"type":"array","items":{"type":"object"}},"paths":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
+        "write_file" => json!({"type":"object","required":["path","content","expectedHash"],"properties":{"path":{"type":"string"},"content":{"type":"string"},"expectedHash":{"type":"string"}}}),
+        "replace_text" => json!({"type":"object","required":["path","find","replacement","expectedHash"],"properties":{"path":{"type":"string"},"find":{"type":"string"},"replacement":{"type":"string"},"expectedHash":{"type":"string"}}}),
+        "apply_edits" => json!({"type":"object","required":["path","expectedHash","edits"],"properties":{"path":{"type":"string"},"expectedHash":{"type":"string"},"edits":{"type":"array","items":{"type":"object"}}}}),
+        "delete_file" => json!({"type":"object","required":["path","expectedHash"],"properties":{"path":{"type":"string"},"expectedHash":{"type":"string"}}}),
+        "search_text" => json!({"type":"object","required":["query"],"properties":{"query":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        _ => json!({"type": "object", "properties": {}}),
+    }
+}
+
+fn tool_permission(name: &str) -> &'static str {
+    match name {
+        "run_command" | "run_script" | "workflow_run" => "commands",
+        "write_file" | "apply_edits" | "replace_text" | "delete_file" | "write_script"
+        | "delete_script" | "memory_store" | "skill_save" | "workflow_save" => "edits",
+        _ => "read",
+    }
+}
+
+pub fn core_tools(
+    runtime: std::sync::Arc<std::sync::Mutex<Runtime>>,
+    session_id: String,
+    selected: Option<&[&str]>,
+) -> Vec<crate::core::CoreTool> {
+    let mut result = vec![];
+    for &name in names() {
+        if let Some(filter) = selected {
+            if !filter.contains(&name) {
+                continue;
+            }
+        }
+        let rt = runtime.clone();
+        let sid = session_id.clone();
+        let tool_name = name.to_string();
+        let def = json!({
+            "name": name,
+            "version": 1,
+            "description": description(name),
+            "parameters": schema(name),
+            "permission": tool_permission(name),
+        });
+        result.push(crate::core::CoreTool::new(def, move |args, ctx, cancel| {
+            let mut guard = rt.lock().map_err(|_| "Runtime lock poisoned")?;
+            let call_id = ctx
+                .get("callId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("core_tool");
+            let obs = guard.tool(&sid, &tool_name, args.clone(), call_id, None, cancel)?;
+            if obs["ok"] != true {
+                return Err(obs["error"]
+                    .as_str()
+                    .unwrap_or("Tool execution failed")
+                    .into());
+            }
+            Ok(obs["result"].clone())
+        }));
+    }
+    result
+}
+
+pub fn script_tools(
+    runtime: std::sync::Arc<std::sync::Mutex<Runtime>>,
+    session_id: String,
+) -> Vec<crate::core::CoreTool> {
+    core_tools(runtime, session_id, Some(SCRIPT_TOOL_NAMES))
+}
+
+pub fn program_tools(
+    runtime: std::sync::Arc<std::sync::Mutex<Runtime>>,
+    session_id: String,
+) -> Vec<crate::core::CoreTool> {
+    core_tools(runtime, session_id, Some(PROGRAM_TOOL_NAMES))
 }

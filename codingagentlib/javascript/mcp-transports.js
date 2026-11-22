@@ -78,4 +78,47 @@ async function shellMcp({command,args=[],cwd,env=process.env,timeout=30000,signa
   };
   try{return await initialize(transport,{signal});}catch(error){await transport.close();throw error;}
 }
-module.exports={rpcTransport,shellMcp,initialize,frameKind};
+function httpMcpTransport({endpoint,headers={},protocolVersion='2025-06-18',fetch:request=globalThis.fetch}={}) {
+  let url;
+  try{url=new URL(endpoint);}catch{throw Error('Invalid MCP HTTP endpoint');}
+  const local=url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname);
+  if((url.protocol!=='https:'&&!local)||!url.hostname||url.username||url.password||url.hash)throw Error('Invalid MCP HTTP endpoint');
+  if(typeof request!=='function')throw Error('Provide a fetch function for httpMcpTransport');
+  let sessionId=null,initialized=false,sequence=0;
+  const buildHeaders=()=>{
+    const h={'Content-Type':'application/json','Accept':'application/json, text/event-stream','MCP-Protocol-Version':protocolVersion,...headers};
+    if(sessionId)h['Mcp-Session-Id']=sessionId;
+    return h;
+  };
+  const send=async(frame,{signal}={})=>{
+    const reply=await request(url.href,{method:'POST',signal,headers:buildHeaders(),body:JSON.stringify(frame)});
+    const sid=reply.headers?.get?.('Mcp-Session-Id')||reply.headers?.get?.('mcp-session-id');
+    if(sid)sessionId=sid;
+    if(!reply.ok)throw Error('MCP HTTP request failed (HTTP '+reply.status+')');
+    const text=await reply.text();
+    return text.trim()?JSON.parse(text):{};
+  };
+  const transport={
+    get sessionId(){return sessionId;},
+    async initialize({signal}={}) {
+      const res=await transport.request('initialize',{protocolVersion,capabilities:{},clientInfo:{name:'codingagentlib',version:'1.0.0'}},{signal});
+      initialized=true;return res;
+    },
+    async notify(method,params={},{signal}={}) {
+      const frame={jsonrpc:'2.0',method,params};frameKind(frame);
+      await send(frame,{signal});
+    },
+    async request(method,params={},{signal}={}) {
+      if(!initialized&&method!=='initialize')await transport.initialize({signal});
+      const id=++sequence,frame={jsonrpc:'2.0',id,method,params};frameKind(frame);
+      const reply=await send(frame,{signal});
+      if(reply?.jsonrpc!=='2.0'||reply.id!==id)throw Error('RPC response identity mismatch');
+      if(frameKind(reply)!=='response')throw Error('Expected an MCP JSON-RPC response');
+      if(Object.hasOwn(reply,'error'))throw Error(reply.error.message||'RPC failed');
+      return reply.result;
+    },
+    async close(){initialized=false;}
+  };
+  return transport;
+}
+module.exports={rpcTransport,shellMcp,httpMcpTransport,initialize,frameKind};

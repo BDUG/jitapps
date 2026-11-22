@@ -44,7 +44,8 @@ Tool calls have immutable IDs and a fingerprint of tool/arguments/checks. A comp
 | Area | Tools / behavior |
 | --- | --- |
 | Files | `list_files`, `read_file`, `search_text`, `write_file`, `replace_text`, `delete_file`; relative paths, symlink/traversal/private-state rejection, SHA-256 optimistic checks, pre-edit recovery copies. |
-| Managed scripts | `write_script`, `read_script`, `list_scripts`, `run_script`; scripts remain session-local and use an explicitly allowed interpreter. |
+| Managed scripts | `write_script`, `read_script`, `list_scripts`, `delete_script`, `run_script`; scripts remain session-local and use an explicitly allowed interpreter. |
+| Portable core adapters | `core_tools(runtime, session_id, selected)`, `script_tools(runtime, session_id)`, and `program_tools(runtime, session_id)` wrap native tools as `CoreTool` definitions for `create_agent`. |
 | Commands | `run_command` with literal argv, executable allowlist and session permission. Default timeout 30 seconds, maximum 120 seconds. Stdout/stderr persisted separately; `read_command_output` retrieves full pages within the output bound. |
 | Evidence | Observations, task status, JSON-pointer `equals`/`contains`/`exists` action checks, verification after edits, `read_history`, `changes`. |
 | Findings | `memory_store`, `memory_read`, `memory_list`, `memory_search`; session-local JSON records and case-insensitive lexical search. This is not semantic vector embedding retrieval. |
@@ -75,15 +76,15 @@ Native tests cover operation without any valid interpreter, session restart, exc
 
 ## Embed in a UI or another Rust program
 
-`EmbeddedAgent`, `ToolPermission` and `ToolContext` provide a small optional host-tool integration API alongside the guarded workspace `Agent`. Register callbacks, add an event sink or approval hook, pass JSON application context and supply your own model transport. See the [language-neutral integration guide](../INTEGRATION.md) for semantics and limitations.
+`EmbeddedAgent`, `ToolPermission` and `ToolContext` provide a small optional host-tool integration API alongside the guarded workspace `Agent`. Register callbacks, add an event sink or approval hook, pass JSON application context and supply your own model transport. See the [language-neutral integration guide](../README.md#integration) for semantics and limitations.
 
 `cargo run --manifest-path codingagentlib/rust/Cargo.toml --example ui -- /absolute/workspace` starts a small local browser UI with real read-only workspace listing and a deterministic demonstration model. No Python or GUI toolkit is needed. Replace `demo_model` with your provider callback for real AI requests.
 
-The UI also supports reading/searching files, questions and follow-ups, step budgets, live event filters, tool switches, metrics and explicit snapshot download/restore. The `EmbeddedAgent` API provides matching discovery/context/completion-policy/restore integration points across Rust, Python and JavaScript; see [session transfer contracts](../INTEGRATION.md#tool-management-completion-checks-and-session-transfer).
+The UI also supports reading/searching files, questions and follow-ups, step budgets, live event filters, tool switches, metrics and explicit snapshot download/restore. The `EmbeddedAgent` API provides matching discovery/context/completion-policy/restore integration points across Rust, Python and JavaScript; see [session transfer contracts](../README.md#integration-tool-management-completion-checks-and-session-transfer).
 
 ## Dynamic host context
 
-`ContextRegistry`, `EmbeddedAgent::context_provider` and `tool_available` support live application integrations with revisioned context sources, descriptive schemas, per-turn refresh and dispatch-time capability checks. Tools receive the exact model-turn context in `ToolContext.context`. See the [cross-language guide](../INTEGRATION.md#dynamic-host-integration-framework) and `cargo run --example dynamic_context` for a native, provider-free demonstration.
+`ContextRegistry`, `EmbeddedAgent::context_provider` and `tool_available` support live application integrations with revisioned context sources, descriptive schemas, per-turn refresh and dispatch-time capability checks. Tools receive the exact model-turn context in `ToolContext.context`. See the [cross-language guide](../README.md#integration-dynamic-host-integration-framework) and `cargo run --example dynamic_context` for a native, provider-free demonstration.
 
 ### Retained output through the host API
 
@@ -115,7 +116,7 @@ Native `apply_edits` accepts `path`, `expectedHash` and 1–32 `edits` with `fin
 
 ## Evidence-driven model handoff
 
-Native `ModelHandoff`, `Agent::run_with_handoff` and `resume_with_handoff` support shadow and one-way automatic routing with persistent session metadata and host-supplied primary/continuation/detector callbacks. See the [shared guide](../MODEL_HANDOFF.md#native-rust-integration) for configuration, evidence requirements, examples and limits. No Python dependency is introduced.
+Native `ModelHandoff`, `Agent::run_with_handoff` and `resume_with_handoff` support shadow and one-way automatic routing with persistent session metadata and host-supplied primary/continuation/detector callbacks. See the [shared guide](../README.md#model-handoff-native-rust-integration) for configuration, evidence requirements, examples and limits. No Python dependency is introduced.
 
 ## Native task dependency validation
 
@@ -149,3 +150,26 @@ Native Rust planning requests now add three fields to `verificationFreshness` wh
 Hosts with several required checks can compare each receipt's `result.verificationBinding.inputDigest` with `currentInputDigest`, requiring stable, complete command input capture and complete current coverage. A later command pass does not refresh an earlier check's binding. VS Code now enforces this for every configured command and exposes stale/unavailable results. The snapshot reuses the native freshness capture; it does not add another filesystem read pass. With no previous command binding, status remains `none` and these additive snapshot fields are absent.
 
 Known inputs, limits and non-atomic coverage remain as documented under source-bound verification. An empty known-input set remains unbound, not proof of whole-workspace correctness. Host-directed policy is separate from native permissions and the native completion recheck. No verification commands are run automatically by comparing digests.
+
+## Two-view browser example and extension-pack boundary
+
+The [SVG/rich-text example](../examples/two-views/README.md) registers distinct
+`svg_color` and `rich_text` tools on native Rust `EmbeddedAgent`, with chat,
+a bottom communication/step panel and JSON trace export:
+
+```sh
+cargo build --locked --manifest-path codingagentlib/rust/Cargo.toml --example two_views
+python3 codingagentlib/examples/two-views/serve.py rust
+```
+
+Run from the repository root and open `http://127.0.0.1:8765`. Python serves this
+example's common page and optional provider bridge; tool execution remains native
+Rust. Default commands are deterministic and require no model credentials. This
+example's Python requirement is a presentation-host choice, not a dependency of
+the Rust library. Trace events appear after a bounded run returns.
+
+The [Extension Pack 1.2](../extension_pack/README.md) is a separate Python generic
+host adapter. Its SQLite checkpoints, policy/configuration, tier ledger and
+SessionConfig-style composition are not Rust crate APIs. Rust's existing generic
+core/session-store and native runtime capabilities remain as described above;
+do not import Python session snapshots into Rust or assume extension-pack parity.

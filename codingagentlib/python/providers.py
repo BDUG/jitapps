@@ -121,13 +121,39 @@ def with_retry(model, *, max_attempts=3, base_delay=0.25, sleep=time.sleep):
     return wrapped
 
 
+def _schema_from_arguments(arguments):
+    if not isinstance(arguments, dict):
+        return {'type': 'object', 'properties': {}}
+    props = {}
+    for key, desc in arguments.items():
+        if isinstance(desc, dict) and 'type' in desc:
+            props[key] = desc
+            continue
+        text = str(desc or '')
+        low = text.lower()
+        if low.startswith('array') or 'array of' in low:
+            prop = {'type': 'array', 'items': {}}
+        elif low.startswith('boolean') or low.startswith('optional boolean'):
+            prop = {'type': 'boolean'}
+        elif low.startswith('integer') or low.startswith('optional integer') or low.startswith('one-based integer'):
+            prop = {'type': 'integer'}
+        elif low.startswith('json') or low.startswith('optional {') or 'object' in low.split(',')[0]:
+            prop = {'type': 'object'}
+        else:
+            prop = {'type': 'string'}
+        if text:
+            prop['description'] = text
+        props[key] = prop
+    return {'type': 'object', 'properties': props}
+
+
 def tool_schemas(tools, *, provider='openai'):
     """Convert internal tool specs into OpenAI, Anthropic, or Gemini JSON Schema tool definitions."""
     formatted = []
     for tool in tools or ():
         name = tool['name']
         desc = tool.get('description', '')
-        params = tool.get('parameters') or {'type': 'object', 'properties': {}}
+        params = tool.get('parameters') or _schema_from_arguments(tool.get('arguments'))
         if provider == 'openai':
             formatted.append({'type': 'function', 'function': {'name': name, 'description': desc, 'parameters': params}})
         elif provider == 'anthropic':

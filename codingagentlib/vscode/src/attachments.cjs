@@ -21,4 +21,21 @@ function modelContent(request){
  }
  return parts;
 }
-module.exports={attachment,relative,validate,modelContent};
+function textPageSize(value){return Math.max(256,Math.min(64000,Math.floor(Number(value))||12000));}
+function prefix(text,limit){let end=Math.min(text.length,limit);if(end>0&&end<text.length&&/[\uD800-\uDBFF]/.test(text[end-1])&&/[\uDC00-\uDFFF]/.test(text[end]))end--;return text.slice(0,end);}
+function paginateText(text,pageSize=12000){const size=textPageSize(pageSize),pages=[];for(let i=0;i<text.length;){const page=prefix(text.slice(i,i+size+1),size);pages.push(page);i+=page.length;}return pages.length?pages:[''];}
+function summarizeAttachments(items,{maxInlineChars=48000,pageSize=12000}={}){
+ if(!Array.isArray(items))throw Error('Expected attachments');
+ if(!Number.isSafeInteger(maxInlineChars)||maxInlineChars<0)throw Error('Invalid inline character budget.');
+ const size=textPageSize(pageSize);let remaining=maxInlineChars;
+ return items.map(item=>{
+  if(!item||typeof item!=='object'||typeof item.content!=='string')return item;
+  const len=item.content.length;
+  if(len<=size*2&&len<=remaining){remaining-=len;return item;}
+  const pages=paginateText(item.content,size),content=prefix(pages[0],remaining);
+  remaining-=content.length;
+  return {...item,content,paged:true,page:item.paged?item.page:0,totalPages:item.totalPages||pages.length,pageSize:item.pageSize||size,totalCharacters:item.totalCharacters??len,previewTruncated:true,omittedPreviewCharacters:len-content.length,note:'Reference preview limited by the combined text budget. Use read_file with offset/limit for workspace files; attach a smaller selection for selection snapshots.'};
+ });
+}
+async function readAttachmentPage(root,file,{page=0,pageSize=12000}={}){if(!Number.isSafeInteger(page)||page<0)throw Error('Page index must be a non-negative integer.');const base=await fs.realpath(root),actual=await fs.realpath(file),name=relative(base,actual),stat=await fs.stat(actual);if(!stat.isFile())throw Error('Select files, not directories.');if(stat.size>64_000_000)throw Error('File exceeds 64 MB limit.');const bytes=await fs.readFile(actual);let content;try{content=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw Error('Attach UTF-8 text files or an editor text selection.');}if(content.includes('\0'))throw Error('Binary files are not supported as text references.');const size=textPageSize(pageSize),pages=paginateText(content,size);if(page>=pages.length)throw Error('Requested page is unavailable; file has '+pages.length+' page(s).');return {name:name+'#page='+(page+1)+'/'+pages.length,path:name,kind:'file',content:pages[page],paged:true,page,totalPages:pages.length,pageSize:size,totalCharacters:content.length,sha256:crypto.createHash('sha256').update(content).digest('hex')};}
+module.exports={attachment,relative,validate,modelContent,paginateText,summarizeAttachments,readAttachmentPage};

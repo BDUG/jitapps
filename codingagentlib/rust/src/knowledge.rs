@@ -367,8 +367,8 @@ pub(crate) fn refresh(runtime: &Runtime, p: &str) -> Result<Value> {
                         imported.push(name.to_owned());
                     }
                 }
-            } else if trimmed.starts_with("use ") {
-                if let Some(name) = trimmed[4..].split("::").next() {
+            } else if let Some(rest) = trimmed.strip_prefix("use ") {
+                if let Some(name) = rest.split("::").next() {
                     imported.push(name.trim_end_matches(';').to_owned());
                 }
             } else if trimmed.starts_with("import ")

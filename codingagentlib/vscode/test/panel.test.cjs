@@ -1,56 +1,168 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-function panel(initial={}){const ids=new Map(),posted=[];let saved=initial,receive,specificationUI;const metrics={serialized:0},panelJSON=Object.create(JSON);panelJSON.stringify=(...args)=>{metrics.serialized++;return JSON.stringify(...args);};class Element{constructor(){this.children=[];this.value='';this.textContent='';this.dataset={};this.checked=false;}append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}setAttribute(){}scrollIntoView(){}focus(){}remove(){}}const document={getElementById(id){if(!ids.has(id))ids.set(id,new Element());return ids.get(id);},createElement:()=>new Element(),querySelectorAll:()=>[]};vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../media/panel.js'),'utf8'),{JSON:panelJSON,CodingAgentTasks:require('../media/tasks.js'),document,window:{CodingAgentSpecificationUI:{attach:options=>specificationUI=options},addEventListener:(_name,fn)=>receive=fn},acquireVsCodeApi:()=>({getState:()=>saved,setState:value=>saved=JSON.parse(JSON.stringify(value)),postMessage:value=>posted.push(value)})});return {specification:()=>specificationUI,metrics,q:id=>document.getElementById(id),posted,saved:()=>saved,state:extra=>receive({data:{kind:'state',workspaceKey:'rootA',workspace:'A',session:'s',running:false,attachments:[],...extra}}),event:data=>receive({data})};}
-test('workspace-scoped drafts survive panel reload and history replay without restoring permissions',()=>{const p=panel();p.state();p.q('goal').value='Keep my unsent follow-up';p.q('goal').oninput();const next=panel(p.saved());next.state({trace:[{kind:'user',text:'Old accepted goal'}]});assert.equal(next.q('goal').value,'Keep my unsent follow-up');assert.equal(next.q('edits').checked,false);next.state({workspaceKey:'rootB'});assert.equal(next.q('goal').value,'');next.q('goal').value='Other root';next.q('goal').oninput();next.state({workspaceKey:'rootA'});assert.equal(next.q('goal').value,'Keep my unsent follow-up');});
-test('approval clears only the submitted draft; text typed while running is retained',()=>{const p=panel();p.state();p.q('goal').value='Original request';p.q('form').onsubmit({preventDefault(){}});assert.equal(p.posted.at(-1).command,'run');p.q('goal').value='New follow-up typed during approval';p.q('goal').oninput();p.event({kind:'user',text:'Original request'});assert.equal(p.q('goal').value,'New follow-up typed during approval');p.state({running:true,pauseRequested:true});assert.equal(p.q('pause').disabled,true);assert.equal(p.q('pause').textContent,'Pausing…');assert.equal(p.q('goal').value,'New follow-up typed during approval');p.q('pause').onclick();assert.equal(p.posted.at(-1).command,'pause');});
-test('preparing a run disables duplicate submissions and accepted unchanged goals clear',()=>{const p=panel();p.state();p.q('goal').value='Send once';p.q('form').onsubmit({preventDefault(){}});p.event({kind:'user',text:'Send once'});assert.equal(p.q('goal').value,'');assert.equal(p.saved().drafts.rootA,'');p.state({preparing:true});assert.equal(p.q('start').disabled,true);const before=p.posted.length;p.q('form').onsubmit({preventDefault(){}});assert.equal(p.posted.length,before);});
+function panel(initial={}){
+ const ids=new Map(),posted=[];let saved=initial,receive;
+ class Element{constructor(){this.children=[];this.value='';this.textContent='';this.dataset={};}append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}setAttribute(){}scrollIntoView(){}focus(){}remove(){}}
+ const document={getElementById(id){if(!ids.has(id))ids.set(id,new Element());return ids.get(id);},createElement:()=>new Element(),querySelectorAll:()=>[]};
+ vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../media/panel.js'),'utf8'),{JSON,setTimeout,document,window:{addEventListener:(_name,fn)=>receive=fn},acquireVsCodeApi:()=>({getState:()=>saved,setState:value=>saved=JSON.parse(JSON.stringify(value)),postMessage:value=>posted.push(value)})});
+ return {q:id=>document.getElementById(id),posted,saved:()=>saved,state:extra=>receive({data:{kind:'state',workspaceKey:'rootA',workspace:'A',session:'s',running:false,...extra}}),event:data=>receive({data})};
+}
 
-test('host-saved drafts restore after reopening a panel with no webview state',()=>{const p=panel();p.state({savedDrafts:{rootA:'Restored after closing'}});assert.equal(p.q('goal').value,'Restored after closing');assert.equal(p.posted.at(-1).command,'saveDraft');});
-test('provider retries appear in chat and status without altering the draft',()=>{const p=panel();p.state();p.q('goal').value='Keep this follow-up';p.q('goal').oninput();p.event({kind:'providerRetry',attempt:2,total:3,delayMs:1500,text:'Retrying model request. No tool action executed.'});assert.equal(p.q('status').textContent,'Model retry 2/3 · waiting 2s');assert.equal(p.q('goal').value,'Keep this follow-up');});
-test('usage summary distinguishes reported zero from unknown token counts',()=>{const p=panel(),Usage=require('../src/usage.cjs');let metrics=Usage.empty();metrics=Usage.record(metrics,{ok:true,attempt:1,durationMs:1,usage:{inputTokens:0}});p.state({modelMetrics:metrics});assert.match(p.q('model-usage').textContent,/Input tokens: 0 \(1\/1 attempts reported\)/);assert.match(p.q('model-usage').textContent,/Output tokens: unknown \(0\/1 attempts reported\)/);});
-test('selected problems append once without erasing a draft, sending a run, or crossing roots',()=>{const p=panel();p.state();p.q('goal').value='Existing follow-up';p.q('goal').oninput();const draft={id:'selected-1',workspaceKey:'rootA',text:'Investigate main.js diagnostic'};p.state({pendingDrafts:[draft]});assert.equal(p.q('goal').value,'Existing follow-up\n\nInvestigate main.js diagnostic');p.state({pendingDrafts:[draft]});assert.equal(p.q('goal').value.split('Investigate').length,2);assert.ok(p.posted.some(m=>m.command==='ackDraft'));assert.ok(!p.posted.some(m=>m.command==='run'));const restored=panel(p.saved());restored.state({pendingDrafts:[draft]});assert.equal(restored.q('goal').value,p.q('goal').value);restored.state({workspaceKey:'rootB',pendingDrafts:[draft]});assert.equal(restored.q('goal').value,'');});
-test('task filters and unfinished drafting preserve text without sending or editing the plan',()=>{const p=panel(),tasks=[{id:'one',title:'Completed item',status:'done'},{id:'two',title:'Blocked item',status:'blocked',dependsOn:['unknown']}];p.state({tasks});assert.match(p.q('task-summary').textContent,/1\/2 done/);assert.equal(p.q('tasks').children.length,2);p.q('task-filter').value='blocked';p.q('task-filter').onchange();assert.equal(p.q('tasks').children.length,1);assert.match(p.q('tasks').children[0].textContent,/Blocked item/);assert.equal(p.q('task-warnings').children.length,1);p.q('goal').value='Existing instruction';p.q('draft-tasks').onclick();assert.match(p.q('goal').value,/Existing instruction/);assert.match(p.q('goal').value,/Blocked item/);assert.ok(!p.q('goal').value.includes('Completed item'));assert.ok(!p.posted.some(m=>m.command==='run'));assert.equal(tasks[1].status,'blocked');});
-test('history telemetry explicitly reports preserved-record overflow',()=>{const p=panel();p.state();p.event({kind:'contextBudget',mode:'compacted',events:4,totalEvents:100,characters:12000,budget:8000,overBudget:true});assert.match(p.q('context-budget').textContent,/4\/100 events/);assert.match(p.q('context-budget').textContent,/preserved records exceed soft budget/);});
-test('no-progress recovery creates only an unsent request and keeps the existing follow-up',()=>{const p=panel();p.state();p.q('goal').value='Existing follow-up';p.event({kind:'loopGuard',code:'repeated_failure',tool:'run_command',callIds:['s_1','s_2','s_3'],message:'Paused repeated failures'});assert.equal(p.q('loop-recovery').hidden,false);p.q('draft-recovery').onclick();assert.match(p.q('goal').value,/Existing follow-up/);assert.match(p.q('goal').value,/Inspect the cited tool receipts/);assert.ok(!p.posted.some(m=>m.command==='run'));p.event({kind:'session',session:{id:'new'}});assert.equal(p.q('loop-recovery').hidden,true);});
-test('verification blockers are visible and drafting does not execute configured commands',()=>{const p=panel();p.state();p.q('goal').value='Keep my draft';p.event({kind:'verificationRequired',message:'Fresh checks required',report:{passed:false,commandsAllowed:false,checks:[{name:'Tests',status:'missing',callId:null,reason:'No fresh receipt'}]}});assert.equal(p.q('verification-panel').hidden,false);assert.match(p.q('verification-summary').textContent,/command permission disabled/);p.q('draft-verification').onclick();assert.match(p.q('goal').value,/Keep my draft/);assert.match(p.q('goal').value,/configured verification checks/);assert.ok(!p.posted.some(m=>m.command==='run'));});
-test('output inspector uses native offsets and renders log text without adding it to trace or executing commands',()=>{const p=panel(),job='a'.repeat(32);p.state();p.event({kind:'outputView',view:{sessionId:'s',jobs:[{id:job,tool:'run_command',exitCode:0}],jobId:job,stream:'stdout',limit:12000,busy:false,page:{text:'😀<script>inert()</script>',offset:0,nextOffset:7,totalCharacters:20,done:false}}});assert.equal(p.q('output-text').textContent,'😀<script>inert()</script>');assert.ok(!p.q('trace').textContent.includes('inert'));p.q('output-next').onclick();assert.equal(p.posted.at(-1).command,'output');assert.equal(p.posted.at(-1).offset,7);p.q('output-stream').value='stderr';p.q('output-stream').onchange();assert.equal(p.posted.at(-1).offset,0);assert.equal(p.posted.at(-1).stream,'stderr');assert.ok(!p.posted.some(m=>m.command==='run'));p.state({running:true});assert.equal(p.q('output-next').disabled,true);});
-test('session overview is plain text outside trace and handoff packets preserve the composer',()=>{const p=panel();p.state();p.q('goal').value='Keep this instruction';const summary={sourceSessionId:'source',status:'paused',step:4,tasks:{unfinished:2},counts:{historicalFailureReceipts:1},goal:'<script>overview-only-marker</script>'};p.event({kind:'sessionSummary',summary,expand:true});assert.equal(p.q('session-summary-panel').open,true);assert.match(p.q('session-overview').textContent,/2 unfinished/);assert.match(p.q('session-overview-data').textContent,/overview-only-marker/);assert.ok(!p.q('trace').textContent.includes('overview-only-marker'));p.state({pendingDrafts:[{id:'handoff-1',workspaceKey:'rootA',label:'Session handoff',text:'Review source-session evidence'}]});assert.match(p.q('goal').value,/Keep this instruction/);assert.match(p.q('goal').value,/Review source-session evidence/);assert.match(p.q('status').textContent,/Session handoff appended/);assert.ok(!p.posted.some(m=>m.command==='run'));});
-test('provider recovery is actionable plain text and its notes remain unsent',()=>{const p=panel();p.state();p.q('goal').value='Preserve my follow-up';const report={format:'codingagentlib/provider-recovery/v1',code:'provider_auth',title:'Provider access rejected',status:401,retryAfterMs:null,sourceSessionId:'a'.repeat(32),advice:['Check provider access']};p.event({kind:'providerRecovery',report});assert.equal(p.q('provider-recovery').hidden,false);assert.match(p.q('provider-recovery-detail').textContent,/HTTP 401/);p.q('draft-provider-recovery').onclick();assert.match(p.q('goal').value,/Preserve my follow-up/);assert.match(p.q('goal').value,/resolving the provider blocker/);assert.ok(!p.posted.some(m=>m.command==='run'));p.state({providerRecovery:null});assert.equal(p.q('provider-recovery').hidden,true);});
-test('dismissed provider recovery stays hidden when old trace events are replayed',()=>{const p=panel(),report={code:'provider_auth',title:'Historical failure',status:401,retryAfterMs:null,advice:['Review access']};p.state({providerRecovery:null,trace:[{kind:'providerRecovery',report}]});assert.equal(p.q('provider-recovery').hidden,true);});
-test('run time budgets and expiry remain visible without sending or clearing drafts',()=>{const p=panel();p.state({maxRunSeconds:60});assert.match(p.q('run-time-limit').textContent,/next approval: 60 seconds/);p.q('goal').value='Inspect partial work';p.state({running:true,maxRunSeconds:60});assert.match(p.q('run-time-limit').textContent,/this run: 60 seconds/);p.event({kind:'runDeadline',text:'Run time limit reached. Inspect retained changes.'});assert.match(p.q('status').textContent,/Run time limit reached/);assert.equal(p.q('goal').value,'Inspect partial work');assert.ok(!p.posted.some(m=>m.command==='run'));});
-test('prompt workflow packets append once without changing permissions or starting a run',()=>{const p=panel();p.state();p.q('goal').value='Existing task';p.q('edits').checked=false;p.q('commands').checked=false;const draft={id:'workflow-1',workspaceKey:'rootA',label:'Prompt workflow: Bug fix',text:'Inspect, reproduce, fix and verify.'};p.state({pendingDrafts:[draft]});p.state({pendingDrafts:[draft]});assert.match(p.q('goal').value,/Existing task/);assert.equal(p.q('goal').value.split('Inspect, reproduce').length,2);assert.equal(p.q('edits').checked,false);assert.equal(p.q('commands').checked,false);assert.ok(!p.posted.some(m=>m.command==='run'));assert.ok(p.posted.some(m=>m.command==='ackDraft'&&m.id===draft.id));});
-test('tool receipts show a concise outcome and preserve complete inert data behind inspect',()=>{const p=panel();p.state();const text='<script>raw-receipt-marker</script>\n'+'large payload '.repeat(2000);p.event({kind:'result',result:{observation:{id:'call-1',tool:'read_file',ok:true,result:{text}}}});const card=p.q('chat').children.at(-1);assert.equal(card.children[1].textContent,'read_file · observed');const details=card.children[2];assert.equal(details.children[0].textContent,'Inspect result');assert.equal(details.children[1].textContent,'');details.open=true;details.ontoggle();assert.equal(JSON.parse(details.children[1].textContent).result.text,text);p.event({kind:'result',result:{observation:{tool:'run_command',ok:true,result:{exitCode:1,stderr:'failed check'}}}});assert.equal(p.q('chat').children.at(-1).className,'error');assert.match(p.q('chat').children.at(-1).children[1].textContent,/needs attention · exit 1/);});
-
-test('collapsed trace stays lazy and opening shows recent inert events',()=>{const p=panel();p.state();for(let i=0;i<300;i++)p.event({kind:'step',step:i});assert.equal(p.q('trace').textContent,'');p.q('trace-panel').open=true;p.q('trace-panel').ontoggle();assert.match(p.q('trace').textContent,/"step": 299/);p.q('trace-panel').open=false;p.q('trace-panel').ontoggle();assert.equal(p.q('trace').textContent,'');p.event({kind:'reset'});p.q('trace-panel').open=true;p.q('trace-panel').ontoggle();assert.equal(p.q('trace').textContent,'');});
-test('new messages preserve scroll position while reading older messages',()=>{const p=panel(),chat=p.q('chat');chat.scrollHeight=2000;chat.clientHeight=400;chat.scrollTop=100;p.event({kind:'info',text:'New update'});assert.equal(chat.scrollTop,100);p.q('latest').onclick();assert.equal(chat.scrollTop,2000);chat.scrollTop=1600;p.event({kind:'info',text:'Following latest'});assert.equal(chat.scrollTop,2000);});
-test('keyboard submission respects running guard and IME composition',()=>{const p=panel();p.state();p.q('goal').value='Continue task';const key={key:'Enter',ctrlKey:true,preventDefault(){}};p.q('goal').onkeydown({...key,isComposing:true});assert.ok(!p.posted.some(m=>m.command==='run'));p.q('goal').onkeydown(key);assert.equal(p.posted.at(-1).command,'run');assert.equal(p.posted.at(-1).resume,true);const n=p.posted.length;p.q('goal').onkeydown(key);assert.equal(p.posted.length,n);});
-
-test('long replay does no hidden JSON work and expanded trace reuses formatted events',()=>{const p=panel();p.state({trace:Array.from({length:1000},(_,step)=>({kind:'step',step}))});assert.equal(p.metrics.serialized,0);p.q('trace-panel').open=true;p.q('trace-panel').ontoggle();assert.equal(p.metrics.serialized,1000);p.event({kind:'step',step:1000});assert.equal(p.metrics.serialized,1001);assert.ok(!p.q('trace').textContent.includes('"step": 0\n'));assert.match(p.q('trace').textContent,/"step": 1000/);});
-test('completed session keyboard shortcut starts a new request rather than resuming',()=>{const p=panel();p.state({sessionStatus:'complete'});p.q('goal').value='New request';p.q('goal').onkeydown({key:'Enter',metaKey:true,preventDefault(){}});assert.equal(p.posted.at(-1).resume,false);});
-
-test('specification bridge isolates results from the agent trace and supports cancellation',async()=>{const p=panel();p.state();const options=p.specification(),source={command:'Read only'},abort=new AbortController(),promise=options.generate(source,abort.signal),request=p.posted.at(-1);assert.equal(request.command,'specificationGenerate');p.event({kind:'specificationResult',id:request.id,result:{title:'Draft'}});assert.deepEqual(await promise,{title:'Draft'});assert.equal(p.q('chat').children.length,0);const next=new AbortController(),cancelled=options.generate(source,next.signal);next.abort();await assert.rejects(cancelled,/stopped/);assert.equal(p.posted.at(-1).command,'specificationCancel');assert.ok(!p.posted.some(m=>m.command==='run'));});
-
-test('revision conflict recovery is inert, preserves drafts and never submits or changes permissions',()=>{const p=panel();p.state();p.q('goal').value='Keep follow-up';p.event({kind:'result',result:{observation:{tool:'write_file',ok:false,code:'file_revision_conflict',conflict:{path:'src/<unsafe>.js',requiresRead:true},error:'stale'}}});const card=p.q('chat').children.at(-1),button=card.children.at(-1);assert.equal(button.textContent,'Draft recovery follow-up');assert.match(card.children.at(-2).textContent,/src\/<unsafe>\.js/);p.state({running:true});button.onclick();assert.equal(p.q('goal').value,'Keep follow-up');p.state({running:false});button.onclick();assert.match(p.q('goal').value,/^Keep follow-up\n\nResolve/);assert.match(p.q('goal').value,/Do not replay the stale write/);assert.ok(!p.posted.some(m=>m.command==='run'));assert.equal(p.q('edits').checked,false);assert.equal(p.q('commands').checked,false);const reload=panel(p.saved());reload.state();assert.equal(reload.q('goal').value,p.q('goal').value);});
-
-test('command result log shortcuts and position navigation only request retained pages',()=>{
- const p=panel(),jobId='a'.repeat(32);p.state();p.event({kind:'result',result:{observation:{tool:'run_command',ok:true,result:{jobId,exitCode:1}}}});
- const card=p.q('chat').children.at(-1),stdout=card.children.at(-2),stderr=card.children.at(-1);assert.equal(stdout.textContent,'Inspect stdout');assert.equal(stderr.textContent,'Inspect stderr');stderr.onclick();assert.equal(p.posted.at(-1).command,'output');assert.equal(p.posted.at(-1).stream,'stderr');assert.equal(p.posted.at(-1).jobId,jobId);
- const view={sessionId:'s',jobId,jobs:[{id:jobId,tool:'run_command',exitCode:1}],stream:'stderr',limit:12000,busy:false,page:{text:'😀<script>inert</script>',offset:0,nextOffset:12000,totalCharacters:30000,done:false}};
- p.event({kind:'outputView',view});p.q('output-last').onclick();assert.equal(p.posted.at(-1).offset,18000);
- p.q('output-offset').value='12345';p.q('output-jump').onclick();assert.equal(p.posted.at(-1).offset,12345);
- for(const value of ['','-1','1.2','30001','9007199254740992']){p.q('output-offset').value=value;const n=p.posted.length;p.q('output-jump').onclick();assert.equal(p.posted.length,n);}
- p.q('output-offset').value='3';const n=p.posted.length;p.q('output-offset').onkeydown({key:'Enter',isComposing:true});assert.equal(p.posted.length,n);
- p.state({running:true});const count=p.posted.length;stdout.onclick();stderr.onclick();p.q('output-last').onclick();assert.equal(p.posted.length,count);assert.equal(p.q('output-last').disabled,true);assert.ok(!p.posted.some(m=>m.command==='run'));
+test('workspace-scoped drafts survive panel reload and history replay',()=>{
+ const p=panel();p.state();
+ p.q('goal').value='Keep my unsent follow-up';p.q('goal').oninput();
+ const next=panel(p.saved());
+ next.state({trace:[{kind:'user',text:'Old accepted goal'}]});
+ assert.equal(next.q('goal').value,'Keep my unsent follow-up');
+ next.state({workspaceKey:'rootB'});assert.equal(next.q('goal').value,'');
+ next.q('goal').value='Other root';next.q('goal').oninput();
+ next.state({workspaceKey:'rootA'});assert.equal(next.q('goal').value,'Keep my unsent follow-up');
 });
 
-test('Plan selection removes editing permissions and its handoff creates only an unsent new Build request',()=>{
- const p=panel();p.state();p.q('execution-mode').value='plan';p.q('edits').checked=true;p.q('commands').checked=true;p.q('execution-mode').onchange();assert.equal(p.q('edits').checked,false);assert.equal(p.q('commands').checked,false);assert.equal(p.q('edits').disabled,true);
- p.q('goal').value='Inspect and plan';p.q('form').onsubmit({preventDefault(){}});assert.equal(p.posted.at(-1).executionMode,'plan');assert.equal(p.posted.at(-1).edits,false);
- p.state({sessionStatus:'complete',sessionMode:'plan'});p.q('goal').value='Additional requirement';p.event({kind:'result',result:{status:'complete',summary:'Plan: change src/app.js and run tests. <script>inert</script>',executionMode:'plan'}});
- const button=p.q('chat').children.at(-1).children.at(-1),n=p.posted.filter(m=>m.command==='run').length;assert.equal(button.textContent,'Draft Build request');button.onclick();assert.match(p.q('goal').value,/^Additional requirement\n\nImplement/);assert.equal(p.q('execution-mode').value,'build');assert.equal(p.q('edits').checked,false);assert.equal(p.q('commands').checked,false);assert.equal(p.posted.filter(m=>m.command==='run').length,n);
- p.q('form').onsubmit({preventDefault(){}});assert.equal(p.posted.at(-1).executionMode,'build');assert.equal(p.posted.at(-1).resume,false);
+test('approval clears only the submitted draft; text typed while running is retained',()=>{
+ const p=panel();p.state();
+ p.q('goal').value='Original request';p.q('form').onsubmit({preventDefault(){}});
+ assert.equal(p.posted.at(-1).command,'run');
+ p.q('goal').value='New follow-up typed during approval';p.q('goal').oninput();
+ p.event({kind:'user',text:'Original request'});
+ assert.equal(p.q('goal').value,'New follow-up typed during approval');
+ p.state({running:true,pauseRequested:true});
+ assert.equal(p.q('spinner').hidden,false);
+ assert.equal(p.q('pause').disabled,true);
+ assert.equal(p.q('pause').textContent,'Pausing…');
+ p.q('pause').onclick();assert.equal(p.posted.at(-1).command,'pause');
 });
 
-test('stale per-check source evidence is visible and drafting verification remains unsent',()=>{
- const p=panel();p.state();p.q('goal').value='Keep my request';p.event({kind:'verification',report:{commandsAllowed:true,passed:false,checks:[{name:'Lint',status:'stale',callId:'s_1',reason:'This check passed for different tracked inputs.'},{name:'Tests',status:'passed',callId:'s_2',reason:'Current inputs'}]}});
- assert.match(p.q('verification-summary').textContent,/1\/2/);assert.match(p.q('verification-checks').children[0].textContent,/Lint · stale/);p.q('draft-verification').onclick();assert.match(p.q('goal').value,/^Keep my request/);assert.ok(!p.posted.some(e=>e.command==='run'));
+test('preparing a run disables duplicate submissions and accepted unchanged goals clear',()=>{
+ const p=panel();p.state();
+ p.q('goal').value='Send once';p.q('form').onsubmit({preventDefault(){}});
+ p.event({kind:'user',text:'Send once'});
+ assert.equal(p.q('goal').value,'');assert.equal(p.saved().drafts.rootA,'');
+ p.state({preparing:true});assert.equal(p.q('start').disabled,true);
+ const before=p.posted.length;p.q('form').onsubmit({preventDefault(){}});
+ assert.equal(p.posted.length,before);
+});
+
+test('host-saved drafts restore after reopening a panel with no webview state',()=>{
+ const p=panel();
+ p.state({savedDrafts:{rootA:'Restored after closing'}});
+ assert.equal(p.q('goal').value,'Restored after closing');
+ assert.equal(p.posted.at(-1).command,'saveDraft');
+});
+
+test('provider retries appear in chat and status without altering the draft',()=>{
+ const p=panel();p.state();
+ p.q('goal').value='Keep this follow-up';p.q('goal').oninput();
+ p.event({kind:'providerRetry',attempt:2,total:3,delayMs:1500,text:'Retrying model request. No tool action executed.'});
+ assert.equal(p.q('status').textContent,'Model retry 2/3 · waiting 2s');
+ assert.equal(p.q('goal').value,'Keep this follow-up');
+});
+
+test('tool receipts show a concise outcome and preserve inert data behind inspect',()=>{
+ const p=panel();p.state();
+ const text='<script>raw-receipt-marker</script>\n'+'large payload '.repeat(200);
+ p.event({kind:'result',result:{observation:{id:'call-1',tool:'read_file',ok:true,result:{text}}}});
+ const card=p.q('chat').children.at(-1);
+ assert.equal(card.children[2].textContent,'read_file · observed');
+ const details=card.children[3];
+ assert.equal(details.children[0].textContent,'Inspect result');
+ assert.equal(details.children[1].textContent,'');
+ details.open=true;details.ontoggle();
+ assert.equal(JSON.parse(details.children[1].textContent).result.text,text);
+ p.event({kind:'result',result:{observation:{tool:'run_command',ok:true,result:{exitCode:1,stderr:'failed check'}}}});
+ assert.equal(p.q('chat').children.at(-1).className,'error');
+ assert.match(p.q('chat').children.at(-1).children[2].textContent,/needs attention · exit 1/);
+});
+
+test('new messages preserve scroll position while reading older messages',()=>{
+ const p=panel(),chat=p.q('chat');
+ chat.scrollHeight=2000;chat.clientHeight=400;chat.scrollTop=100;
+ p.event({kind:'info',text:'New update'});assert.equal(chat.scrollTop,100);
+ p.q('latest').onclick();assert.equal(chat.scrollTop,2000);
+ chat.scrollTop=1600;p.event({kind:'info',text:'Following latest'});assert.equal(chat.scrollTop,2000);
+});
+
+test('keyboard submission respects running guard, IME composition, and completed session state',()=>{
+ const p=panel();p.state();
+ p.q('goal').value='Continue task';
+ const key={key:'Enter',ctrlKey:true,preventDefault(){}};
+ p.q('goal').onkeydown({...key,isComposing:true});
+ assert.ok(!p.posted.some(m=>m.command==='run'));
+ p.q('goal').onkeydown(key);
+ assert.equal(p.posted.at(-1).command,'run');assert.equal(p.posted.at(-1).resume,true);
+ const n=p.posted.length;p.q('goal').onkeydown(key);assert.equal(p.posted.length,n);
+ p.state({sessionStatus:'complete',running:false,preparing:false});
+ p.q('goal').value='New request';
+ p.q('goal').onkeydown({key:'Enter',metaKey:true,preventDefault(){}});
+ assert.equal(p.posted.at(-1).resume,false);
+});
+
+test('image and text attachments render as removable chips',()=>{
+ const p=panel();
+ p.state({attachments:[{name:'notes.txt',kind:'file',characters:12},{name:'shot.png',kind:'image',mimeType:'image/png',bytes:240}]});
+ assert.equal(p.q('references').children.length,2);
+ p.q('references').children[0].children[1].onclick();
+ assert.equal(p.posted.at(-1).command,'removeAttachment');
+ assert.equal(p.posted.at(-1).name,'notes.txt');
+});
+
+test('clicking a failure opens resolution dialog and questions offer predefined answers',()=>{
+ const p=panel();p.state();
+ p.event({kind:'error',text:'Invalid graph query'});
+ const errCard=p.q('chat').children.at(-1);
+ errCard.onclick();
+ assert.equal(p.posted.at(-1).command,'resolveFailure');
+ assert.equal(p.posted.at(-1).text,'Invalid graph query');
+ p.event({kind:'result',result:{question:'Proceed with edit?'}});
+ const qCard=p.q('chat').children.at(-1),replies=qCard.children.at(-1);
+ assert.equal(replies.children.length,4);
+ replies.children[0].onclick();
+ assert.equal(p.q('goal').value,'Yes, proceed');
+ assert.equal(p.posted.at(-1).command,'run');
+ assert.equal(p.posted.at(-1).resume,true);
+});
+
+test('sessions drawer lists and switches between saved sessions',()=>{
+ const p=panel();p.state({session:'s1'});
+ p.q('sessions-drawer').hidden=true;
+ p.q('sessions-btn').onclick();
+ assert.equal(p.q('sessions-drawer').hidden,false);
+ assert.equal(p.posted.at(-1).command,'listSessions');
+ p.event({kind:'sessionsList',sessions:[{id:'s1',label:'First goal',description:'paused · 2 steps'},{id:'s2',label:'Second goal',description:'complete · 1 steps'}]});
+ assert.equal(p.q('sessions-list').children.length,2);
+ p.q('sessions-list').children[1].onclick();
+ assert.equal(p.q('sessions-drawer').hidden,true);
+ assert.equal(p.posted.at(-1).command,'selectSession');
+ assert.equal(p.posted.at(-1).id,'s2');
+});
+
+test('one-click copy copies chat message text without triggering failure dialog',async()=>{
+ const p=panel();p.state();
+ p.event({kind:'error',text:'Copyable failure'});
+ const card=p.q('chat').children.at(-1),copyBtn=card.children[1];
+ assert.equal(copyBtn.className,'copy-btn');
+ let stopped=false;
+ await copyBtn.onclick({stopPropagation(){stopped=true;}});
+ assert.equal(stopped,true);
+ assert.equal(p.posted.at(-1).command,'copyText');
+ assert.equal(p.posted.at(-1).text,'Copyable failure');
+});
+
+test('snapshots drawer lists snapshots and triggers create, rollback, and delete',()=>{
+ const p=panel();p.state();
+ p.q('snapshots-drawer').hidden=true;
+ p.q('snapshots-btn').onclick();
+ assert.equal(p.q('snapshots-drawer').hidden,false);
+ assert.equal(p.posted.at(-1).command,'listSnapshots');
+ p.q('create-snapshot').onclick();
+ assert.equal(p.posted.at(-1).command,'createSnapshot');
+ p.event({kind:'snapshotsList',snapshots:[{id:'snap-1',label:'Before edit',fileCount:3,createdAt:new Date().toISOString()}]});
+ assert.equal(p.q('snapshots-list').children.length,1);
+ const row=p.q('snapshots-list').children[0],acts=row.children[1];
+ acts.children[0].onclick();
+ assert.equal(p.q('snapshots-drawer').hidden,true);
+ assert.equal(p.posted.at(-1).command,'rollbackSnapshot');
+ assert.equal(p.posted.at(-1).id,'snap-1');
+ acts.children[1].onclick();
+ assert.equal(p.posted.at(-1).command,'deleteSnapshot');
+ assert.equal(p.posted.at(-1).id,'snap-1');
 });

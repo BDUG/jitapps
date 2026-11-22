@@ -14,7 +14,9 @@ class MCPService:
     def request(self,method,params):
         if method=='initialize':
             version=params.get('protocolVersion','2025-03-26')
-            if version not in ('2024-11-05','2025-03-26','2025-06-18'):raise ValueError('Unsupported MCP protocol version')
+            # MCP initialization negotiates a supported version rather than
+            # rejecting a newer client's proposal before it can negotiate.
+            if version not in ('2024-11-05','2025-03-26','2025-06-18','2025-11-25'):version='2025-11-25'
             self.initialized=True
             return dict(protocolVersion=version,capabilities=dict(tools=dict(listChanged=False)),serverInfo=dict(name='codingagentlib',version='1.0.0'))
         if method in ('notifications/initialized','notifications/cancelled'):return None

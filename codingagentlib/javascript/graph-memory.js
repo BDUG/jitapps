@@ -113,7 +113,7 @@ class ProjectGraphMemory {
   return this.persist(project,record,expectedRevision,action);
  }
  async query(project,options) {return queryGraph(await this.export(project),options);}
- contextProvider(project,options={}) {return async state=>({projectKnowledge:await this.query(project,{...options,query:options.query??state.goal??''})});}
+ contextProvider(project,options={}) {return async state=>({projectKnowledge:await this.query(project,{...options,query:options.query??String(state.goal??'').slice(0,4000)})});}
 }
 
 const api={ProjectGraphMemory,buildProjectGraph,queryGraph,validateGraph,validateOntology};root.CodingAgentGraph=api;if(typeof module==='object')module.exports=api;

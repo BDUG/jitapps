@@ -142,6 +142,7 @@ class ACPServer:
                     'protocolVersion': self.PROTOCOL_VERSION,
                     'agentCapabilities': {'loadSession': False, 'promptCapabilities': {'image': False, 'embeddedContext': True}},
                     'agentInfo': {'name': self.agent_name, 'version': self.agent_version},
+                    'authMethods': [],
                 },
             }
 
@@ -161,6 +162,7 @@ class ACPServer:
             if sid not in self.sessions:
                 return {'jsonrpc': '2.0', 'id': req_id, 'error': {'code': -32001, 'message': 'Unknown ACP session'}}
             prompt_blocks = params.get('prompt') or ()
+            self.sessions[sid]['cancelled'] = False
             text = '\n'.join(b.get('text', '') for b in prompt_blocks if isinstance(b, dict) and b.get('type', 'text') == 'text').strip()
             if not self.prompt_handler:
                 self.emit_update(sid, {'sessionUpdate': 'agent_message_chunk', 'content': {'type': 'text', 'text': text}})

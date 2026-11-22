@@ -45,14 +45,15 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),fs=r
   assert.ok((await page.locator('#preview .lx-item').count())>=10);
   await page.locator('#filter-maturity').selectOption('all');
 
-  // Export SVG, YAML, JSON and re-import SVG & YAML
+  // Export closes its own dialog; verify downloaded payloads and actual re-import.
+  const exportedProject=await snapshot();
   async function exportFile(format){
    await page.locator('#open-export').click();
    await page.locator('#format').selectOption(format);
    const waiting=page.waitForEvent('download');
    await page.locator('#doExport').click();
    const file=await waiting,text=await fs.readFile(await file.path(),'utf8');
-   await page.locator('#export-close').click();
+   await page.waitForSelector('#export-dialog',{state:'hidden'});
    return text;
   }
   const svg=await exportFile('svg');
@@ -61,6 +62,20 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),fs=r
   assert.match(yaml,/^landscape:/);
   const jsonText=await exportFile('json');
   assert.equal(JSON.parse(jsonText).format,'cncfix-project');
+
+  for(const [name,mimeType,text] of [['roundtrip.svg','image/svg+xml',svg],['roundtrip.json','application/json',jsonText],['roundtrip.yml','text/yaml',yaml]]){
+   await page.locator('#name').fill('Changed before import');
+   await page.locator('#name').press('Tab');
+   await page.locator('#file').setInputFiles({name,mimeType,buffer:Buffer.from(text)});
+   await page.waitForFunction(()=>CncfixApp.snapshot().name!=='Changed before import');
+   const restored=await snapshot();
+   if(name.endsWith('.yml')){
+    assert.equal(restored.categories.length,exportedProject.categories.length);
+    assert.equal(restored.subcategories.length,exportedProject.subcategories.length);
+    assert.deepEqual(restored.items.map(item=>[item.name,item.maturity]).sort(),exportedProject.items.map(item=>[item.name,item.maturity]).sort());
+   }else assert.deepEqual(restored,exportedProject);
+   assert.equal(await page.locator('#error').textContent(),'');
+  }
 
   // Mobile layout check
   const mobile=await context.newPage();
@@ -72,7 +87,7 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),fs=r
 
   assert.deepEqual(errors,[]);
   assert.deepEqual(external,[]);
-  console.log('PASS cncfiX: desktop launch, CNCF catalog, editing/undo, maturity filter, SVG/YAML/JSON export, and mobile layout.');
+  console.log('PASS cncfiX: desktop launch, catalog, editing/undo, maturity filter, SVG/YAML/JSON export and re-import, and mobile layout.');
  }finally{
   await browser?.close();
   server.kill();

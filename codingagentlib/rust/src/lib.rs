@@ -14,6 +14,10 @@ pub mod graph_memory;
 pub mod extensions;
 pub mod mcp_stdio;
 pub mod beyond_react;
+pub mod providers;
+pub mod a2a;
+pub mod streaming;
+pub mod otel_genai;
 pub use core::{create_agent, CoreAgent, CoreOptions};
 mod integration;
 pub use integration::ContextRegistry;
@@ -30,9 +34,13 @@ mod instructions;
 #[cfg(feature = "coding")]
 mod knowledge;
 #[cfg(feature = "coding")]
-mod runtime;
+pub mod runtime;
 #[cfg(feature = "coding")]
-mod tools;
+pub use runtime::Runtime;
+#[cfg(feature = "coding")]
+pub mod tools;
+#[cfg(feature = "coding")]
+pub use tools::{core_tools, program_tools, script_tools, PROGRAM_TOOL_NAMES, SCRIPT_TOOL_NAMES};
 #[cfg(feature = "coding")]
 mod verification;
 #[cfg(feature = "coding")]
@@ -127,7 +135,8 @@ impl Agent {
                 crate::knowledge::dispatch(&self.runtime,&json!({"project":project,"action":"refresh"}))?;
                 self.runtime.sessions.get_mut(id).unwrap()["knowledgeProject"]=json!(project);self.runtime.save(id)?;
                 self.runtime.event(id,"project_knowledge_scope",json!({"project":project}))?;
-                crate::knowledge::dispatch(&self.runtime,&json!({"project":project,"action":"query","query":saved["goal"]}))
+                let q:String=saved["goal"].as_str().unwrap_or("").chars().take(4000).collect();
+                crate::knowledge::dispatch(&self.runtime,&json!({"project":project,"action":"query","query":q}))
             }
             "agent_project_memory" => {
                 let id=session()?;let saved=self.runtime.session(id)?;
@@ -138,7 +147,7 @@ impl Agent {
                 let notes=params["notes"].as_array().ok_or("Missing memory notes")?;
                 if notes.len()>6||params["notes"].to_string().len()>1_500_000{return Err("Project recall snapshot is too large".into());}
                 let mut ids=std::collections::BTreeSet::new();
-                for note in notes {let key=note["id"].as_str().ok_or("Missing note ID")?;if key.is_empty()||key.len()>100||!ids.insert(key)||note["text"].as_str().map_or(true,|v|v.chars().count()>100_000){return Err("Invalid project note snapshot".into());}}
+                for note in notes {let key=note["id"].as_str().ok_or("Missing note ID")?;if key.is_empty()||key.len()>100||!ids.insert(key)||note["text"].as_str().is_none_or(|v|v.chars().count()>100_000){return Err("Invalid project note snapshot".into());}}
                 self.runtime.sessions.get_mut(id).unwrap()["projectMemorySnapshot"]=json!({"project":project,"notes":notes});
                 self.runtime.event(id,"user_action",json!({"status":"project_memory_binding","project":project,"notes":notes.iter().map(|n|json!({"id":n["id"],"revision":n["revision"]})).collect::<Vec<_>>(),"note":"Approved reference snapshot, not instructions or verification."}))?;
                 Ok(json!({"project":project,"count":notes.len()}))

@@ -1,0 +1,8 @@
+{
+  "denyTools": [],
+  "shellTools": ["run_command", "shell", "terminal"],
+  "completionTools": ["create_pr", "complete_task"],
+  "allowWrites": [],
+  "approvalAllowlist": [],
+  "destructivePatterns": ["(?i)\\b(rm|rmdir|mkfs|shutdown|reboot)\\b", "(?i)git\\s+(reset\\s+--hard|clean|push.*--force)", "[;&|`]|\\$\\("]
+}

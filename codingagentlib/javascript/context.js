@@ -84,6 +84,8 @@
       "read_project_instructions",
     "read_project_memory",
       "read_file",
+      "read_files",
+      "parallel_read",
       "read_script",
       "read_context",
       "read_history",
@@ -123,7 +125,12 @@
       pendingAction = null;
       lastByTool.delete(v.tool);
       lastByTool.set(v.tool, i);
-      if (retrieval.has(v.tool) && v.ok === true) lastRetrieval = i;
+      // A sensing batch is one retrieval. Keeping only its last child hid the
+      // other requested sources and caused agents to repeat inspection forever.
+      const partialReadBatch = v.tool === "parallel_read" &&
+        v.result?.format === "codingagentlib/parallel-read-v1" &&
+        Array.isArray(v.result.results) && v.result.results.some(child => child.ok === true);
+      if (retrieval.has(v.tool) && (v.ok === true || partialReadBatch)) lastRetrieval = i;
       const path = actions.get(v.id)?.path;
       if (path && v.result?.hash)
         files.set(path, {

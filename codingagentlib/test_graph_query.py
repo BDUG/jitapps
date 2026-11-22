@@ -62,3 +62,12 @@ class GraphQueryTests(unittest.TestCase):
         self.assertEqual(seeds,['a']);self.assertEqual(graph['warnings'],['Reference data'])
         self.assertEqual(graph['annotations']['a']['text'],'prüfen')
         self.assertEqual(next(n for n in graph['nodes'] if n['id']=='a')['label'],'Überprüfung')
+
+    def test_long_goal_truncates_for_automatic_knowledge_query(self):
+        long_goal='x'*5000
+        with tempfile.TemporaryDirectory() as folder, closing(Runtime(folder)) as runtime:
+            session=runtime.dispatch(dict(op='start',goal=long_goal))['id']
+            turn=runtime.dispatch(dict(op='turn',session=session))
+            self.assertIn('projectKnowledge',turn)
+            provider=runtime.knowledge.context_provider(Path(folder).name,runtime=runtime)
+            self.assertIn('projectKnowledge',provider(dict(goal=long_goal)))

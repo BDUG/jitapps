@@ -83,6 +83,7 @@ struct TsNode<S> {
     value_sum: f64,
     children: Vec<usize>,
     snapshot: S,
+    #[allow(dead_code)]
     action: Value,
     terminal: bool,
     pruned: bool,
@@ -96,6 +97,7 @@ fn ucb1<S>(n: &TsNode<S>, parent_visits: usize, c: f64) -> f64 {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn tree_search<S: Clone>(
     goal: &str,
     branch_factor: usize,

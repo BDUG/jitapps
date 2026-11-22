@@ -282,14 +282,17 @@ class ReactProtocolsTests(unittest.TestCase):
                     card = json.loads(resp.read().decode('utf-8'))
                     self.assertIn('skills', card)
 
+                mcp_identity = None
                 def post_json(path, body):
+                    nonlocal mcp_identity
                     req = urllib.request.Request(
                         base + path,
                         data=json.dumps(body).encode('utf-8'),
-                        headers={'Content-Type': 'application/json', 'X-Architex-Request': '1'},
+                        headers={'Content-Type': 'application/json', 'X-Architex-Request': '1', **({'Mcp-Session-Id': mcp_identity} if path == '/api/mcp' and mcp_identity else {})},
                         method='POST',
                     )
                     with urllib.request.urlopen(req, timeout=5) as resp:
+                        if path == '/api/mcp': mcp_identity = resp.headers.get('Mcp-Session-Id', mcp_identity)
                         return resp.headers.get('Content-Type', ''), resp.read().decode('utf-8')
 
                 _, a2a_raw = post_json('/api/a2a', {'jsonrpc': '2.0', 'id': 1, 'method': 'tasks/send', 'params': {'message': {'role': 'user', 'parts': [{'kind': 'text', 'text': 'hello a2a'}]}}})

@@ -8,13 +8,14 @@ from urllib.parse import urlsplit
 import uuid
 
 
-def agent_card(*, name='CodingAgent', description='TLAL OS ReAct Coding Agent', url='http://127.0.0.1:8000/api/a2a', version='1.0.0', skills=(), streaming=True):
+def agent_card(*, name='CodingAgent', description='TLAL OS ReAct Coding Agent', url='http://127.0.0.1:8000/api/a2a', version='1.0.0', skills=(), streaming=False):
     """Build an A2A AgentCard suitable for /.well-known/agent.json."""
     return {
         'name': name,
         'description': description,
         'url': url,
         'version': version,
+        'protocolVersion': '0.3.0',
         'capabilities': {
             'streaming': bool(streaming),
             'pushNotifications': False,
@@ -38,7 +39,7 @@ def _extract_text(message):
     if isinstance(message, str):
         return message
     parts = (message or {}).get('parts') or ()
-    texts = [p.get('text', '') for p in parts if isinstance(p, dict) and p.get('kind', p.get('type', 'text')) == 'text']
+    texts = [p.get('text', '') for p in parts if isinstance(p, dict) and p.get('kind', p.get('type', 'text')) == 'text' and isinstance(p.get('text', ''), str)]
     return '\n'.join(t for t in texts if t).strip()
 
 
@@ -55,6 +56,8 @@ class A2AServer:
         return {
             'id': task_id,
             'sessionId': session_id,
+            'contextId': session_id,
+            'kind': 'task',
             'status': {'state': 'submitted', 'timestamp': now},
             'history': [user_message],
             'artifacts': [],
@@ -63,14 +66,15 @@ class A2AServer:
     def _run_task(self, task, goal, params):
         task['status'] = {'state': 'working', 'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
         if not self.handler:
-            task['status'] = {'state': 'failed', 'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'message': {'role': 'agent', 'parts': [{'kind': 'text', 'text': 'No A2A task handler configured'}]}}
+            task['status'] = {'state': 'failed', 'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'message': {'role': 'agent', 'kind': 'message', 'messageId': uuid.uuid4().hex, 'parts': [{'kind': 'text', 'text': 'No A2A task handler configured'}]}}
             return task
         try:
             res = self.handler(goal, params)
             status = (res or {}).get('status', 'complete')
-            state = 'input-required' if status == 'ask' else ('failed' if status in ('failed', 'error', 'blocked') else 'completed')
+            if task['status']['state'] == 'canceled': return task
+            state = 'input-required' if status in ('ask', 'waiting', 'paused') else ('completed' if status in ('complete', 'done') else 'failed')
             summary = (res or {}).get('summary') or (res or {}).get('question') or json.dumps(res)
-            agent_msg = {'role': 'agent', 'parts': [{'kind': 'text', 'text': str(summary)}]}
+            agent_msg = {'role': 'agent', 'kind': 'message', 'messageId': uuid.uuid4().hex, 'parts': [{'kind': 'text', 'text': str(summary)}]}
             task['history'].append(agent_msg)
             task['artifacts'].append({
                 'artifactId': f'art-{uuid.uuid4().hex[:8]}',
@@ -82,7 +86,7 @@ class A2AServer:
             })
             task['status'] = {'state': state, 'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'message': agent_msg}
         except Exception as exc:
-            err_msg = {'role': 'agent', 'parts': [{'kind': 'text', 'text': str(exc)}]}
+            err_msg = {'role': 'agent', 'kind': 'message', 'messageId': uuid.uuid4().hex, 'parts': [{'kind': 'text', 'text': str(exc)}]}
             task['history'].append(err_msg)
             task['status'] = {'state': 'failed', 'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'message': err_msg}
         return task
@@ -93,14 +97,19 @@ class A2AServer:
         req_id = frame.get('id')
         method = frame['method']
         params = frame.get('params') or {}
+        if not isinstance(params, dict):
+            return {'jsonrpc':'2.0','id':req_id,'error':{'code':-32602,'message':'A2A params must be an object'}}
 
         if method in ('tasks/send', 'message/send'):
             msg = params.get('message') or {'role': 'user', 'parts': [{'kind': 'text', 'text': str(params.get('goal', ''))}]}
+            if isinstance(msg, str): msg = {'role':'user','parts':[{'kind':'text','text':msg}]}
+            if not isinstance(msg, dict): return {'jsonrpc':'2.0','id':req_id,'error':{'code':-32602,'message':'Invalid A2A message'}}
+            msg = {**msg, 'kind':'message', 'messageId':msg.get('messageId') or uuid.uuid4().hex}
             goal = _extract_text(msg)
             if not goal:
                 return {'jsonrpc': '2.0', 'id': req_id, 'error': {'code': -32602, 'message': 'A2A message text is required'}}
-            task_id = params.get('id') or f'task-{uuid.uuid4().hex[:12]}'
-            session_id = params.get('sessionId') or f'ctx-{uuid.uuid4().hex[:8]}'
+            task_id = params.get('id') or msg.get('taskId') or f'task-{uuid.uuid4().hex[:12]}'
+            session_id = params.get('sessionId') or msg.get('contextId') or f'ctx-{uuid.uuid4().hex[:8]}'
             task = self.tasks.get(task_id) or self._make_task(task_id, session_id, msg)
             if task not in self.tasks.values():
                 self.tasks[task_id] = task
@@ -118,6 +127,8 @@ class A2AServer:
             task = self.tasks.get(params.get('id'))
             if not task:
                 return {'jsonrpc': '2.0', 'id': req_id, 'error': {'code': -32001, 'message': 'Task not found'}}
+            if task['status']['state'] in ('completed','failed','rejected','canceled'):
+                return {'jsonrpc':'2.0','id':req_id,'error':{'code':-32002,'message':'Task is already terminal and cannot be canceled'}}
             task['status'] = {'state': 'canceled', 'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
             return {'jsonrpc': '2.0', 'id': req_id, 'result': task}
 
@@ -148,20 +159,20 @@ class A2AClient:
     def call(self, method, params):
         self._next_id += 1
         frame = {'jsonrpc': '2.0', 'id': self._next_id, 'method': method, 'params': params}
-        reply = self._request(self.endpoint, frame, {'Content-Type': 'application/json', **self.headers})
+        reply = self._request(self.endpoint, frame, {'Content-Type': 'application/json', 'A2A-Version':'0.3', **self.headers})
         if 'error' in reply:
             raise RuntimeError(f"A2A error {reply['error'].get('code')}: {reply['error'].get('message')}")
         return reply.get('result')
 
     def send_task(self, goal, *, task_id=None, session_id=None, metadata=None):
-        params = {'message': {'role': 'user', 'parts': [{'kind': 'text', 'text': goal}]}}
+        params = {'message': {'role': 'user', 'kind':'message', 'messageId':uuid.uuid4().hex, 'parts': [{'kind': 'text', 'text': goal}]}}
         if task_id:
-            params['id'] = task_id
+            params['message']['taskId'] = task_id
         if session_id:
-            params['sessionId'] = session_id
+            params['message']['contextId'] = session_id
         if metadata:
             params['metadata'] = metadata
-        return self.call('tasks/send', params)
+        return self.call('message/send', params)
 
     def get_task(self, task_id):
         return self.call('tasks/get', {'id': task_id})

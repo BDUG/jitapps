@@ -25,7 +25,7 @@ class ModelHandoff:
             if value.get('ok') is True and value.get('tool') in {'delete_file','write_script','delete_script'}:
                 feedback=None
                 if value['tool']=='delete_file' and artifact and artifact['path']==result.get('path'):artifact=None
-            if artifact and index>artifact['eventOffset'] and value.get('tool') in {'run_command','run_script'} and value.get('ok') is True and type(result.get('exitCode')) is int and not any(result.get(k) for k in ('timedOut','cancelled','outputLimited')):
+            if artifact and index>artifact['eventOffset'] and value.get('tool') in {'run_command','run_script','script_run'} and value.get('ok') is True and type(result.get('exitCode')) is int and not any(result.get(k) for k in ('timedOut','cancelled','outputLimited')):
                 feedback={'callId':value.get('id'),'tool':value['tool'],'eventOffset':index,'exitCode':result['exitCode'],'checks':copy.deepcopy(value.get('checks')),'stdout':str(result.get('stdout',''))[:6000],'stderr':str(result.get('stderr',''))[:6000],'coverage':'Retained previews may be incomplete; inspect original logs for details.'}
         observations=[e['value'] for e in request.get('events',[]) if e.get('kind')=='observation']
         last=observations[-1] if observations else {};result=last.get('result') or {}

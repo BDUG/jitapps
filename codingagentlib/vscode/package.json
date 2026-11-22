@@ -1,7 +1,8 @@
 {
-  "name": "codingagentlib",
-  "displayName": "codingagentlib \u00b7 Native Coding Agent",
-  "description": "Standalone native coding agent with workspace tools, model chat, live trace, sessions and result ZIPs. No Python or suite server required.",
+  "name": "rabbithole",
+  "displayName": "RabbitHole",
+  "icon": "media/icon.png",
+  "description": "RabbitHole standalone native coding agent with workspace tools, skills, agents, guardrails, model chat, live trace, sessions and result ZIPs. No Python or suite server required.",
   "version": "0.30.0",
   "publisher": "bdug",
   "license": "MIT",
@@ -30,101 +31,70 @@
     }
   },
   "activationEvents": [
-    "onCommand:codingagent.open"
+    "onCommand:codingagent.open",
+    "onView:codingagent.chatView"
   ],
   "contributes": {
     "commands": [
       {
         "command": "codingagent.open",
-        "title": "Coding Agent: Open Chat"
+        "title": "RabbitHole: Open Chat"
       },
       {
         "command": "codingagent.provider",
-        "title": "Coding Agent: Configure Model Provider"
-      },
-      {
-        "command": "codingagent.stop",
-        "title": "Coding Agent: Stop Current Run"
-      },
-      {
-        "command": "codingagent.sessions",
-        "title": "Coding Agent: Resume Saved Session"
-      },
-      {
-        "command": "codingagent.package",
-        "title": "Coding Agent: Export Result ZIP"
-      },
-      {
-        "command": "codingagent.attachFile",
-        "title": "Coding Agent: Attach Workspace Files"
-      },
-      {
-        "command": "codingagent.attachSelection",
-        "title": "Coding Agent: Attach Editor Selection"
-      },
-      {
-        "command": "codingagent.reviewChanges",
-        "title": "Coding Agent: Review Workspace Changes"
-      },
-      {
-        "command": "codingagent.exportTrace",
-        "title": "Coding Agent: Export Run Transcript"
+        "title": "RabbitHole: Configure Model Provider"
       },
       {
         "command": "codingagent.clearKey",
-        "title": "Coding Agent: Remove Stored Provider Key"
+        "title": "RabbitHole: Remove Stored Provider Key"
       },
       {
-        "command": "codingagent.diagnostics",
-        "title": "Coding Agent: Show Editor Problems"
+        "command": "codingagent.stop",
+        "title": "RabbitHole: Stop Current Run"
       },
       {
         "command": "codingagent.pause",
-        "title": "Coding Agent: Pause After Current Action"
+        "title": "RabbitHole: Pause After Current Action"
       },
       {
-        "command": "codingagent.draftProblems",
-        "title": "Coding Agent: Draft Task From Editor Problems"
+        "command": "codingagent.package",
+        "title": "RabbitHole: Export Result ZIP"
       },
       {
-        "command": "codingagent.exportPlan",
-        "title": "Coding Agent: Export Accepted Task Report"
-      },
-      {
-        "command": "codingagent.output",
-        "title": "Coding Agent: Inspect Retained Command Output"
-      },
-      {
-        "command": "codingagent.sessionSummary",
-        "title": "Coding Agent: Show Session Overview"
-      },
-      {
-        "command": "codingagent.draftHandoff",
-        "title": "Coding Agent: Draft Session Handoff"
-      },
-      {
-        "command": "codingagent.exportHandoff",
-        "title": "Coding Agent: Export Session Handoff"
-      },
-      {
-        "command": "codingagent.exportRecovery",
-        "title": "Coding Agent: Export Provider Recovery Report"
-      },
-      {
-        "command": "codingagent.promptWorkflow",
-        "title": "Coding Agent: Use Reusable AI Prompt Workflow"
-      },
-      {
-        "command": "codingagent.managePromptWorkflows",
-        "title": "Coding Agent: Manage Reusable AI Prompt Workflows"
-      },
-      {
-        "command": "codingagent.exportPromptWorkflows",
-        "title": "Coding Agent: Export Reusable AI Prompt Workflows"
+        "command": "codingagent.settings",
+        "title": "RabbitHole: Open Settings",
+        "icon": "$(gear)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "rabbithole",
+          "title": "RabbitHole",
+          "icon": "media/rabbithole.svg"
+        }
+      ]
+    },
+    "views": {
+      "rabbithole": [
+        {
+          "type": "webview",
+          "id": "codingagent.chatView",
+          "name": "RabbitHole"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "codingagent.settings",
+          "when": "view == codingagent.chatView",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
-      "title": "Coding Agent",
+      "title": "RabbitHole",
       "properties": {
         "codingagent.endpoint": {
           "type": "string",
@@ -148,12 +118,46 @@
           "scope": "machine",
           "description": "Use a direct OpenAI-compatible provider, or an optional existing suite relay."
         },
+        "codingagent.apiKey": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional provider API key (stored in VS Code settings as plaintext; leave blank to use SecretStorage via Configure Model Provider)."
+        },
+        "codingagent.executionMode": {
+          "type": "string",
+          "enum": [
+            "build",
+            "plan"
+          ],
+          "default": "build",
+          "scope": "machine",
+          "description": "Default run mode: build (implement and verify) or plan (inspect source without edits or commands)."
+        },
+        "codingagent.allowEdits": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "Allow file edits in new runs (requires confirmation at run start)."
+        },
+        "codingagent.allowCommands": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "Allow commands from codingagent.allowedCommands in new runs (requires confirmation at run start)."
+        },
         "codingagent.allowedCommands": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "default": [],
+          "default": [
+            "node",
+            "bash",
+            "sh",
+            "python",
+            "python3"
+          ],
           "scope": "machine",
           "description": "Explicitly trusted executable names or absolute paths. Commands also need per-run approval and use host OS permissions."
         },
@@ -441,22 +445,6 @@
           "description": "Readiness evaluator role configuration: endpoint, model, transport and declared inputModalities. Relay roles also require profileId. No API keys here; use Configure Model Provider for role-specific endpoints and SecretStorage. Empty evaluator reuses primary for a separate call."
         }
       }
-    },
-    "menus": {
-      "explorer/context": [
-        {
-          "command": "codingagent.attachFile",
-          "when": "resourceScheme == file && !explorerResourceIsFolder",
-          "group": "codingagent"
-        }
-      ],
-      "editor/context": [
-        {
-          "command": "codingagent.attachSelection",
-          "when": "editorHasSelection",
-          "group": "codingagent"
-        }
-      ]
     }
   },
   "scripts": {
@@ -464,9 +452,15 @@
     "test": "node --test test/*.test.cjs",
     "verify": "npm run build:native && npm test",
     "package": "npm run build:native && vsce package",
-    "vscode:prepublish": "node scripts/check-binary.cjs"
+    "vscode:prepublish": "node scripts/check-binary.cjs",
+    "test:editor-host": "node scripts/test-editor-host.cjs"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.7.1"
+    "@vscode/vsce": "^4.1.1"
+  },
+  "overrides": {
+    "@vscode/vsce": {
+      "minimatch": "^11.0.9"
+    }
   }
 }

@@ -74,6 +74,7 @@ TOOLS = [
  {'name':'memory_reindex','description':'Rebuild up to limit missing learned memory vectors for the configured model. Repeat until done; never mixes vectors from different models.','arguments':{'limit':'1..10000 chunks, default 32'}},
  {'name':'list_files','description':'List workspace files recursively; cursor/limit provide pagination.','arguments':{'path':'relative directory, default .','cursor':'integer, default 0','limit':'1..500, default 100'}},
  {'name':'read_file','description':'Read a UTF-8 text page and its SHA-256. Use returned SHA on edits.','arguments':{'path':'relative file','offset':'character offset, default 0','limit':'1..64000, default 12000'}},
+ {'name':'read_files','description':'Read 1–16 UTF-8 text files with per-file offset/limit paging within a 64000-character combined budget.','arguments':{'files':'array of {path, offset?, limit?} or paths array','offset':'default character offset','limit':'default character limit per file'}},
  {'name':'search','description':'Literal text search, excluding dependencies/private files; paginated matches.','arguments':{'query':'literal nonempty text','path':'relative directory, default .','cursor':'integer','limit':'1..200'}},
  {'name':'write_file','description':'Create/update text atomically. Existing files require expectedHash from read_file; new files require missing.','arguments':{'path':'relative file','content':'complete UTF-8 text','expectedHash':'SHA-256 or missing'}},
  {'name':'apply_edits','description':'Apply 1–32 exact edits to one existing UTF-8 file against its original snapshot. Validates every match and overlap before one atomic write; never sequentially matches generated replacement text. Requires edit permission and current expectedHash.','arguments':{'path':'existing relative file','expectedHash':'current SHA-256','edits':'array of {find:nonempty text,replacement:text,count?:exact match count 1..1000, default 1}'}},
@@ -167,8 +168,10 @@ def command_allowlist(commands):
     return allowed
 
 class Runtime:
-    def __init__(self, workspace=None, commands=(), embedding_dir=None, navigation_dir=None, tool_library=None, state_dir=None, remember_sessions=True):
+    def __init__(self, workspace=None, commands=(), embedding_dir=None, navigation_dir=None, tool_library=None, state_dir=None, remember_sessions=True, command_wrapper=None):
         if not isinstance(remember_sessions, bool): raise ValueError('remember_sessions must be boolean')
+        if command_wrapper is not None and not callable(command_wrapper): raise ValueError('command_wrapper must be callable')
+        self.command_wrapper = command_wrapper
         self.remember_sessions = remember_sessions
         self.root = Path(workspace).expanduser().resolve() if workspace else None
         if self.root and not self.root.is_dir(): raise ValueError('Agent workspace must be an existing directory')
@@ -210,7 +213,7 @@ class Runtime:
         self.agent_memory=MemoryManager(self.state/'agent-memory.sqlite3') if self.state else None
         self.memory_suite=UnifiedMemorySuite(self.state/'agent-memory-suite.sqlite3',memory_manager=self.agent_memory) if self.state else None
     def health(self):
-        return {'projectKnowledge':{'features':['ontology','source-provenance','graph-neighborhoods','annotations','history','revision-guards','query-fallback-v1'],'automatic':True,'scope':'project','format':'codingagentlib/project-knowledge-v1','ontologyFormat':'codingagentlib/project-ontology-v1'},'pythonTools':{'scope':'configured library','language':'python','implicitCapture':'tagged successful parameterized scripts only','execution':'separate permission-checked run_script'},'pythonEnvironments':self.pyenvs.health() if self.pyenvs else None,'scriptLibrary':self.script_library.stats() if self.script_library else None,'agentMemory':self.agent_memory.stats() if self.agent_memory else None,'memoryArchitectures':self.memory_suite.stats() if self.memory_suite else None,'rememberSessions':self.remember_sessions,'sharedSkills':{'available':bool(self.shared_skills),'scope':'all suite apps','backend':'SQLite vector catalog'},'workflows':{'scope':'workspace','storage':'local SQLite revision library','format':'suite-tool-workflow/v1'},'skills':{'scope':'workspace','storage':'local SQLite revision library','format':'Markdown'},'navigation':self.navigation.health(),'memory':{**(self.memory.health() if self.memory else {}),'embeddingBackend':self.memory.health().get('backend') if self.memory else None,'backend':'sqlite','storage':'sqlite','scope':'session'},'enabled':bool(self.root),'workspace':str(self.root) if self.root else None,'stateDirectory':str(self.state) if self.state else None,'commands':sorted(set(self.allowed)-{'*'}),'commandPolicy':'all' if '*' in self.allowed else 'allowlist','commandPolicyNote':'All resolvable executables allowed; commands lists installed starter examples, not a restriction.' if '*' in self.allowed else 'Only listed executable names are allowed.', 'tools':TOOLS,'protocol':'suite-coding-agent/v1','acceptanceVersion':1,'changeReviewVersion':1,'inspectVersion':1,'workflowVersion':2,'workflowContracts':['suite-tool-workflow/v1','suite-tool-workflow/v2'],'workflowFeatures':['skill-pins-v1'],'planningVersion':1,'independentReviewVersion':1,'commandIsolation':'OS permissions of the relay process; not sandboxed','fileRecovery':'File-tool edits only; command-side edits require your own backups/version control'}
+        return {'projectKnowledge':{'features':['ontology','source-provenance','graph-neighborhoods','annotations','history','revision-guards','query-fallback-v1'],'automatic':True,'scope':'project','format':'codingagentlib/project-knowledge-v1','ontologyFormat':'codingagentlib/project-ontology-v1'},'pythonTools':{'scope':'configured library','language':'python','implicitCapture':'tagged successful parameterized scripts only','execution':'separate permission-checked run_script'},'pythonEnvironments':self.pyenvs.health() if self.pyenvs else None,'scriptLibrary':self.script_library.stats() if self.script_library else None,'agentMemory':self.agent_memory.stats() if self.agent_memory else None,'memoryArchitectures':self.memory_suite.stats() if self.memory_suite else None,'rememberSessions':self.remember_sessions,'sharedSkills':{'available':bool(self.shared_skills),'scope':'all suite apps','backend':'SQLite vector catalog'},'workflows':{'scope':'workspace','storage':'local SQLite revision library','format':'suite-tool-workflow/v1'},'skills':{'scope':'workspace','storage':'local SQLite revision library','format':'Markdown'},'navigation':self.navigation.health(),'memory':{**(self.memory.health() if self.memory else {}),'embeddingBackend':self.memory.health().get('backend') if self.memory else None,'backend':'sqlite','storage':'sqlite','scope':'session'},'enabled':bool(self.root),'workspace':str(self.root) if self.root else None,'stateDirectory':str(self.state) if self.state else None,'commands':sorted(set(self.allowed)-{'*'}),'commandPolicy':'all' if '*' in self.allowed else 'allowlist','commandPolicyNote':'All resolvable executables allowed; commands lists installed starter examples, not a restriction.' if '*' in self.allowed else 'Only listed executable names are allowed.', 'tools':TOOLS,'protocol':'suite-coding-agent/v1','acceptanceVersion':1,'changeReviewVersion':1,'inspectVersion':1,'workflowVersion':2,'workflowContracts':['suite-tool-workflow/v1','suite-tool-workflow/v2'],'workflowFeatures':['skill-pins-v1'],'planningVersion':1,'independentReviewVersion':1,'commandIsolation':'custom command_wrapper' if self.command_wrapper else 'OS permissions of the relay process; not sandboxed','fileRecovery':'File-tool edits only; command-side edits require your own backups/version control'}
     def enabled(self):
         if not self.root: raise PermissionError('Coding agent is disabled. Start the server with --agent-workspace /path/to/project')
     def path(self, value='.', directory=False, base=None, private=False):
@@ -388,7 +391,11 @@ class Runtime:
             script_hash_before=file_hash(Path(script)) if script else None
             with paths['stdout'].open('wb') as out,paths['stderr'].open('wb') as err:
                 try:
-                    proc=subprocess.Popen([executable,*([str(script)] if script else []),*argv],cwd=cwd,env=env_override,stdin=subprocess.PIPE,stdout=out,stderr=err,shell=False,start_new_session=os.name!='nt')
+                    cmd_argv=[executable,*([str(script)] if script else []),*argv]
+                    if self.command_wrapper is not None:
+                        cmd_argv=list(self.command_wrapper(cmd_argv,cwd,env_override))
+                        if not cmd_argv or any(not isinstance(x,str) or '\0' in x for x in cmd_argv):raise ValueError('command_wrapper must return a nonempty list of strings without NUL')
+                    proc=subprocess.Popen(cmd_argv,cwd=cwd,env=env_override,stdin=subprocess.PIPE,stdout=out,stderr=err,shell=False,start_new_session=os.name!='nt')
                 except OSError as error:
                     code={errno.ENOENT:'missing_executable_or_interpreter',errno.EACCES:'launch_permission',errno.ENOEXEC:'invalid_executable_format'}.get(error.errno,'launch_os_error')
                     diagnostic=str(error);raw=diagnostic.encode('utf-8');err.write(raw);err.flush()
@@ -607,6 +614,21 @@ class Runtime:
             directory=self.path(a.get('path','.'),directory=True);files=self.files(directory);cursor=integer(a.get('cursor'),0,0,2**31);limit=integer(a.get('limit'),100,1,500)
             return {'files':[{'path':str(p.relative_to(self.root)),'bytes':p.stat().st_size} for p in files[cursor:cursor+limit]],'nextCursor':min(len(files),cursor+limit),'total':len(files),'done':cursor+limit>=len(files)}
         if name=='read_file':return self.page(self.path(a['path']),a)
+        if name=='read_files':
+            specs=a.get('files') if isinstance(a.get('files'),list) else [{'path':p} for p in (a.get('paths') or [])]
+            if not specs or len(specs)>16:raise ValueError('Provide 1–16 files to read_files')
+            default_offset=integer(a.get('offset'),0,0,2**31);default_limit=integer(a.get('limit'),12000,1,64000)
+            budget=64000;used=0;out=[];truncated=False
+            for spec in specs:
+                if isinstance(spec,str):spec={'path':spec}
+                if not isinstance(spec,dict) or not isinstance(spec.get('path'),str):raise ValueError('Each read_files entry requires a path')
+                if used>=budget:
+                    truncated=True;out.append({'path':spec['path'],'skipped':True,'reason':'batch_budget'});continue
+                rem=budget-used
+                lim=min(integer(spec.get('limit'),default_limit,1,64000),rem)
+                res=self.page(self.path(spec['path']),{'offset':spec.get('offset',default_offset),'limit':lim})
+                used+=len(res.get('text',''));out.append(res)
+            return {'files':out,'totalCharacters':used,'truncated':truncated}
         if name=='search':
             query=a.get('query');
             if not isinstance(query,str) or not query or len(query)>1000:raise ValueError('Provide a literal query under 1000 characters')
@@ -927,7 +949,7 @@ class Runtime:
                 latest=max((e['value'].get('step',0) for e in s['events'] if e['kind'] in {'turn','assistant','protocol_error'} and isinstance(e.get('value'),dict) and isinstance(e['value'].get('step'),int) and not isinstance(e['value']['step'],bool)),default=0)
                 project=s.get('knowledgeProject',self.root.name)
                 self.knowledge.refresh(self,project);self._knowledge_dirty=False
-                knowledge=self.knowledge.recall(project,s['goal'])
+                knowledge=self.knowledge.recall(project,(s['goal'] or '')[:4000])
                 step=latest+1;guidance=agent_instructions.current(self,s['events'])
                 provenance={'target':guidance['target'],'sources':[{k:d[k] for k in ('path','scope','sha256','bytes')} for d in guidance['documents']],'complete':guidance['complete'],'warnings':guidance['warnings']}
                 self.event(s,'turn',{'step':step,'userRevision':current,'projectInstructions':provenance})

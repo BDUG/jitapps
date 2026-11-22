@@ -125,7 +125,12 @@ pub fn replay(snapshot: &Value) -> Result<Value> {
     for name in names {
         let receipts = receipts.clone();
         let expected = name.clone();
-        options.tools.push(CoreTool::new(json!({"name":name,"description":"Recorded mock","permission":"read","parameters":{"type":"object"}}),move|_,_,_|{let receipt=receipts.lock().map_err(|_|"Replay lock")?.pop_front().ok_or("Replay receipt exhausted")?;if receipt["tool"]!=expected{return Err("Replay tool order mismatch".into());}if receipt["ok"]!=true{return Err(receipt["error"]["message"].as_str().unwrap_or("Recorded tool failure").to_owned().into());}Ok(receipt["result"].clone())}));
+        options.tools.push(CoreTool::new(json!({"name":name,"description":"Recorded mock","permission":"read","parameters":{"type":"object"}}),move|_,_,_|{
+            let receipt=receipts.lock().map_err(|_|"Replay lock")?.pop_front().ok_or("Replay receipt exhausted")?;
+            if receipt["tool"]!=expected{return Err("Replay tool order mismatch".into());}
+            if receipt["ok"]!=true{return Err(receipt["error"]["message"].as_str().unwrap_or("Recorded tool failure").to_owned().into());}
+            Ok(receipt["result"].clone())
+        }));
     }
     let mut agent = create_agent(options)?;
     let result = agent.run(

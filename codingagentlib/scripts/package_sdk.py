@@ -31,7 +31,10 @@ def python(root, name, modules, entry, dependencies=()):
 def build(output):
     output.mkdir(parents=True,exist_ok=True)
     javascript(output,'agent-core',['core.js','adapters.js','contracts.js','contracts-data.js','contracts.d.ts','core.d.ts'],"module.exports={...require('./core.js'),...require('./adapters.js'),contracts:require('./contracts.js')};")
-    javascript(output,'agent-extensions',['extensions.js','mcp-transports.js','executable.js','mosaic.js','mosaic.d.ts','state-machine.js','tree-search.js','beyond-react.js'],"module.exports={...require('./extensions.js'),...require('./mcp-transports.js'),...require('./mosaic.js'),...require('./state-machine.js'),...require('./tree-search.js'),beyondReact:require('./beyond-react.js')};",{'@tlal/agent-core':'^1.0.0'})
+    javascript(output,'agent-extensions',['extensions.js','extensions.d.ts','mcp-transports.js','mcp-transports.d.ts','executable.js','mosaic.js','mosaic.d.ts','state-machine.js','state-machine.d.ts','tree-search.js','tree-search.d.ts','beyond-react.js','beyond-react.d.ts'],"module.exports={...require('./extensions.js'),...require('./mcp-transports.js'),...require('./mosaic.js'),...require('./state-machine.js'),...require('./tree-search.js'),beyondReact:require('./beyond-react.js')};",{'@tlal/agent-core':'^1.0.0'})
+    (output/'agent-extensions/index.d.ts').write_text("export * from './extensions';\nexport * from './mcp-transports';\nexport * from './mosaic';\nexport * from './state-machine';\nexport { treeSearch } from './tree-search';\nexport * as beyondReact from './beyond-react';\n")
+    ext_manifest=output/'agent-extensions/package.json'
+    ext_meta=json.loads(ext_manifest.read_text()); ext_meta['types']='index.d.ts'; ext_manifest.write_text(json.dumps(ext_meta,indent=2)+'\n')
     (output/'agent-core/index.d.ts').write_text("export * from './core';\n")
     manifest=output/'agent-core/package.json'
     metadata=json.loads(manifest.read_text()); metadata['types']='index.d.ts'; manifest.write_text(json.dumps(metadata,indent=2)+'\n')
@@ -43,29 +46,37 @@ def build(output):
     metadata=json.loads((output/'agent-memory/package.json').read_text());metadata['types']='index.d.ts';(output/'agent-memory/package.json').write_text(json.dumps(metadata,indent=2)+'\n')
     javascript(output,'agent-store-node',['node-store.js'],"module.exports=require('./node-store.js');")
     javascript(output,'agent-provider-openai',['providers.js','providers.d.ts'],"module.exports=require('./providers.js');")
+    (output/'agent-provider-openai/index.d.ts').write_text("export * from './providers';\n")
+    p_manifest=output/'agent-provider-openai/package.json'
+    p_meta=json.loads(p_manifest.read_text()); p_meta['types']='index.d.ts'; p_manifest.write_text(json.dumps(p_meta,indent=2)+'\n')
+    javascript(output,'agent-protocols',['a2a.js','a2a.d.ts','streaming.js','streaming.d.ts','otel-genai.js','otel-genai.d.ts'],"module.exports={a2a:require('./a2a.js'),streaming:require('./streaming.js'),otelGenai:require('./otel-genai.js')};",{'@tlal/agent-core':'^1.0.0'})
+    (output/'agent-protocols/index.d.ts').write_text("export * as a2a from './a2a';\nexport * as streaming from './streaming';\nexport * as otelGenai from './otel-genai';\n")
+    pr_manifest=output/'agent-protocols/package.json'
+    pr_meta=json.loads(pr_manifest.read_text()); pr_meta['types']='index.d.ts'; pr_manifest.write_text(json.dumps(pr_meta,indent=2)+'\n')
     javascript(output,'agent-coding',[],"const {LocalRuntime:LegacyRuntime}=require('@tlal/codingagentlib'); class LocalRuntime extends LegacyRuntime {constructor(options){super({...options,exclusiveWorkspace:true});}} module.exports={LocalRuntime};",{'@tlal/codingagentlib':'>=0.1.0'})
     python(output,'codingagentcore',['core.py','adapters.py','contracts.py','contracts_data.py'],'from .core import create_agent, CoreAgent, MemorySessionStore, capabilities, replay\nfrom .adapters import from_embedded')
-    python(output,'codingagentextensions',['extensions.py','mcp_transports.py','mosaic.py'],'from .extensions import mcp_tools, expose_mcp, delegation_tool\nfrom .mcp_transports import ShellMCP, RPCTransport\nfrom .mosaic import create_model_mosaic',['codingagentcore>=1,<2'])
+    python(output,'codingagentextensions',['extensions.py','mcp_transports.py','mosaic.py'],'from .extensions import mcp_tools, expose_mcp, delegation_tool\nfrom .mcp_transports import ShellMCP, RPCTransport, HttpMCPTransport\nfrom .mosaic import create_model_mosaic',['codingagentcore>=1,<2'])
+    python(output,'codingagentprotocols',['a2a.py','streaming.py','otel_genai.py'],'from .a2a import A2AServer, A2AClient, agent_card, a2a_delegation_tool\nfrom .streaming import ACPServer, SSEStreamBridge, ag_ui_events, format_sse\nfrom .otel_genai import GenAITracer, ReactOtelObserver, TraceContext')
     path=output/'codingagentextensions/codingagentextensions/extensions.py'
     path.write_text(path.read_text().replace('from .core import','from codingagentcore.core import').replace('from .contracts import','from codingagentcore.contracts import'))
     python(output,'codingagentmemory',['project_knowledge.py','agent_memory.py','agent_memory_manager.py','agent_memory_architectures.py','graph_query.py','source_imports.py'],'from .project_knowledge import ProjectKnowledge\nfrom .agent_memory import Memory\nfrom .agent_memory_manager import MemoryManager\nfrom .agent_memory_architectures import UnifiedMemorySuite, StructMemStore, EggentEpisodicGraph, AMemNetwork, MagmaMultiGraph, GamMemoryEngine\nfrom .graph_query import query_graph')
-    python(output,'codingagenttools',['tool_library.py','agent_pyenv.py','agent_harness.py'],'from .tool_library import ToolLibrary\nfrom .agent_pyenv import PythonEnvironments\nfrom .agent_harness import ScriptLibrary, AGENT_IO',['codingagentcore>=1,<2','codingagentmemory>=1,<2'])
+    python(output,'codingagenttools',['tool_library.py','agent_pyenv.py','agent_harness.py','runtime_tools.py'],'from .tool_library import ToolLibrary\nfrom .agent_pyenv import PythonEnvironments\nfrom .agent_harness import ScriptLibrary, AGENT_IO\nfrom .runtime_tools import script_library_tools, runtime_tools, script_tools, program_tools, tool_definition',['codingagentcore>=1,<2','codingagentmemory>=1,<2'])
     for mod in ('tool_library.py','agent_harness.py'):
         path=output/('codingagenttools/codingagenttools/'+mod)
         path.write_text(path.read_text().replace('from .contracts import','from codingagentcore.contracts import').replace('from .agent_memory import','from codingagentmemory.agent_memory import'))
     python(output,'codingagentstore',['sqlite_store.py'],'from .sqlite_store import SQLiteSessionStore')
-    python(output,'codingagentproviders',['providers.py'],'from .providers import openai_model, anthropic_model, gemini_model, ollama_model, with_retry')
+    python(output,'codingagentproviders',['providers.py'],'from .providers import openai_model, anthropic_model, gemini_model, ollama_model, with_retry, tool_schemas, parse_provider_response, openai_tool_model, anthropic_tool_model, gemini_tool_model, tool_use_to_react_model')
     python(output,'codingagentcoding',['workspace_lock.py','decision_model.py','react.py','tree_search.py','codeact.py','pipelines.py','state_machine.py','multi_agent.py'],'from codingagentlib.python.coding import Agent, Runtime, WorkspaceLease\nfrom codingagentlib import ReactAgent, TreeSearchAgent, CodeActAgent, CodeActREPL, AgentlessPipeline, StateGraph, END, PlannerExecutorAgent, MultiAgentOrchestrator, ReflexionLoop, consult_decision_model',['codingagentlib>=0.1'])
     # UI remains optional: it binds to an injected Worker/Controller and never
     # becomes a dependency of the portable core.
     ui=output/'agent-ui-bindings'
     ui.mkdir(exist_ok=True)
-    for relative in ['controller.cjs','worker.cjs','executable.cjs','loop-guard.cjs','verification.cjs','action-review.cjs']:
+    for relative in ['controller.cjs','worker.cjs','executable.cjs','execution-mode.cjs','loop-guard.cjs','verification.cjs','action-review.cjs','agent-library.cjs','chat-commands.cjs']:
         shutil.copy2(ROOT/'vscode/src'/relative,ui/relative)
     (ui/'index.js').write_text("module.exports={...require('./controller.cjs'),...require('./worker.cjs')};\n")
     (ui/'package.json').write_text(json.dumps(dict(name='@tlal/agent-ui-bindings',version='1.0.0',main='index.js',license='MIT'))+'\n')
     shutil.copy2(ROOT/'LICENSE',ui/'LICENSE')
-    (output/'MANIFEST.json').write_text(json.dumps(dict(protocol='codingagentlib/sdk-v1',packages=sorted(['agent-core','agent-extensions','agent-memory','agent-store-node','agent-provider-openai','agent-coding','agent-ui-bindings','codingagentcore','codingagentextensions','codingagentstore','codingagentproviders','codingagentcoding','codingagentmemory','codingagenttools']),published=False),indent=2)+'\n')
+    (output/'MANIFEST.json').write_text(json.dumps(dict(protocol='codingagentlib/sdk-v1',packages=sorted(['agent-core','agent-extensions','agent-memory','agent-protocols','agent-store-node','agent-provider-openai','agent-coding','agent-ui-bindings','codingagentcore','codingagentextensions','codingagentprotocols','codingagentstore','codingagentproviders','codingagentcoding','codingagentmemory','codingagenttools']),published=False),indent=2)+'\n')
 
 
 if __name__ == '__main__':

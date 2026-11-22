@@ -662,3 +662,130 @@ fn revision_conflict_recovery_preserves_external_work_and_receipts() -> Result<(
     assert_eq!(saved["receipts"]["conflict0"]["observation"]["recovery"]["strategy"],"read_then_replan");
     Ok(())
 }
+
+#[test]
+fn core_agent_script_and_program_tools() -> Result<()> {
+    use codingagentlib::{core::CoreOptions, create_agent, program_tools, script_tools, Runtime};
+    use std::sync::{Arc, Mutex};
+    let w = Workspace::new()?;
+    let mut rt = Runtime::new(&w.0, &["/bin/sh"])?;
+    let sid = rt.start(
+        "CoreAgent scripts and programs",
+        &RunOptions {
+            allow_edits: true,
+            allow_commands: true,
+            max_steps: Some(10),
+        },
+    )?;
+    let shared = Arc::new(Mutex::new(rt));
+    let mut tools = script_tools(shared.clone(), sid.clone());
+    assert!(tools
+        .iter()
+        .find(|t| t.definition["name"] == "write_script")
+        .unwrap()
+        .definition["parameters"]["properties"]
+        .get("content")
+        .is_some());
+    tools.extend(
+        program_tools(shared.clone(), sid.clone())
+            .into_iter()
+            .filter(|t| t.definition["name"] == "run_command"),
+    );
+    let mut options = CoreOptions::new(|req, _| {
+        let obs: Vec<_> = req["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|e| e["kind"] == "tool_result")
+            .collect();
+        if obs.is_empty() {
+            Ok(json!({
+                "sessionId": req["sessionId"],
+                "step": req["step"],
+                "status": "act",
+                "plan": "Write script",
+                "action": {"tool": "write_script", "args": {"path": "hi.sh", "content": "printf rust-script", "expectedHash": "missing"}}
+            }))
+        } else if obs.len() == 1 {
+            assert_eq!(obs[0]["value"]["ok"], true);
+            Ok(json!({
+                "sessionId": req["sessionId"],
+                "step": req["step"],
+                "status": "act",
+                "plan": "Run script",
+                "action": {"tool": "run_script", "args": {"path": "hi.sh", "command": "/bin/sh"}}
+            }))
+        } else if obs.len() == 2 {
+            assert_eq!(obs[1]["value"]["result"]["stdout"], "rust-script");
+            Ok(json!({
+                "sessionId": req["sessionId"],
+                "step": req["step"],
+                "status": "act",
+                "plan": "Run command",
+                "action": {"tool": "run_command", "args": {"command": "/bin/sh", "args": ["-c", "printf rust-prog"]}}
+            }))
+        } else if obs.len() == 3 {
+            assert_eq!(obs[2]["value"]["result"]["stdout"], "rust-prog");
+            Ok(json!({
+                "sessionId": req["sessionId"],
+                "step": req["step"],
+                "status": "act",
+                "plan": "Delete script",
+                "action": {"tool": "delete_script", "args": {"path": "hi.sh"}}
+            }))
+        } else {
+            assert_eq!(obs[3]["value"]["result"]["deleted"], "hi.sh");
+            Ok(json!({
+                "sessionId": req["sessionId"],
+                "step": req["step"],
+                "status": "done",
+                "plan": "Done",
+                "action": null,
+                "summary": "Executed script and program tools via Rust CoreAgent"
+            }))
+        }
+    });
+    options.tools = tools;
+    let mut core = create_agent(options)?;
+    let res = core.run(
+        "Run script and program",
+        &RunOptions {
+            allow_edits: true,
+            allow_commands: true,
+            max_steps: None,
+        },
+    )?;
+    assert_eq!(res["status"], "complete");
+    Ok(())
+}
+
+#[test]
+fn read_files_paging_and_batch_budget() -> Result<()> {
+    let dir = Workspace::new()?;
+    fs::write(dir.0.join("a.txt"), "A".repeat(32000))?;
+    fs::write(dir.0.join("b.txt"), "B".repeat(32000))?;
+    fs::write(dir.0.join("c.txt"), "C".repeat(100))?;
+    let mut agent = Agent::new(&dir.0, &[])?;
+    let sess = agent.start("Batch read", &RunOptions::default())?;
+    let res = agent.dispatch(json!({
+        "op": "tool",
+        "session": sess,
+        "callId": "read-files-1",
+        "tool": "read_files",
+        "args": {
+            "files": [
+                { "path": "a.txt", "limit": 32000 },
+                { "path": "b.txt", "limit": 32000 },
+                { "path": "c.txt" }
+            ]
+        }
+    }))?;
+    let obs = &res["result"];
+    assert_eq!(obs["truncated"], true);
+    assert_eq!(obs["totalCharacters"], 64000);
+    assert_eq!(obs["files"][0]["text"].as_str().unwrap().len(), 32000);
+    assert_eq!(obs["files"][1]["text"].as_str().unwrap().len(), 32000);
+    assert_eq!(obs["files"][2]["skipped"], true);
+    agent.close()?;
+    Ok(())
+}
