@@ -147,6 +147,14 @@ test('one-click copy copies chat message text without triggering failure dialog'
  assert.equal(p.posted.at(-1).text,'Copyable failure');
 });
 
+test('standalone instant slash commands submit on Enter without Ctrl',()=>{
+ const p=panel();p.state();
+ p.q('goal').value='/status';
+ p.q('goal').onkeydown({key:'Enter',preventDefault(){}});
+ assert.equal(p.posted.at(-1).command,'run');
+ assert.equal(p.posted.at(-1).goal,'/status');
+});
+
 test('snapshots drawer lists snapshots and triggers create, rollback, and delete',()=>{
  const p=panel();p.state();
  p.q('snapshots-drawer').hidden=true;

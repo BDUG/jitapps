@@ -20,6 +20,15 @@ test('parseChatInput parses slash commands and @ mentions', () => {
   assert.equal(pathShorthand.command, null);
   assert.deepEqual(pathShorthand.mentions.map(m => m.kind), ['file', 'changes']);
   assert.match(ChatCommands.formatHelpText(), /\/goal/);
+  assert.match(ChatCommands.formatHelpText(), /\/status/);
+  assert.match(ChatCommands.formatHelpText(), /\/new/);
+  assert.match(ChatCommands.formatHelpText(), /\/snapshots/);
+  assert.match(ChatCommands.formatHelpText(), /\/changes/);
+  assert.match(ChatCommands.formatHelpText(), /\/export/);
+  assert.match(ChatCommands.formatHelpText(), /\/settings/);
+  assert.match(ChatCommands.GOAL_MODE_INSTRUCTIONS, /500-step budget/);
+  assert.match(ChatCommands.PLAN_MODE_INSTRUCTIONS, /Plan Mode/);
+  assert.match(ChatCommands.REVIEW_MODE_INSTRUCTIONS, /Review Mode/);
 });
 
 test('AgentLibrary discovers skills and agents safely, matches skills, and enforces guardrails', async () => {

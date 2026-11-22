@@ -92,7 +92,8 @@
    if(e.key==='Tab'||(e.key==='Enter'&&!e.ctrlKey&&!e.metaKey)){e.preventDefault();applyMenuItem(menuItems[menuIndex]);return;}
    if(e.key==='Escape'){e.preventDefault();hideMenu();return;}
   }
-  if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&!e.isComposing){e.preventDefault();hideMenu();run(!!session&&!$('resume').disabled);}
+  if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&!e.isComposing){e.preventDefault();hideMenu();run(!!session&&!$('resume').disabled);return;}
+  if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&/^\/(help|status|new|clear|snapshots|changes|export|settings|tools|skills|agents)\s*$/i.test($('goal').value)){e.preventDefault();hideMenu();run(false);}
  };
  $('latest').onclick=()=>{const chat=$('chat');chat.scrollTop=chat.scrollHeight;};
  $('status').onclick=()=>{if($('status').classList?.contains('has-error'))post('resolveFailure',{text:$('status').textContent});};

@@ -70,9 +70,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send(200, page.encode(), 'text/html; charset=utf-8')
 
     def do_POST(self):
-        origin = f'http://127.0.0.1:{options.port}'
-        if self.path != '/run' or self.headers.get('Origin') != origin:
-            return self.send(403, b'Invalid origin or route', 'text/plain')
+        allowed = {f'http://{host}:{options.port}' for host in ('127.0.0.1', 'localhost', '[::1]')}
+        if self.path != '/run' or self.headers.get('Origin') not in allowed:
+            return self.send(403, json.dumps({'error': 'Invalid origin or route'}).encode(), 'application/json')
         try:
             size = int(self.headers.get('Content-Length', '0'))
             if not 0 < size <= 16000:

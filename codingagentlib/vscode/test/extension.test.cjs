@@ -119,4 +119,21 @@ await fs.writeFile(path.join(workspace,'snap-check.txt'),'after-snap');
 receive({command:'rollbackSnapshot',id:snapId});
 await waitFor(()=>frames.some(f=>f.kind==='info'&&String(f.text).includes('Rolled back workspace')));
 assert.equal(await fs.readFile(path.join(workspace,'snap-check.txt'),'utf8'),'before-snap');
+
+// /goal keeps goal text clean, activates implementer + Goal mode instructions, and completes in Build mode.
+const beforeGoal=frames.filter(f=>f.kind==='status'&&f.text==='complete').length;
+receive({command:'run',goal:'/goal Inspect paged mention @file:large.txt#page=2',executionMode:'plan'});
+await waitFor(()=>frames.filter(f=>f.kind==='status'&&f.text==='complete').length>beforeGoal&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
+assert.ok(frames.some(f=>f.kind==='info'&&String(f.text).includes('Goal mode (500 steps)')));
+assert.ok(frames.some(f=>f.kind==='user'&&f.text.startsWith('Inspect paged mention @file:large.txt#page=2')&&!f.text.includes('[Autonomous Goal Mode]')));
+
+// /status, /snapshots, and /new work as instant slash commands.
+receive({command:'run',goal:'/status',resume:true});
+await waitFor(()=>frames.some(f=>f.kind==='info'&&String(f.text).includes('Allowed commands:'))&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
+receive({command:'run',goal:'/changes',resume:true});
+await waitFor(()=>frames.some(f=>f.kind==='info'&&/workspace changes/i.test(String(f.text)))&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
+receive({command:'run',goal:'/snapshots'});
+await waitFor(()=>frames.some(f=>f.kind==='info'&&String(f.text).includes('Saved snapshots:'))&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
+receive({command:'run',goal:'/new'});
+await waitFor(()=>frames.filter(f=>f.kind==='state').at(-1).session===''&&!frames.filter(f=>f.kind==='state').at(-1).preparing);
 });

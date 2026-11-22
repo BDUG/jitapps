@@ -14,7 +14,7 @@ const $=id=>document.getElementById(id);
 function record(kind,value){trace.push({time:new Date().toISOString(),kind,value});$('log').textContent=trace.map(e=>JSON.stringify(e,null,2)).join('\n');$('log').scrollTop=$('log').scrollHeight;}
 async function run(goal){
  $('send').disabled=true;$('purple').disabled=true;record('user',{text:goal});$('chat').textContent+='You: '+goal+'\n';
- try{const response=await fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal,state})});const data=await response.json();if(!response.ok)throw Error(data.error||'Request failed');
+ try{const response=await fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal,state})});const raw=await response.text();let data;try{data=JSON.parse(raw);}catch{throw Error(raw||'Request failed (HTTP '+response.status+')');}if(!response.ok)throw Error(data.error||'Request failed');
  state=data.state;for(const event of data.trace)record(event.kind,event.value);record('result',data.result);
  $('shape').setAttribute('fill',state.color);$('paragraph').textContent=state.text;
  $('chat').textContent+='Agent: '+(data.result.summary||data.result.question||data.result.status)+'\n';

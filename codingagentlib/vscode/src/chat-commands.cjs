@@ -5,8 +5,14 @@ const SLASH_COMMANDS = [
   { name: 'plan', usage: '/plan <task>', description: 'Run in read-only Plan mode to inspect code and produce a plan.' },
   { name: 'build', usage: '/build <task>', description: 'Run in Build mode with approved edit/command permissions.' },
   { name: 'review', usage: '/review [scope]', description: 'Activate reviewer persona in read-only mode to inspect changes and diagnostics.' },
+  { name: 'status', usage: '/status', description: 'Show current session, model, permissions, and allowed commands.' },
+  { name: 'new', usage: '/new', description: 'Start a fresh chat session.' },
+  { name: 'snapshots', usage: '/snapshots [label]', description: 'List saved workspace snapshots, or create one with a label.' },
+  { name: 'changes', usage: '/changes', description: 'Show changed workspace files in the current session.' },
+  { name: 'export', usage: '/export', description: 'Export the current session result ZIP.' },
+  { name: 'settings', usage: '/settings', description: 'Open RabbitHole settings.' },
   { name: 'skills', usage: '/skills [query]', description: 'List workspace skills (.agents/skills, .extension/skills) or filter by query.' },
-  { name: 'agents', usage: '/agents [name]', description: 'List available agent personas or run with a specific persona.' },
+  { name: 'agents', usage: '/agents [name] [task]', description: 'List agent personas or run a task with a specific persona.' },
   { name: 'tools', usage: '/tools', description: 'Show available native tools, permissions, and executable allowlist.' },
   { name: 'memory', usage: '/memory [query]', description: 'Search project memory notes and show matches.' },
   { name: 'help', usage: '/help', description: 'Show supported / commands and @ mentions.' },
@@ -81,9 +87,32 @@ function formatHelpText() {
   return lines.join('\n');
 }
 
+const GOAL_MODE_INSTRUCTIONS = [
+  'Autonomous Goal Mode active (500-step budget):',
+  '1. Inspect the relevant code, tests, and repository instructions before making edits.',
+  '2. Decompose multi-step work into an explicit task list (`tasks`) and complete each item systematically.',
+  '3. Verify all changes with real tests/checks within approved permissions; report only directly observed results.',
+  '4. Continue autonomously until the goal and verification are complete; use `ask` only when genuinely blocked or a user decision is required.',
+].join('\n');
+
+const PLAN_MODE_INSTRUCTIONS = [
+  'Read-only Plan Mode active:',
+  '1. Inspect the relevant files and architecture without modifying files or running commands.',
+  '2. Produce a concrete, file-referenced implementation plan with explicit verification steps and open questions.',
+].join('\n');
+
+const REVIEW_MODE_INSTRUCTIONS = [
+  'Read-only Code Review Mode active:',
+  '1. Inspect changed files, callers, and diagnostics without modifying files or running mutating commands.',
+  '2. Trace concrete code paths and report prioritized findings with file/line references and suggested fixes.',
+].join('\n');
+
 module.exports = {
   SLASH_COMMANDS,
   BUILTIN_MENTIONS,
+  GOAL_MODE_INSTRUCTIONS,
+  PLAN_MODE_INSTRUCTIONS,
+  REVIEW_MODE_INSTRUCTIONS,
   parseChatInput,
   formatHelpText,
 };
