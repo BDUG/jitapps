@@ -8,6 +8,7 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -17,13 +18,29 @@ pub fn names() -> &'static [&'static str] {
         "project_knowledge",
         "read_project_instructions",
         "list_files",
+        "find_files",
         "read_file",
         "read_files",
+        "parallel_read",
         "write_file",
         "replace_text",
         "apply_edits",
+        "apply_patch",
         "delete_file",
+        "restore_file",
+        "discover_tools",
         "search_text",
+        "grep_search",
+        "code_symbols",
+        "code_definition",
+        "code_references",
+        "code_diagnostics",
+        "read_image",
+        "web_fetch",
+        "web_search",
+        "git_status",
+        "git_diff",
+        "git_log",
         "write_script",
         "read_script",
         "list_scripts",
@@ -31,6 +48,9 @@ pub fn names() -> &'static [&'static str] {
         "run_script",
         "run_command",
         "read_command_output",
+        "start_process",
+        "write_stdin",
+        "stop_process",
         "changes",
         "read_history",
         "read_project_memory",
@@ -38,14 +58,24 @@ pub fn names() -> &'static [&'static str] {
         "memory_read",
         "memory_list",
         "memory_search",
+        "memory_delete",
+        "scratchpad",
         "skill_save",
         "skill_read",
         "skill_list",
         "skill_search",
+        "skill_history",
         "workflow_save",
         "workflow_read",
         "workflow_list",
+        "workflow_history",
+        "workflow_preflight",
+        "workflow_status",
         "workflow_run",
+        "tool_save",
+        "tool_list",
+        "tool_read",
+        "tool_run",
         "package_results",
     ]
 }
@@ -83,7 +113,37 @@ pub fn description(name: &str) -> &str {
 "workflow_read"=>"Read workflow. args: id, revision?.",
 "workflow_list"=>"List reusable workflows. args: offset?, limit?.",
 "workflow_run"=>"Run pinned workflow. args: id, revision. Executes literal steps once, stops on failure/cancellation; no automatic replay.",
-"package_results"=>"Build session ZIP containing logs, changed readable files, scripts, skills/workflows and manifest. Does not include deleted file contents or command rollback.",_=>"Unsupported"}
+"package_results"=>"Build session ZIP containing logs, changed readable files, scripts, skills/workflows and manifest. Does not include deleted file contents or command rollback.",
+"find_files"=>"Find workspace files matching a glob pattern (optional path subdirectory, offset, limit).",
+"grep_search"=>"Search workspace text with optional path subdirectory, glob include filter, caseSensitive flag, offset and limit.",
+"parallel_read"=>"Run 1 to 8 read-only tool requests (read_file, list_files, find_files, search_text, grep_search) in one batch.",
+"git_status"=>"Inspect read-only git working tree status and current branch.",
+"git_diff"=>"Inspect read-only git diff (optional staged flag, path filter, offset, limit).",
+"git_log"=>"Inspect read-only git commit history (optional limit, path filter, offset).",
+"code_symbols"=>"Extract code symbol definitions (functions, structs, classes, traits, types) across workspace or file.",
+"code_definition"=>"Resolve a symbol at a 1-based line and column to workspace symbol definitions.",
+"code_references"=>"Find whole-word references to the symbol at a 1-based line and column across workspace files.",
+"code_diagnostics"=>"Run read-only syntax and delimiter diagnostics on a workspace source file.",
+"read_image"=>"Read a workspace image (.png, .jpg, .jpeg, .webp, .gif up to 8 MB) as base64 dataUrl with metadata.",
+"web_fetch"=>"Fetch a public HTTPS URL (SSRF-guarded) in bounded text pages.",
+"web_search"=>"Search the web via HTTPS for public documentation or references.",
+"restore_file"=>"Restore a file modified or deleted in the current session from its session backup (requires expectedHash).",
+"apply_patch"=>"Apply a unified multi-file Codex-style patch (*** Begin Patch / Add File / Update File / Delete File / *** End Patch) atomically.",
+"start_process"=>"Start an allowlisted interactive child process with piped stdin/stdout/stderr; returns processId.",
+"write_stdin"=>"Write input (or eof) to a running interactive process and read available stdout/stderr output.",
+"stop_process"=>"Terminate an interactive child process started by start_process.",
+"discover_tools"=>"Find available tool names, descriptions, and schemas by keywords or exact names.",
+"scratchpad"=>"Manage session-scoped key/value working scratchpad (set, get, delete, list).",
+"memory_delete"=>"Delete one session memory document by id.",
+"skill_history"=>"Inspect revision history metadata for a workspace skill.",
+"workflow_history"=>"Inspect revision history metadata for a workspace workflow.",
+"workflow_preflight"=>"Validate a workflow definition and inspect required permissions without executing.",
+"workflow_status"=>"Inspect saved workflow run state and step results by runId.",
+"tool_save"=>"Save a parameterized reusable script tool (any allowlisted interpreter) with JSON schema.",
+"tool_list"=>"List or search saved reusable script tools in this workspace.",
+"tool_read"=>"Read a saved reusable script tool definition and source.",
+"tool_run"=>"Execute a saved reusable script tool by id with JSON input (requires allowCommands).",
+_=>"Unsupported"}
 }
 fn page(value: &str, args: &Value) -> Result<Value> {
     let start = offset(args)?;
@@ -411,6 +471,495 @@ pub(crate) fn execute(
             }
             rows(matches, args, "matches")
         }
+        "find_files" => {
+            let pattern = args.get("pattern").and_then(Value::as_str).unwrap_or("*");
+            let sub = args.get("path").and_then(Value::as_str).unwrap_or("");
+            let base = if sub.is_empty() {
+                runtime.root.clone()
+            } else {
+                resolve(&runtime.root, sub)?
+            };
+            let mut files = vec![];
+            if base.is_dir() {
+                walk(&runtime.root, &base, &mut files)?;
+            } else if base.is_file() && !sub.is_empty() {
+                files.push(sub.replace('\\', "/"));
+            }
+            let matched: Vec<Value> = files
+                .into_iter()
+                .filter(|f| match_glob(pattern, f))
+                .map(Value::String)
+                .collect();
+            rows(matched, args, "files")
+        }
+        "grep_search" => {
+            let query = text(args, "query")?;
+            if query.is_empty() {
+                return Err("Provide a search query".into());
+            }
+            let sub = args.get("path").and_then(Value::as_str).unwrap_or("");
+            let include = args.get("include").and_then(Value::as_str).unwrap_or("");
+            let case_sensitive = args
+                .get("caseSensitive")
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            let needle = if case_sensitive {
+                query.to_owned()
+            } else {
+                query.to_lowercase()
+            };
+            let base = if sub.is_empty() {
+                runtime.root.clone()
+            } else {
+                resolve(&runtime.root, sub)?
+            };
+            let mut files = vec![];
+            if base.is_dir() {
+                walk(&runtime.root, &base, &mut files)?;
+            } else if base.is_file() && !sub.is_empty() {
+                files.push(sub.replace('\\', "/"));
+            }
+            let mut matches = vec![];
+            for file in files {
+                if cancel.is_cancelled() {
+                    return Err("Cancelled".into());
+                }
+                if !include.is_empty() && !match_glob(include, &file) {
+                    continue;
+                }
+                if let Ok(body) = contents(&resolve(&runtime.root, &file)?) {
+                    for (line, value) in body.lines().enumerate() {
+                        let hit = if case_sensitive {
+                            value.contains(&needle)
+                        } else {
+                            value.to_lowercase().contains(&needle)
+                        };
+                        if hit {
+                            matches.push(json!({"path":file,"line":line+1,"text":value}));
+                        }
+                    }
+                }
+            }
+            rows(matches, args, "matches")
+        }
+        "parallel_read" => {
+            let requests = args
+                .get("requests")
+                .and_then(Value::as_array)
+                .ok_or("Provide a requests array of 1 to 8 read-only tool calls")?;
+            if requests.is_empty() || requests.len() > 8 {
+                return Err("requests must contain between 1 and 8 items".into());
+            }
+            let allowed = [
+                "read_file",
+                "list_files",
+                "find_files",
+                "search_text",
+                "grep_search",
+            ];
+            for req in requests {
+                let t = text(req, "tool")?;
+                if !allowed.contains(&t) {
+                    return Err(format!("parallel_read does not allow tool: {t}").into());
+                }
+            }
+            let mut out = Vec::with_capacity(requests.len());
+            for (index, req) in requests.iter().enumerate() {
+                if cancel.is_cancelled() {
+                    return Err("Cancelled".into());
+                }
+                let t = text(req, "tool")?;
+                let req_args = req.get("args").cloned().unwrap_or_else(|| json!({}));
+                match execute(runtime, id, t, &req_args, cancel) {
+                    Ok(res) => out.push(json!({"index":index,"tool":t,"ok":true,"result":res})),
+                    Err(err) => {
+                        out.push(json!({"index":index,"tool":t,"ok":false,"error":err.to_string()}))
+                    }
+                }
+            }
+            Ok(json!({"results":out,"count":out.len()}))
+        }
+        "git_status" => {
+            let out = git_cmd(&runtime.root, &["status", "--porcelain=v1", "-b"])?;
+            let mut branch = String::new();
+            let mut entries = vec![];
+            for line in out.lines() {
+                if let Some(rest) = line.strip_prefix("## ") {
+                    branch = rest.to_owned();
+                } else if line.len() >= 4 {
+                    entries.push(json!({
+                        "status": line[..2].trim(),
+                        "path": line[3..].trim()
+                    }));
+                }
+            }
+            Ok(json!({
+                "branch": branch,
+                "clean": entries.is_empty(),
+                "total": entries.len(),
+                "entries": entries
+            }))
+        }
+        "git_diff" => {
+            let staged = args.get("staged").and_then(Value::as_bool).unwrap_or(false);
+            let mut cmd_args: Vec<String> = vec!["diff".into()];
+            if staged {
+                cmd_args.push("--staged".into());
+            }
+            if let Some(p) = args.get("path").and_then(Value::as_str) {
+                if !p.is_empty() {
+                    let _ = resolve(&runtime.root, p)?;
+                    cmd_args.push("--".into());
+                    cmd_args.push(p.to_owned());
+                }
+            }
+            let refs: Vec<&str> = cmd_args.iter().map(String::as_str).collect();
+            let out = git_cmd(&runtime.root, &refs)?;
+            let mut paged = page(&out, args)?;
+            if let Some(obj) = paged.as_object_mut() {
+                obj.insert("staged".into(), json!(staged));
+            }
+            Ok(paged)
+        }
+        "git_log" => {
+            let limit = args
+                .get("limit")
+                .and_then(Value::as_u64)
+                .unwrap_or(20)
+                .clamp(1, 200);
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<String> =
+                vec!["log".into(), "--oneline".into(), "-n".into(), limit_str];
+            if let Some(p) = args.get("path").and_then(Value::as_str) {
+                if !p.is_empty() {
+                    let _ = resolve(&runtime.root, p)?;
+                    cmd_args.push("--".into());
+                    cmd_args.push(p.to_owned());
+                }
+            }
+            let refs: Vec<&str> = cmd_args.iter().map(String::as_str).collect();
+            let out = git_cmd(&runtime.root, &refs)?;
+            let page_args = json!({"offset": args.get("offset").cloned().unwrap_or_else(|| json!(0))});
+            page(&out, &page_args)
+        }
+        "code_symbols" => {
+            let sub = args.get("path").and_then(Value::as_str).unwrap_or("");
+            let query = args
+                .get("query")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_lowercase();
+            let base = if sub.is_empty() {
+                runtime.root.clone()
+            } else {
+                resolve(&runtime.root, sub)?
+            };
+            let mut files = vec![];
+            if base.is_dir() {
+                walk(&runtime.root, &base, &mut files)?;
+            } else if base.is_file() && !sub.is_empty() {
+                files.push(sub.replace('\\', "/"));
+            }
+            let mut symbols = vec![];
+            for file in files {
+                if cancel.is_cancelled() {
+                    return Err("Cancelled".into());
+                }
+                let ext = Path::new(&file)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("");
+                if ![
+                    "rs", "py", "js", "ts", "cjs", "mjs", "tsx", "jsx", "go", "java",
+                ]
+                .contains(&ext)
+                {
+                    continue;
+                }
+                if let Ok(body) = contents(&resolve(&runtime.root, &file)?) {
+                    for (kind, name, line) in extract_symbols(ext, &body) {
+                        if query.is_empty() || name.to_lowercase().contains(&query) {
+                            symbols.push(json!({"path":file,"kind":kind,"name":name,"line":line}));
+                        }
+                    }
+                }
+            }
+            rows(symbols, args, "symbols")
+        }
+        "code_definition" => {
+            let relative = text(args, "path")?;
+            let line = args["line"]
+                .as_u64()
+                .ok_or("Provide 1-based line integer")? as usize;
+            let column = args["column"]
+                .as_u64()
+                .ok_or("Provide 1-based column integer")? as usize;
+            let source = contents(&resolve(&runtime.root, relative)?)?;
+            let sym = identifier_at(&source, line, column)
+                .ok_or("No identifier found at the specified line and column")?;
+            let mut files = vec![];
+            walk(&runtime.root, &runtime.root, &mut files)?;
+            let mut defs = vec![];
+            for file in files {
+                if cancel.is_cancelled() {
+                    return Err("Cancelled".into());
+                }
+                let ext = Path::new(&file)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("");
+                if !is_source_ext(ext) {
+                    continue;
+                }
+                if let Ok(body) = contents(&resolve(&runtime.root, &file)?) {
+                    for (kind, name, dline) in extract_symbols(ext, &body) {
+                        if name == sym {
+                            let text = body.lines().nth(dline - 1).unwrap_or("").trim();
+                            defs.push(json!({"path":file,"kind":kind,"name":name,"line":dline,"text":text}));
+                        }
+                    }
+                }
+            }
+            let mut res = rows(defs, args, "definitions")?;
+            if let Some(obj) = res.as_object_mut() {
+                obj.insert("symbol".into(), json!(sym));
+            }
+            Ok(res)
+        }
+        "code_references" => {
+            let relative = text(args, "path")?;
+            let line = args["line"]
+                .as_u64()
+                .ok_or("Provide 1-based line integer")? as usize;
+            let column = args["column"]
+                .as_u64()
+                .ok_or("Provide 1-based column integer")? as usize;
+            let source = contents(&resolve(&runtime.root, relative)?)?;
+            let sym = identifier_at(&source, line, column)
+                .ok_or("No identifier found at the specified line and column")?;
+            let mut files = vec![];
+            walk(&runtime.root, &runtime.root, &mut files)?;
+            let mut refs = vec![];
+            for file in files {
+                if cancel.is_cancelled() {
+                    return Err("Cancelled".into());
+                }
+                let ext = Path::new(&file)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("");
+                if !is_source_ext(ext) {
+                    continue;
+                }
+                if let Ok(body) = contents(&resolve(&runtime.root, &file)?) {
+                    for (lno, line_txt) in body.lines().enumerate() {
+                        for col in whole_word_columns(line_txt, &sym) {
+                            refs.push(json!({
+                                "path": file,
+                                "line": lno + 1,
+                                "column": col,
+                                "text": line_txt.trim()
+                            }));
+                        }
+                    }
+                }
+            }
+            let mut res = rows(refs, args, "references")?;
+            if let Some(obj) = res.as_object_mut() {
+                obj.insert("symbol".into(), json!(sym));
+            }
+            Ok(res)
+        }
+        "code_diagnostics" => {
+            let relative = text(args, "path")?;
+            let target = resolve(&runtime.root, relative)?;
+            let body = contents(&target)?;
+            let (engine, diags) = run_diagnostics(&target, relative, &body);
+            let mut res = rows(diags, args, "diagnostics")?;
+            if let Some(obj) = res.as_object_mut() {
+                obj.insert("engine".into(), json!(engine));
+            }
+            Ok(res)
+        }
+        "web_fetch" => {
+            let url = text(args, "url")?;
+            validate_public_https_url(url)?;
+            let raw = curl_https(url)?;
+            let text_body = if raw.trim_start().starts_with('<') {
+                strip_html_tags(&raw)
+            } else {
+                raw
+            };
+            let mut res = page(&text_body, args)?;
+            if let Some(obj) = res.as_object_mut() {
+                obj.insert("url".into(), json!(url));
+            }
+            Ok(res)
+        }
+        "web_search" => {
+            let query = text(args, "query")?;
+            if query.trim().is_empty() {
+                return Err("Provide a nonempty search query".into());
+            }
+            let lim = args
+                .get("limit")
+                .and_then(Value::as_u64)
+                .unwrap_or(5)
+                .clamp(1, 10) as usize;
+            let encoded = percent_encode(query.trim());
+            let url = format!("https://html.duckduckgo.com/html/?q={encoded}");
+            validate_public_https_url(&url)?;
+            let html = curl_https(&url)?;
+            let results = parse_ddg_html(&html, lim);
+            Ok(json!({"query": query, "results": results, "total": results.len()}))
+        }
+        "read_image" => {
+            let relative = text(args, "path")?;
+            let target = resolve(&runtime.root, relative)?;
+            let ext = target
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_ascii_lowercase())
+                .unwrap_or_default();
+            let mime = match ext.as_str() {
+                "png" => "image/png",
+                "jpg" | "jpeg" => "image/jpeg",
+                "webp" => "image/webp",
+                "gif" => "image/gif",
+                _ => return Err("Unsupported image extension; use png, jpg, jpeg, webp, or gif".into()),
+            };
+            let meta = fs::metadata(&target)?;
+            if meta.len() > 8 * 1024 * 1024 {
+                return Err("Image exceeds 8 MB limit".into());
+            }
+            let bytes = fs::read(&target)?;
+            let sha = hash(&bytes);
+            let b64 = base64_encode(&bytes);
+            Ok(json!({
+                "path": relative,
+                "mimeType": mime,
+                "bytes": bytes.len(),
+                "sha256": sha,
+                "dataUrl": format!("data:{mime};base64,{b64}")
+            }))
+        }
+        "restore_file" => {
+            permission(runtime, id, "allowEdits")?;
+            let relative = text(args, "path")?;
+            let target = resolve(&runtime.root, relative)?;
+            expected(&target, args)?;
+            let dir = private(runtime, id, "backups")?;
+            let key = hash(relative.as_bytes());
+            let record_path = dir.join(format!("{key}.json"));
+            if !record_path.exists() {
+                return Err(format!("No session backup recorded for {relative}").into());
+            }
+            let rec: Value = serde_json::from_slice(&fs::read(&record_path)?)?;
+            let existed = rec["existed"].as_bool().unwrap_or(false);
+            if existed {
+                let backup_file = dir.join(&key);
+                if let Some(parent) = target.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::copy(&backup_file, &target)?;
+            } else if target.exists() {
+                fs::remove_file(&target)?;
+            }
+            edited(runtime, id);
+            Ok(json!({
+                "restored": true,
+                "path": relative,
+                "existed": existed,
+                "sha256": rec["sha256"]
+            }))
+        }
+        "apply_patch" => {
+            permission(runtime, id, "allowEdits")?;
+            let patch = text(args, "patch")?;
+            let ops = crate::edits::parse_patch(patch)?;
+            enum Prepared {
+                Write(String, PathBuf, String, &'static str),
+                Delete(String, PathBuf),
+            }
+            let mut prepared = Vec::with_capacity(ops.len());
+            for (rel, op) in ops {
+                let target = resolve(&runtime.root, &rel)?;
+                match op {
+                    crate::edits::PatchOp::Add(body) => {
+                        if target.exists() {
+                            return Err(format!("Add File target already exists: {rel}").into());
+                        }
+                        prepared.push(Prepared::Write(rel, target, body, "added"));
+                    }
+                    crate::edits::PatchOp::Delete => {
+                        if !target.is_file() {
+                            return Err(format!("Delete File target does not exist: {rel}").into());
+                        }
+                        prepared.push(Prepared::Delete(rel, target));
+                    }
+                    crate::edits::PatchOp::Update(hunks) => {
+                        let source = contents(&target)?;
+                        let updated = crate::edits::apply_hunks(&source, &hunks)?;
+                        prepared.push(Prepared::Write(rel, target, updated, "updated"));
+                    }
+                }
+            }
+            let mut summary = Vec::with_capacity(prepared.len());
+            for item in prepared {
+                match item {
+                    Prepared::Write(rel, target, body, action) => {
+                        backup(runtime, id, &rel, &target)?;
+                        write(&target, &body)?;
+                        summary.push(json!({
+                            "path": rel,
+                            "action": action,
+                            "bytes": body.len(),
+                            "hash": hash(body.as_bytes())
+                        }));
+                    }
+                    Prepared::Delete(rel, target) => {
+                        backup(runtime, id, &rel, &target)?;
+                        fs::remove_file(&target)?;
+                        summary.push(json!({
+                            "path": rel,
+                            "action": "deleted"
+                        }));
+                    }
+                }
+            }
+            edited(runtime, id);
+            Ok(json!({"applied": true, "files": summary}))
+        }
+        "discover_tools" => {
+            let query = args
+                .get("query")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_lowercase();
+            let exact: Option<Vec<&str>> = args.get("names").and_then(Value::as_array).map(|arr| {
+                arr.iter().filter_map(Value::as_str).collect()
+            });
+            let mut found = vec![];
+            for &tool_name in names() {
+                if let Some(ref list) = exact {
+                    if !list.contains(&tool_name) {
+                        continue;
+                    }
+                } else if !query.is_empty() {
+                    let hay = format!("{} {}", tool_name, description(tool_name)).to_lowercase();
+                    if !hay.contains(&query) {
+                        continue;
+                    }
+                }
+                found.push(json!({
+                    "name": tool_name,
+                    "description": description(tool_name),
+                    "permission": tool_permission(tool_name),
+                    "parameters": schema(tool_name)
+                }));
+            }
+            rows(found, args, "tools")
+        }
         "delete_script" => {
             permission(runtime, id, "allowEdits")?;
             let root = private(runtime, id, "scripts")?;
@@ -423,6 +972,9 @@ pub(crate) fn execute(
             Ok(json!({"deleted": relative}))
         }
         "run_command" | "run_script" => run_command(runtime, id, name, args, cancel),
+        "start_process" => start_process(runtime, id, args),
+        "write_stdin" => write_stdin(runtime, id, args, cancel),
+        "stop_process" => stop_process(runtime, id, args),
         "read_command_output" => {
             let job = text(args, "jobId")?;
             valid_id(job)?;
@@ -522,6 +1074,181 @@ pub(crate) fn execute(
             "items",
             name == "memory_search",
         ),
+        "memory_delete" => {
+            let key = text(args, "id")?;
+            valid_id(key)?;
+            let path = private(runtime, id, "memory")?.join(format!("{key}.json"));
+            let existed = path.exists();
+            if existed {
+                fs::remove_file(&path)?;
+            }
+            Ok(json!({"id": key, "deleted": existed}))
+        }
+        "skill_history" | "workflow_history" => {
+            let kind = if name == "skill_history" {
+                "skills"
+            } else {
+                "workflows"
+            };
+            let key = text(args, "id")?;
+            valid_id(key)?;
+            let path = runtime.state.join(kind).join(format!("{key}.json"));
+            let value: Value = serde_json::from_slice(&fs::read(path)?)?;
+            let hist = value["history"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            rows(hist, args, "revisions")
+        }
+        "workflow_preflight" => {
+            let steps = args["definition"]["steps"]
+                .as_array()
+                .ok_or("Workflow needs steps")?;
+            if steps.is_empty() || steps.len() > 16 {
+                return Err("Use 1–16 workflow steps".into());
+            }
+            let mut perms = std::collections::BTreeSet::new();
+            let mut missing_commands = vec![];
+            for step in steps {
+                let tool_name = text(step, "tool")?;
+                if !is_workflow_step_tool(tool_name) || !step["args"].is_object() {
+                    return Err("Unsupported workflow step; use literal file/script/program tools".into());
+                }
+                perms.insert(tool_permission(tool_name));
+                if tool_name == "run_command" {
+                    if let Some(cmd) = step["args"].get("command").and_then(Value::as_str) {
+                        if runtime.resolve_command(cmd).is_err() {
+                            missing_commands.push(cmd.to_owned());
+                        }
+                    }
+                }
+            }
+            Ok(json!({
+                "valid": missing_commands.is_empty(),
+                "steps": steps.len(),
+                "permissions": perms.into_iter().collect::<Vec<_>>(),
+                "missingCommands": missing_commands
+            }))
+        }
+        "workflow_status" => {
+            let run_id = text(args, "runId")?;
+            valid_id(run_id)?;
+            let path = private(runtime, id, "workflows")?.join(format!("{run_id}.json"));
+            let value: Value = serde_json::from_slice(&fs::read(path)?)?;
+            Ok(value)
+        }
+        "tool_save" => {
+            permission(runtime, id, "allowEdits")?;
+            let key = text(args, "id")?;
+            valid_id(key)?;
+            let interpreter = text(args, "interpreter")?;
+            let source = text(args, "source")?;
+            if source.len() > LIMIT {
+                return Err("Tool source exceeds 2 MB".into());
+            }
+            let dir = runtime.state.join("tools");
+            fs::create_dir_all(&dir)?;
+            let path = dir.join(format!("{key}.json"));
+            let previous = if path.exists() {
+                serde_json::from_slice::<Value>(&fs::read(&path)?)?
+            } else {
+                json!({"revision":0,"history":[]})
+            };
+            let revision = previous["revision"].as_u64().ok_or("Invalid revision record")?;
+            if args["expectedRevision"].as_u64() != Some(revision) {
+                return Err("Stale revision; read the current tool record".into());
+            }
+            let mut value = json!({
+                "id": key,
+                "revision": revision + 1,
+                "name": args["name"].as_str().unwrap_or(key),
+                "description": args["description"].as_str().unwrap_or(""),
+                "interpreter": interpreter,
+                "parameters": args.get("parameters").cloned().unwrap_or_else(|| json!({"type":"object","properties":{}})),
+                "source": source
+            });
+            let mut history = previous["history"].as_array().cloned().unwrap_or_default();
+            history.push(value.clone());
+            value["history"] = Value::Array(history);
+            atomic(&path, &value)?;
+            Ok(json!({"id": key, "revision": revision + 1}))
+        }
+        "tool_list" => {
+            let dir = runtime.state.join("tools");
+            if !dir.exists() {
+                return rows(vec![], args, "tools");
+            }
+            let query = args.get("query").and_then(Value::as_str).unwrap_or("").to_lowercase();
+            let mut items = vec![];
+            for entry in fs::read_dir(&dir)? {
+                let path = entry?.path();
+                if path.extension().and_then(|v| v.to_str()) != Some("json") {
+                    continue;
+                }
+                let mut val: Value = serde_json::from_slice(&fs::read(path)?)?;
+                if let Some(obj) = val.as_object_mut() {
+                    obj.remove("history");
+                    obj.remove("source");
+                }
+                if query.is_empty() || val.to_string().to_lowercase().contains(&query) {
+                    items.push(val);
+                }
+            }
+            items.sort_by_key(|v| v["id"].as_str().unwrap_or("").to_owned());
+            rows(items, args, "tools")
+        }
+        "tool_read" => {
+            let key = text(args, "id")?;
+            valid_id(key)?;
+            let path = runtime.state.join("tools").join(format!("{key}.json"));
+            let value: Value = serde_json::from_slice(&fs::read(path)?)?;
+            if let Some(rev) = args.get("revision").and_then(Value::as_u64) {
+                return value["history"]
+                    .as_array()
+                    .ok_or("Missing revision history")?
+                    .iter()
+                    .find(|v| v["revision"] == rev)
+                    .cloned()
+                    .ok_or_else(|| "Unknown revision".into());
+            }
+            Ok(value)
+        }
+        "tool_run" => {
+            permission(runtime, id, "allowCommands")?;
+            let key = text(args, "id")?;
+            valid_id(key)?;
+            let path = runtime.state.join("tools").join(format!("{key}.json"));
+            let value: Value = serde_json::from_slice(&fs::read(path)?)?;
+            let target_rev = args.get("revision").and_then(Value::as_u64);
+            let rec = if let Some(rev) = target_rev {
+                value["history"]
+                    .as_array()
+                    .and_then(|h| h.iter().find(|v| v["revision"] == rev).cloned())
+                    .ok_or("Unknown tool revision")?
+            } else {
+                value.clone()
+            };
+            let interpreter = text(&rec, "interpreter")?;
+            let source = text(&rec, "source")?;
+            let script_name = format!("tool-{key}-r{}.script", rec["revision"].as_u64().unwrap_or(1));
+            let script_path = resolve(&private(runtime, id, "scripts")?, &script_name)?;
+            write(&script_path, source)?;
+            let mut run_args = json!({
+                "path": script_name,
+                "command": interpreter,
+                "args": if args.get("input").is_some() { vec![serde_json::to_string(&args["input"])?] } else { vec![] },
+                "timeout": args.get("timeout").and_then(Value::as_u64).unwrap_or(30000)
+            });
+            if let Some(cwd) = args.get("cwd").and_then(Value::as_str) {
+                run_args["cwd"] = json!(cwd);
+            }
+            let mut res = run_command(runtime, id, "run_script", &run_args, cancel)?;
+            if let Some(obj) = res.as_object_mut() {
+                obj.insert("toolId".into(), json!(key));
+                obj.insert("revision".into(), rec["revision"].clone());
+            }
+            Ok(res)
+        }
         "skill_save" | "workflow_save" => {
             permission(runtime, id, "allowEdits")?;
             let kind = if name == "skill_save" {
@@ -551,23 +1278,7 @@ pub(crate) fn execute(
                     return Err("Use 1–16 workflow steps".into());
                 }
                 for step in steps {
-                    if ![
-                        "read_file",
-                        "write_file",
-                        "replace_text",
-                        "apply_edits",
-                        "delete_file",
-                        "write_script",
-                        "read_script",
-                        "delete_script",
-                        "run_script",
-                        "run_command",
-                        "search_text",
-                        "list_files",
-                    ]
-                    .contains(&text(step, "tool")?)
-                        || !step["args"].is_object()
-                    {
+                    if !is_workflow_step_tool(text(step, "tool")?) || !step["args"].is_object() {
                         return Err(
                             "Unsupported workflow step; use literal file/script/program tools"
                                 .into(),
@@ -653,15 +1364,82 @@ pub(crate) fn execute(
                     || observation["result"]["cancelled"] == true;
                 results.push(observation);
                 if failed {
-                    return Ok(json!({"runId":run,"status":"failed","results":results}));
+                    let state = json!({"runId":run,"status":"failed","results":results});
+                    let _ = atomic(&private(runtime, id, "workflows")?.join(format!("{run}.json")), &state);
+                    return Ok(state);
                 }
             }
-            Ok(json!({"runId":run,"status":"complete","results":results}))
+            let state = json!({"runId":run,"status":"complete","results":results});
+            let _ = atomic(&private(runtime, id, "workflows")?.join(format!("{run}.json")), &state);
+            Ok(state)
         }
         "package_results" => package(runtime, id, cancel),
+        "scratchpad" => {
+            let action = args.get("action").and_then(Value::as_str).unwrap_or("list");
+            let pad_path = private(runtime, id, "scratchpad")?.join("pad.json");
+            let mut pad: serde_json::Map<String, Value> = if pad_path.exists() {
+                serde_json::from_slice::<Value>(&fs::read(&pad_path)?)?
+                    .as_object()
+                    .cloned()
+                    .unwrap_or_default()
+            } else {
+                serde_json::Map::new()
+            };
+            match action {
+                "list" => Ok(json!({"items": pad})),
+                "get" => {
+                    let key = text(args, "key")?;
+                    Ok(json!({"key": key, "value": pad.get(key).cloned().unwrap_or(Value::Null), "exists": pad.contains_key(key)}))
+                }
+                "set" => {
+                    let key = text(args, "key")?;
+                    valid_id(key)?;
+                    let val = args.get("value").cloned().unwrap_or(Value::Null);
+                    if args.get("append").and_then(Value::as_bool) == Some(true) {
+                        let prev = pad.get(key).and_then(Value::as_str).unwrap_or("");
+                        let add = val.as_str().unwrap_or("");
+                        pad.insert(key.to_owned(), Value::String(format!("{prev}{add}")));
+                    } else {
+                        pad.insert(key.to_owned(), val.clone());
+                    }
+                    atomic(&pad_path, &Value::Object(pad.clone()))?;
+                    Ok(json!({"key": key, "value": pad.get(key).cloned().unwrap_or(Value::Null)}))
+                }
+                "delete" => {
+                    let key = text(args, "key")?;
+                    let removed = pad.remove(key).is_some();
+                    atomic(&pad_path, &Value::Object(pad))?;
+                    Ok(json!({"key": key, "deleted": removed}))
+                }
+                _ => Err("Unsupported scratchpad action; use set, get, delete or list".into()),
+            }
+        }
         _ => Err(format!("Unsupported native Rust tool: {name}").into()),
     }
 }
+fn is_workflow_step_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "read_file"
+            | "write_file"
+            | "replace_text"
+            | "apply_edits"
+            | "apply_patch"
+            | "delete_file"
+            | "restore_file"
+            | "write_script"
+            | "read_script"
+            | "delete_script"
+            | "run_script"
+            | "run_command"
+            | "search_text"
+            | "grep_search"
+            | "list_files"
+            | "find_files"
+            | "changes"
+    )
+}
+
 fn valid_id(id: &str) -> Result<()> {
     if id.is_empty()
         || id.len() > 100
@@ -934,16 +1712,47 @@ pub fn schema(name: &str) -> Value {
         "replace_text" => json!({"type":"object","required":["path","find","replacement","expectedHash"],"properties":{"path":{"type":"string"},"find":{"type":"string"},"replacement":{"type":"string"},"expectedHash":{"type":"string"}}}),
         "apply_edits" => json!({"type":"object","required":["path","expectedHash","edits"],"properties":{"path":{"type":"string"},"expectedHash":{"type":"string"},"edits":{"type":"array","items":{"type":"object"}}}}),
         "delete_file" => json!({"type":"object","required":["path","expectedHash"],"properties":{"path":{"type":"string"},"expectedHash":{"type":"string"}}}),
+        "restore_file" => json!({"type":"object","required":["path","expectedHash"],"properties":{"path":{"type":"string"},"expectedHash":{"type":"string"}}}),
+        "apply_patch" => json!({"type":"object","required":["patch"],"properties":{"patch":{"type":"string"}}}),
+        "start_process" => json!({"type":"object","required":["command"],"properties":{"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"}}}),
+        "write_stdin" => json!({"type":"object","required":["processId"],"properties":{"processId":{"type":"string"},"input":{"type":"string"},"eof":{"type":"boolean"},"waitMs":{"type":"integer","minimum":0,"maximum":5000}}}),
+        "stop_process" => json!({"type":"object","required":["processId"],"properties":{"processId":{"type":"string"}}}),
+        "discover_tools" => json!({"type":"object","properties":{"query":{"type":"string"},"names":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":200}}}),
+        "scratchpad" => json!({"type":"object","properties":{"action":{"type":"string","enum":["set","get","delete","list"]},"key":{"type":"string"},"value":{},"append":{"type":"boolean"}}}),
+        "memory_delete" => json!({"type":"object","required":["id"],"properties":{"id":{"type":"string"}}}),
+        "skill_history" => json!({"type":"object","required":["id"],"properties":{"id":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "workflow_history" => json!({"type":"object","required":["id"],"properties":{"id":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "workflow_preflight" => json!({"type":"object","required":["definition"],"properties":{"definition":{"type":"object"}}}),
+        "workflow_status" => json!({"type":"object","required":["runId"],"properties":{"runId":{"type":"string"}}}),
+        "tool_save" => json!({"type":"object","required":["id","interpreter","source","expectedRevision"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"interpreter":{"type":"string"},"source":{"type":"string"},"parameters":{"type":"object"},"expectedRevision":{"type":"integer","minimum":0}}}),
+        "tool_list" => json!({"type":"object","properties":{"query":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "tool_read" => json!({"type":"object","required":["id"],"properties":{"id":{"type":"string"},"revision":{"type":"integer","minimum":1}}}),
+        "tool_run" => json!({"type":"object","required":["id"],"properties":{"id":{"type":"string"},"revision":{"type":"integer","minimum":1},"input":{"type":"object"},"cwd":{"type":"string"},"timeout":{"type":"integer","minimum":1,"maximum":120000}}}),
         "search_text" => json!({"type":"object","required":["query"],"properties":{"query":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "find_files" => json!({"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "grep_search" => json!({"type":"object","required":["query"],"properties":{"query":{"type":"string"},"path":{"type":"string"},"include":{"type":"string"},"caseSensitive":{"type":"boolean"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "parallel_read" => json!({"type":"object","required":["requests"],"properties":{"requests":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","required":["tool"],"properties":{"tool":{"type":"string","enum":["read_file","list_files","find_files","search_text","grep_search"]},"args":{"type":"object"}}}}}}),
+        "git_status" => json!({"type":"object","properties":{}}),
+        "git_diff" => json!({"type":"object","properties":{"staged":{"type":"boolean"},"path":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":200000}}}),
+        "git_log" => json!({"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":200},"path":{"type":"string"},"offset":{"type":"integer","minimum":0}}}),
+        "code_symbols" => json!({"type":"object","properties":{"path":{"type":"string"},"query":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "code_definition" => json!({"type":"object","required":["path","line","column"],"properties":{"path":{"type":"string"},"line":{"type":"integer","minimum":1},"column":{"type":"integer","minimum":1},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "code_references" => json!({"type":"object","required":["path","line","column"],"properties":{"path":{"type":"string"},"line":{"type":"integer","minimum":1},"column":{"type":"integer","minimum":1},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "code_diagnostics" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
+        "read_image" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"}}}),
+        "web_fetch" => json!({"type":"object","required":["url"],"properties":{"url":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
+        "web_search" => json!({"type":"object","required":["query"],"properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":10}}}),
         _ => json!({"type": "object", "properties": {}}),
     }
 }
 
 fn tool_permission(name: &str) -> &'static str {
     match name {
-        "run_command" | "run_script" | "workflow_run" => "commands",
-        "write_file" | "apply_edits" | "replace_text" | "delete_file" | "write_script"
-        | "delete_script" | "memory_store" | "skill_save" | "workflow_save" => "edits",
+        "run_command" | "run_script" | "workflow_run" | "tool_run" | "start_process"
+        | "write_stdin" | "stop_process" => "commands",
+        "write_file" | "apply_edits" | "apply_patch" | "replace_text" | "delete_file"
+        | "restore_file" | "write_script" | "delete_script" | "memory_store" | "skill_save"
+        | "workflow_save" | "tool_save" => "edits",
         _ => "read",
     }
 }
@@ -1001,4 +1810,631 @@ pub fn program_tools(
     session_id: String,
 ) -> Vec<crate::core::CoreTool> {
     core_tools(runtime, session_id, Some(PROGRAM_TOOL_NAMES))
+}
+
+fn match_glob(pattern: &str, path: &str) -> bool {
+    let p = pattern.replace('\\', "/");
+    let candidate = path.replace('\\', "/");
+    if glob_bytes(p.as_bytes(), candidate.as_bytes()) {
+        return true;
+    }
+    if !p.contains('/') {
+        if let Some(base) = candidate.rsplit('/').next() {
+            return glob_bytes(p.as_bytes(), base.as_bytes());
+        }
+    }
+    false
+}
+
+fn glob_bytes(pat: &[u8], txt: &[u8]) -> bool {
+    let (mut pi, mut ti, mut star, mut match_ti) = (0, 0, None, 0);
+    while ti < txt.len() {
+        if pi < pat.len() && (pat[pi] == b'?' || pat[pi] == txt[ti]) {
+            pi += 1;
+            ti += 1;
+        } else if pi < pat.len() && pat[pi] == b'*' {
+            star = Some(pi);
+            match_ti = ti;
+            pi += 1;
+        } else if let Some(sp) = star {
+            pi = sp + 1;
+            match_ti += 1;
+            ti = match_ti;
+        } else {
+            return false;
+        }
+    }
+    while pi < pat.len() && pat[pi] == b'*' {
+        pi += 1;
+    }
+    pi == pat.len()
+}
+
+fn git_cmd(root: &Path, args: &[&str]) -> Result<String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()?;
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+        return Err(if err.is_empty() {
+            format!("git {} failed", args.first().copied().unwrap_or(""))
+        } else {
+            err
+        }
+        .into());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+fn extract_symbols(ext: &str, body: &str) -> Vec<(&'static str, String, usize)> {
+    let prefixes: &[(&str, &str)] = match ext {
+        "rs" => &[
+            ("pub async fn ", "fn"),
+            ("async fn ", "fn"),
+            ("pub fn ", "fn"),
+            ("fn ", "fn"),
+            ("pub struct ", "struct"),
+            ("struct ", "struct"),
+            ("pub enum ", "enum"),
+            ("enum ", "enum"),
+            ("pub trait ", "trait"),
+            ("trait ", "trait"),
+            ("impl ", "impl"),
+            ("pub mod ", "mod"),
+            ("mod ", "mod"),
+        ],
+        "py" => &[
+            ("async def ", "fn"),
+            ("def ", "fn"),
+            ("class ", "class"),
+        ],
+        "go" => &[
+            ("func ", "fn"),
+            ("type ", "type"),
+        ],
+        "java" => &[
+            ("public class ", "class"),
+            ("class ", "class"),
+            ("public interface ", "interface"),
+            ("interface ", "interface"),
+            ("public enum ", "enum"),
+        ],
+        _ => &[
+            ("export async function ", "fn"),
+            ("export function ", "fn"),
+            ("async function ", "fn"),
+            ("function ", "fn"),
+            ("export class ", "class"),
+            ("class ", "class"),
+            ("export interface ", "interface"),
+            ("interface ", "interface"),
+            ("export type ", "type"),
+            ("type ", "type"),
+        ],
+    };
+    let mut found = vec![];
+    for (idx, raw) in body.lines().enumerate() {
+        let line = raw.trim_start();
+        for (prefix, kind) in prefixes {
+            if let Some(rest) = line.strip_prefix(prefix) {
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '$')
+                    .collect();
+                if !name.is_empty() {
+                    found.push((*kind, name, idx + 1));
+                }
+                break;
+            }
+        }
+    }
+    found
+}
+
+fn base64_encode(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let b0 = chunk[0] as usize;
+        let b1 = chunk.get(1).copied().unwrap_or(0) as usize;
+        let b2 = chunk.get(2).copied().unwrap_or(0) as usize;
+        let n = (b0 << 16) | (b1 << 8) | b2;
+        out.push(TABLE[(n >> 18) & 0x3f] as char);
+        out.push(TABLE[(n >> 12) & 0x3f] as char);
+        out.push(if chunk.len() > 1 {
+            TABLE[(n >> 6) & 0x3f] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            TABLE[n & 0x3f] as char
+        } else {
+            '='
+        });
+    }
+    out
+}
+
+fn spawn_pipe_reader<R: Read + Send + 'static>(mut reader: R) -> Arc<Mutex<Vec<u8>>> {
+    let buf = Arc::new(Mutex::new(Vec::new()));
+    let cloned = Arc::clone(&buf);
+    thread::spawn(move || {
+        let mut chunk = [0u8; 4096];
+        while let Ok(n) = reader.read(&mut chunk) {
+            if n == 0 {
+                break;
+            }
+            if let Ok(mut guard) = cloned.lock() {
+                if guard.len() < 1_000_000 {
+                    let room = 1_000_000 - guard.len();
+                    guard.extend_from_slice(&chunk[..n.min(room)]);
+                }
+            }
+        }
+    });
+    buf
+}
+
+fn start_process(runtime: &mut Runtime, id: &str, args: &Value) -> Result<Value> {
+    permission(runtime, id, "allowCommands")?;
+    if runtime.processes.len() >= 16 {
+        return Err("Too many active interactive processes (max 16)".into());
+    }
+    let command = text(args, "command")?;
+    let executable = runtime.resolve_command(command)?;
+    let argv = args
+        .get("args")
+        .map(|v| v.as_array().ok_or("args must be a string array"))
+        .transpose()?
+        .cloned()
+        .unwrap_or_default();
+    if argv.len() > 100
+        || argv.iter().any(|v| {
+            v.as_str()
+                .map(|s| s.contains('\0') || s.len() > 20000)
+                .unwrap_or(true)
+        })
+    {
+        return Err("Use up to 100 literal text arguments without NUL".into());
+    }
+    let cwd = if let Some(value) = args.get("cwd") {
+        resolve(
+            &runtime.root,
+            value.as_str().ok_or("cwd must be a relative path")?,
+        )?
+    } else {
+        runtime.root.clone()
+    };
+    if !cwd.is_dir() {
+        return Err("cwd must be a directory".into());
+    }
+    let mut program = Command::new(&executable);
+    program
+        .current_dir(cwd)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for item in &argv {
+        program.arg(item.as_str().unwrap());
+    }
+    let mut child = program.spawn()?;
+    let stdin = child.stdin.take();
+    let stdout = spawn_pipe_reader(child.stdout.take().ok_or("Missing stdout pipe")?);
+    let stderr = spawn_pipe_reader(child.stderr.take().ok_or("Missing stderr pipe")?);
+    let pid = ident();
+    runtime.processes.insert(
+        pid.clone(),
+        crate::runtime::InteractiveProcess {
+            child,
+            stdin,
+            stdout,
+            stderr,
+        },
+    );
+    Ok(json!({
+        "processId": pid,
+        "command": command,
+        "resolvedExecutable": executable.to_string_lossy()
+    }))
+}
+
+fn write_stdin(
+    runtime: &mut Runtime,
+    id: &str,
+    args: &Value,
+    cancel: &CancelHandle,
+) -> Result<Value> {
+    permission(runtime, id, "allowCommands")?;
+    let pid = text(args, "processId")?;
+    let wait_ms = args
+        .get("waitMs")
+        .and_then(Value::as_u64)
+        .unwrap_or(200)
+        .min(5000);
+    let eof = args.get("eof").and_then(Value::as_bool).unwrap_or(false);
+    let proc = runtime
+        .processes
+        .get_mut(pid)
+        .ok_or_else(|| format!("Unknown interactive process: {pid}"))?;
+    if let Some(input) = args.get("input").and_then(Value::as_str) {
+        if let Some(ref mut stdin) = proc.stdin {
+            stdin.write_all(input.as_bytes())?;
+            stdin.flush()?;
+        } else {
+            return Err("Process stdin is already closed".into());
+        }
+    }
+    if eof {
+        proc.stdin.take();
+    }
+    let start = Instant::now();
+    let mut exit_code: Option<i32> = None;
+    let mut running = true;
+    loop {
+        if cancel.is_cancelled() {
+            break;
+        }
+        if let Some(status) = proc.child.try_wait()? {
+            running = false;
+            exit_code = status.code();
+            break;
+        }
+        if start.elapsed() >= Duration::from_millis(wait_ms) {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    // Give reader threads a brief moment to flush after exit
+    if !running {
+        thread::sleep(Duration::from_millis(15));
+    }
+    let stdout = {
+        let mut g = proc.stdout.lock().unwrap();
+        let s = String::from_utf8_lossy(&g).into_owned();
+        g.clear();
+        s
+    };
+    let stderr = {
+        let mut g = proc.stderr.lock().unwrap();
+        let s = String::from_utf8_lossy(&g).into_owned();
+        g.clear();
+        s
+    };
+    if !running {
+        runtime.processes.remove(pid);
+    }
+    Ok(json!({
+        "processId": pid,
+        "running": running,
+        "exitCode": exit_code,
+        "stdout": stdout,
+        "stderr": stderr
+    }))
+}
+
+fn stop_process(runtime: &mut Runtime, id: &str, args: &Value) -> Result<Value> {
+    permission(runtime, id, "allowCommands")?;
+    let pid = text(args, "processId")?;
+    let mut proc = runtime
+        .processes
+        .remove(pid)
+        .ok_or_else(|| format!("Unknown interactive process: {pid}"))?;
+    proc.stdin.take();
+    let _ = proc.child.kill();
+    let exit_code = proc.child.wait().ok().and_then(|s| s.code());
+    Ok(json!({
+        "processId": pid,
+        "stopped": true,
+        "exitCode": exit_code
+    }))
+}
+
+fn is_source_ext(ext: &str) -> bool {
+    matches!(
+        ext,
+        "rs" | "py" | "js" | "ts" | "cjs" | "mjs" | "tsx" | "jsx" | "go" | "java"
+    )
+}
+
+fn is_ident_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_' || c == '$'
+}
+
+fn identifier_at(source: &str, line: usize, column: usize) -> Option<String> {
+    let line_str = source.lines().nth(line.checked_sub(1)?)?;
+    let chars: Vec<char> = line_str.chars().collect();
+    if chars.is_empty() {
+        return None;
+    }
+    let mut idx = column.checked_sub(1)?;
+    if idx >= chars.len() {
+        idx = chars.len() - 1;
+    }
+    if !is_ident_char(chars[idx]) {
+        if idx > 0 && is_ident_char(chars[idx - 1]) {
+            idx -= 1;
+        } else {
+            return None;
+        }
+    }
+    let mut start = idx;
+    while start > 0 && is_ident_char(chars[start - 1]) {
+        start -= 1;
+    }
+    let mut end = idx + 1;
+    while end < chars.len() && is_ident_char(chars[end]) {
+        end += 1;
+    }
+    Some(chars[start..end].iter().collect())
+}
+
+fn whole_word_columns(line: &str, sym: &str) -> Vec<usize> {
+    let mut cols = vec![];
+    if sym.is_empty() {
+        return cols;
+    }
+    let mut offset = 0;
+    while let Some(pos) = line[offset..].find(sym) {
+        let abs = offset + pos;
+        let prev_ok = line[..abs]
+            .chars()
+            .next_back()
+            .map(|c| !is_ident_char(c))
+            .unwrap_or(true);
+        let after = abs + sym.len();
+        let next_ok = line[after..]
+            .chars()
+            .next()
+            .map(|c| !is_ident_char(c))
+            .unwrap_or(true);
+        if prev_ok && next_ok {
+            let col = line[..abs].chars().count() + 1;
+            cols.push(col);
+        }
+        offset = abs + sym.len();
+    }
+    cols
+}
+
+fn run_diagnostics(target: &Path, relative: &str, body: &str) -> (&'static str, Vec<Value>) {
+    let ext = target
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+    if matches!(ext, "js" | "cjs" | "mjs") {
+        if let Ok(out) = Command::new("node").arg("--check").arg(target).output() {
+            if !out.status.success() {
+                let msg = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+                return (
+                    "node --check",
+                    vec![json!({"path": relative, "line": 1, "severity": "error", "message": msg})],
+                );
+            }
+            return ("node --check", vec![]);
+        }
+    }
+    if ext == "py" {
+        if let Ok(out) = Command::new("python3")
+            .args(["-m", "py_compile"])
+            .arg(target)
+            .output()
+        {
+            if !out.status.success() {
+                let msg = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+                return (
+                    "python3 -m py_compile",
+                    vec![json!({"path": relative, "line": 1, "severity": "error", "message": msg})],
+                );
+            }
+            return ("python3 -m py_compile", vec![]);
+        }
+    }
+    // Fallback structural delimiter check
+    let mut stack: Vec<(char, usize)> = vec![];
+    let mut diags = vec![];
+    for (lno, line) in body.lines().enumerate() {
+        let mut in_str: Option<char> = None;
+        let mut escaped = false;
+        for ch in line.chars() {
+            if let Some(q) = in_str {
+                if escaped {
+                    escaped = false;
+                } else if ch == '\\' {
+                    escaped = true;
+                } else if ch == q {
+                    in_str = None;
+                }
+                continue;
+            }
+            if ch == '"' || ch == '\'' {
+                in_str = Some(ch);
+            } else if matches!(ch, '(' | '[' | '{') {
+                stack.push((ch, lno + 1));
+            } else if matches!(ch, ')' | ']' | '}') {
+                let expected = match ch {
+                    ')' => '(',
+                    ']' => '[',
+                    _ => '{',
+                };
+                if let Some((open, _)) = stack.pop() {
+                    if open != expected {
+                        diags.push(json!({"path": relative, "line": lno + 1, "severity": "error", "message": format!("Mismatched '{ch}' for '{open}'") }));
+                    }
+                } else {
+                    diags.push(json!({"path": relative, "line": lno + 1, "severity": "error", "message": format!("Unmatched closing '{ch}'") }));
+                }
+            }
+        }
+    }
+    for (open, lno) in stack {
+        diags.push(json!({"path": relative, "line": lno, "severity": "error", "message": format!("Unclosed '{open}'") }));
+    }
+    ("structural", diags)
+}
+
+fn validate_public_https_url(url: &str) -> Result<()> {
+    let rest = url
+        .strip_prefix("https://")
+        .ok_or("Only https:// URLs are permitted")?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.is_empty() || authority.contains('@') {
+        return Err("Invalid HTTPS URL authority".into());
+    }
+    let host_port = if authority.starts_with('[') {
+        authority
+            .split(']')
+            .next()
+            .unwrap_or("")
+            .trim_start_matches('[')
+    } else {
+        authority.split(':').next().unwrap_or("")
+    };
+    let lower = host_port.to_ascii_lowercase();
+    if lower.is_empty()
+        || lower == "localhost"
+        || lower.ends_with(".local")
+        || lower.ends_with(".internal")
+    {
+        return Err("Local/private hosts are blocked".into());
+    }
+    if let Ok(ip) = lower.parse::<std::net::IpAddr>() {
+        if is_private_or_local_ip(ip) {
+            return Err("Private or loopback IP addresses are blocked".into());
+        }
+    } else {
+        use std::net::ToSocketAddrs;
+        if let Ok(addrs) = (host_port, 443).to_socket_addrs() {
+            for addr in addrs {
+                if is_private_or_local_ip(addr.ip()) {
+                    return Err("Resolved host points to a private or loopback IP".into());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn is_private_or_local_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => {
+            v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_unspecified()
+                || v4.is_multicast()
+                || v4.octets()[0] == 100 && (v4.octets()[1] & 0b1100_0000) == 64
+        }
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                || (v6.segments()[0] & 0xfe00) == 0xfc00
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+        }
+    }
+}
+
+fn curl_https(url: &str) -> Result<String> {
+    let out = Command::new("curl")
+        .args([
+            "--proto",
+            "=https",
+            "--tlsv1.2",
+            "-fsSL",
+            "--max-time",
+            "10",
+            "--max-filesize",
+            "262144",
+            "-A",
+            "codingagentlib/1.0",
+            url,
+        ])
+        .output()
+        .map_err(|e| format!("Failed to invoke curl: {e}"))?;
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+        return Err(if err.is_empty() {
+            "HTTPS request failed".into()
+        } else {
+            err
+        }
+        .into());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+fn strip_html_tags(html: &str) -> String {
+    let mut out = String::with_capacity(html.len() / 2);
+    let mut in_tag = false;
+    let mut last_ws = false;
+    for ch in html.chars() {
+        if ch == '<' {
+            in_tag = true;
+            if !last_ws {
+                out.push(' ');
+                last_ws = true;
+            }
+        } else if ch == '>' {
+            in_tag = false;
+        } else if !in_tag {
+            if ch.is_whitespace() {
+                if !last_ws {
+                    out.push(' ');
+                    last_ws = true;
+                }
+            } else {
+                out.push(ch);
+                last_ws = false;
+            }
+        }
+    }
+    out.trim().to_owned()
+}
+
+fn percent_encode(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.as_bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+            out.push(*b as char);
+        } else if *b == b' ' {
+            out.push('+');
+        } else {
+            out.push_str(&format!("%{:02X}", b));
+        }
+    }
+    out
+}
+
+fn parse_ddg_html(html: &str, limit: usize) -> Vec<Value> {
+    let mut results = vec![];
+    for chunk in html.split("class=\"result__a\"").skip(1) {
+        if results.len() >= limit {
+            break;
+        }
+        let href = chunk
+            .split("href=\"")
+            .nth(1)
+            .and_then(|s| s.split('"').next())
+            .unwrap_or("")
+            .to_owned();
+        let title_raw = chunk
+            .split('>')
+            .nth(1)
+            .and_then(|s| s.split("</a>").next())
+            .unwrap_or("");
+        let title = strip_html_tags(title_raw);
+        let snippet_raw = chunk
+            .split("class=\"result__snippet\"")
+            .nth(1)
+            .and_then(|s| s.split('>').nth(1))
+            .and_then(|s| s.split("</a>").next())
+            .unwrap_or("");
+        let snippet = strip_html_tags(snippet_raw);
+        if !title.is_empty() && !href.is_empty() {
+            results.push(json!({"title": title, "url": href, "snippet": snippet}));
+        }
+    }
+    results
 }

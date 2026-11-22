@@ -20,7 +20,7 @@ class ModelHandoff:
             value=event.get('value',{});result=value.get('result') or {}
             if event.get('kind')=='user' and value.get('status')=='follow_up':artifact=feedback=None
             if event.get('kind')!='observation':continue
-            if value.get('ok') is True and value.get('tool') in {'write_file','replace_text','apply_edits','restore_file'}:
+            if value.get('ok') is True and value.get('tool') in {'write_file','replace_text','apply_edits','apply_patch','restore_file'}:
                 artifact={'callId':value.get('id'),'tool':value['tool'],'path':result.get('path'),'hash':result.get('hash'),'eventOffset':index};feedback=None
             if value.get('ok') is True and value.get('tool') in {'delete_file','write_script','delete_script'}:
                 feedback=None

@@ -41,7 +41,7 @@ MAX_CONTENT = 20000
 MAX_SCRATCH_VALUE = 20000
 MAX_SCRATCH_KEYS = 100
 DUPLICATE = 0.9
-EDIT_TOOLS = {'write_file', 'replace_text', 'apply_edits', 'delete_file', 'restore_file', 'apply_project'}
+EDIT_TOOLS = {'write_file', 'replace_text', 'apply_edits', 'apply_patch', 'delete_file', 'restore_file', 'apply_project'}
 COMMAND_TOOLS = {'run_command', 'run_script', 'script_run'}
 
 

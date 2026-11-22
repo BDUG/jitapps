@@ -406,6 +406,9 @@ fn scoped_project_guidance_refreshes_without_granting_permissions() -> Result<()
     Ok(())
 }
 
+
+
+
 #[test]
 fn instruction_budget_and_symlinks_are_explicit() -> Result<()> {
     let w = Workspace::new()?;
@@ -431,6 +434,9 @@ fn instruction_budget_and_symlinks_are_explicit() -> Result<()> {
     agent.close()?;
     Ok(())
 }
+
+
+
 
 #[test]
 #[cfg(unix)]
@@ -476,6 +482,9 @@ fn verification_binds_source_and_blocks_changes_after_planning() -> Result<()> {
     Ok(())
 }
 
+
+
+
 #[test]
 #[cfg(unix)]
 fn mutating_commands_and_unavailable_inputs_cannot_certify_completion() -> Result<()> {
@@ -510,6 +519,9 @@ fn mutating_commands_and_unavailable_inputs_cannot_certify_completion() -> Resul
     agent.close()?;
     Ok(())
 }
+
+
+
 
 #[test]
 #[cfg(unix)]
@@ -632,6 +644,9 @@ fn structured_edit_batch_is_all_or_nothing_and_hash_guarded() -> Result<()> {
     agent.close()?;
     Ok(())
 }
+
+
+
 
 #[test]
 fn revision_conflict_recovery_preserves_external_work_and_receipts() -> Result<()> {
@@ -786,6 +801,379 @@ fn read_files_paging_and_batch_budget() -> Result<()> {
     assert_eq!(obs["files"][0]["text"].as_str().unwrap().len(), 32000);
     assert_eq!(obs["files"][1]["text"].as_str().unwrap().len(), 32000);
     assert_eq!(obs["files"][2]["skipped"], true);
+    agent.close()?;
+    Ok(())
+}
+
+
+
+
+#[test]
+fn discovery_symbols_image_parallel_restore_and_git_tools() -> Result<()> {
+    let dir = Workspace::new()?;
+    fs::create_dir_all(dir.0.join("src"))?;
+    fs::write(
+        dir.0.join("src/lib.rs"),
+        "pub fn greet_user() {}\nstruct Helper;\n",
+    )?;
+    fs::write(dir.0.join("src/app.js"), "export function runApp() {}\n")?;
+    // Minimal 1x1 PNG header/bytes for read_image test
+    let png_bytes: Vec<u8> = vec![
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+    ];
+    fs::write(dir.0.join("pixel.png"), &png_bytes)?;
+
+    let mut agent = Agent::new(&dir.0, &[])?;
+    let s = start(&mut agent, true, false)?;
+
+    // find_files
+    let found = tool(
+        &mut agent,
+        &s,
+        "find_files",
+        "find-rs",
+        json!({"pattern":"*.rs","path":"src"}),
+    )?;
+    assert_eq!(found["result"]["total"], 1);
+    assert_eq!(found["result"]["files"][0], "src/lib.rs");
+
+    // grep_search (case-insensitive + include filter)
+    let grep = tool(
+        &mut agent,
+        &s,
+        "grep_search",
+        "grep-fn",
+        json!({"query":"GREET_USER","caseSensitive":false,"include":"*.rs"}),
+    )?;
+    assert_eq!(grep["result"]["total"], 1);
+    assert_eq!(grep["result"]["matches"][0]["path"], "src/lib.rs");
+
+    // code_symbols
+    let syms = tool(
+        &mut agent,
+        &s,
+        "code_symbols",
+        "syms",
+        json!({"query":"greet"}),
+    )?;
+    assert_eq!(syms["result"]["total"], 1);
+    assert_eq!(syms["result"]["symbols"][0]["kind"], "fn");
+    assert_eq!(syms["result"]["symbols"][0]["name"], "greet_user");
+
+    // parallel_read
+    let par = tool(
+        &mut agent,
+        &s,
+        "parallel_read",
+        "par-1",
+        json!({"requests":[
+            {"tool":"read_file","args":{"path":"src/app.js"}},
+            {"tool":"find_files","args":{"pattern":"*.js"}}
+        ]}),
+    )?;
+    assert_eq!(par["result"]["count"], 2);
+    assert_eq!(par["result"]["results"][0]["ok"], true);
+    assert_eq!(par["result"]["results"][1]["result"]["total"], 1);
+
+    // read_image
+    let img = tool(
+        &mut agent,
+        &s,
+        "read_image",
+        "img-1",
+        json!({"path":"pixel.png"}),
+    )?;
+    assert_eq!(img["result"]["mimeType"], "image/png");
+    assert_eq!(img["result"]["bytes"], png_bytes.len());
+    assert!(img["result"]["dataUrl"]
+        .as_str()
+        .unwrap()
+        .starts_with("data:image/png;base64,"));
+
+    // restore_file after edit
+    let orig = tool(
+        &mut agent,
+        &s,
+        "read_file",
+        "read-orig",
+        json!({"path":"src/app.js"}),
+    )?;
+    let orig_hash = orig["result"]["hash"].as_str().unwrap().to_owned();
+    let edited = tool(
+        &mut agent,
+        &s,
+        "write_file",
+        "edit-app",
+        json!({"path":"src/app.js","content":"// overwritten\n","expectedHash":orig_hash}),
+    )?;
+    let edited_hash = edited["result"]["hash"].as_str().unwrap().to_owned();
+    let restored = tool(
+        &mut agent,
+        &s,
+        "restore_file",
+        "restore-app",
+        json!({"path":"src/app.js","expectedHash":edited_hash}),
+    )?;
+    assert_eq!(restored["result"]["restored"], true);
+    let after_restore = tool(
+        &mut agent,
+        &s,
+        "read_file",
+        "read-restored",
+        json!({"path":"src/app.js"}),
+    )?;
+    assert_eq!(after_restore["result"]["text"], "export function runApp() {}\n");
+
+    // git_status / git_diff / git_log in a real temp git repo
+    if std::process::Command::new("git")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        let init = std::process::Command::new("git")
+            .args(["-C", dir.0.to_str().unwrap(), "init"])
+            .output()?;
+        if init.status.success() {
+            let _ = std::process::Command::new("git")
+                .args(["-C", dir.0.to_str().unwrap(), "config", "user.email", "t@example.com"])
+                .output();
+            let _ = std::process::Command::new("git")
+                .args(["-C", dir.0.to_str().unwrap(), "config", "user.name", "Test"])
+                .output();
+            let _ = std::process::Command::new("git")
+                .args(["-C", dir.0.to_str().unwrap(), "add", "src/app.js"])
+                .output();
+            let committed = std::process::Command::new("git")
+                .args([
+                    "-C",
+                    dir.0.to_str().unwrap(),
+                    "-c",
+                    "commit.gpgsign=false",
+                    "commit",
+                    "-m",
+                    "init",
+                ])
+                .output()?;
+
+            let gs = tool(&mut agent, &s, "git_status", "gs", json!({}))?;
+            assert_eq!(gs["ok"], true);
+            assert_eq!(gs["result"]["clean"], false);
+
+            if committed.status.success() {
+                let gl = tool(&mut agent, &s, "git_log", "gl", json!({"limit":5}))?;
+                assert_eq!(gl["ok"], true);
+                assert!(gl["result"]["text"].as_str().unwrap().contains("init"));
+
+                fs::write(dir.0.join("src/app.js"), "export function changed() {}\n")?;
+                let gd = tool(
+                    &mut agent,
+                    &s,
+                    "git_diff",
+                    "gd",
+                    json!({"path":"src/app.js"}),
+                )?;
+                assert_eq!(gd["ok"], true);
+                assert!(gd["result"]["text"].as_str().unwrap().contains("changed"));
+            }
+        }
+    }
+
+    agent.close()?;
+    Ok(())
+}
+
+
+
+#[test]
+fn apply_patch_discover_tools_and_interactive_process() -> Result<()> {
+    let dir = Workspace::new()?;
+    fs::write(dir.0.join("keep.txt"), "alpha\nbeta\ngamma\n")?;
+    fs::write(dir.0.join("remove.txt"), "bye\n")?;
+    let mut agent = Agent::new(&dir.0, &["cat"])?;
+    let s = start(&mut agent, true, true)?;
+
+    // discover_tools
+    let disc = tool(
+        &mut agent,
+        &s,
+        "discover_tools",
+        "disc",
+        json!({"query":"patch"}),
+    )?;
+    assert_eq!(disc["ok"], true);
+    assert!(disc["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["name"] == "apply_patch"));
+
+    // apply_patch (add + update + delete)
+    let patch = "\
+*** Begin Patch
+*** Add File: sub/new.txt
++hello
++world
+*** Update File: keep.txt
+@@
+ alpha
+-beta
++BETA
+ gamma
+*** Delete File: remove.txt
+*** End Patch";
+    let patched = tool(&mut agent, &s, "apply_patch", "ap", json!({"patch": patch}))?;
+    assert_eq!(patched["ok"], true);
+    assert_eq!(fs::read_to_string(dir.0.join("sub/new.txt"))?, "hello\nworld\n");
+    assert_eq!(fs::read_to_string(dir.0.join("keep.txt"))?, "alpha\nBETA\ngamma\n");
+    assert!(!dir.0.join("remove.txt").exists());
+
+    // start_process + write_stdin + stop_process (using cat)
+    let sp = tool(
+        &mut agent,
+        &s,
+        "start_process",
+        "sp",
+        json!({"command":"cat"}),
+    )?;
+    assert_eq!(sp["ok"], true);
+    let pid = sp["result"]["processId"].as_str().unwrap().to_owned();
+    let wr = tool(
+        &mut agent,
+        &s,
+        "write_stdin",
+        "ws",
+        json!({"processId":pid,"input":"hello-stdin\n","waitMs":200}),
+    )?;
+    assert_eq!(wr["ok"], true);
+    assert_eq!(wr["result"]["running"], true);
+    assert!(wr["result"]["stdout"].as_str().unwrap().contains("hello-stdin"));
+
+    let st = tool(
+        &mut agent,
+        &s,
+        "stop_process",
+        "stop",
+        json!({"processId":pid}),
+    )?;
+    assert_eq!(st["ok"], true);
+    assert_eq!(st["result"]["stopped"], true);
+
+    // scratchpad
+    assert_eq!(
+        tool(&mut agent, &s, "scratchpad", "sp1", json!({"action":"set","key":"plan_note","value":"step1"}))?["ok"],
+        true
+    );
+    let sp_get = tool(&mut agent, &s, "scratchpad", "sp2", json!({"action":"get","key":"plan_note"}))?;
+    assert_eq!(sp_get["result"]["value"], "step1");
+
+    // memory_store + memory_delete
+    let mem = tool(&mut agent, &s, "memory_store", "mem1", json!({"text":"temp note"}))?;
+    let mem_id = mem["result"]["id"].as_str().unwrap().to_owned();
+    let del_mem = tool(&mut agent, &s, "memory_delete", "mem2", json!({"id":mem_id}))?;
+    assert_eq!(del_mem["result"]["deleted"], true);
+
+    // workflow_preflight + workflow_save + workflow_history + workflow_run + workflow_status
+    let wf_def = json!({"name":"Check","steps":[{"tool":"list_files","args":{}}]});
+    let pre = tool(&mut agent, &s, "workflow_preflight", "wp1", json!({"definition":wf_def}))?;
+    assert_eq!(pre["result"]["valid"], true);
+    assert_eq!(tool(&mut agent, &s, "workflow_save", "ws1", json!({"id":"wf_check","expectedRevision":0,"definition":wf_def}))?["ok"], true);
+    let wh = tool(&mut agent, &s, "workflow_history", "wh1", json!({"id":"wf_check"}))?;
+    assert_eq!(wh["result"]["total"], 1);
+    let wrun = tool(&mut agent, &s, "workflow_run", "wrun1", json!({"id":"wf_check","revision":1}))?;
+    let run_id = wrun["result"]["runId"].as_str().unwrap().to_owned();
+    let wstat = tool(&mut agent, &s, "workflow_status", "wstat1", json!({"runId":run_id}))?;
+    assert_eq!(wstat["result"]["status"], "complete");
+
+    // tool_save + tool_list + tool_read + tool_run
+    let ts = tool(
+        &mut agent,
+        &s,
+        "tool_save",
+        "ts1",
+        json!({"id":"echo_tool","name":"Echo Tool","interpreter":"cat","source":"hello-tool\n","expectedRevision":0}),
+    )?;
+    assert_eq!(ts["result"]["revision"], 1);
+    let tl = tool(&mut agent, &s, "tool_list", "tl1", json!({"query":"echo"}))?;
+    assert_eq!(tl["result"]["total"], 1);
+    let tr = tool(&mut agent, &s, "tool_read", "tr1", json!({"id":"echo_tool"}))?;
+    assert_eq!(tr["result"]["source"], "hello-tool\n");
+    let trun = tool(&mut agent, &s, "tool_run", "trun1", json!({"id":"echo_tool"}))?;
+    assert_eq!(trun["ok"], true);
+    assert_eq!(trun["result"]["toolId"], "echo_tool");
+    assert_eq!(trun["result"]["exitCode"], 0);
+
+    agent.close()?;
+    Ok(())
+}
+
+#[test]
+fn code_navigation_diagnostics_and_web_ssrf_guard() -> Result<()> {
+    let dir = Workspace::new()?;
+    fs::create_dir_all(dir.0.join("src"))?;
+    fs::write(
+        dir.0.join("src/mod.rs"),
+        "pub fn compute_sum(x: i32) -> i32 {\n    x + 1\n}\n\npub fn caller() -> i32 {\n    compute_sum(41)\n}\n",
+    )?;
+    fs::write(dir.0.join("src/bad.rs"), "fn broken( {\n")?;
+
+    let mut agent = Agent::new(&dir.0, &[])?;
+    let s = start(&mut agent, false, false)?;
+
+    // code_definition from call site on line 6 ("    compute_sum(41)")
+    let def = tool(
+        &mut agent,
+        &s,
+        "code_definition",
+        "cdef",
+        json!({"path":"src/mod.rs","line":6,"column":6}),
+    )?;
+    assert_eq!(def["ok"], true);
+    assert_eq!(def["result"]["symbol"], "compute_sum");
+    assert_eq!(def["result"]["definitions"][0]["line"], 1);
+
+    // code_references
+    let refs = tool(
+        &mut agent,
+        &s,
+        "code_references",
+        "cref",
+        json!({"path":"src/mod.rs","line":1,"column":8}),
+    )?;
+    assert_eq!(refs["ok"], true);
+    assert_eq!(refs["result"]["total"], 2);
+
+    // code_diagnostics (structural error in bad.rs)
+    let diag = tool(
+        &mut agent,
+        &s,
+        "code_diagnostics",
+        "cdiag",
+        json!({"path":"src/bad.rs"}),
+    )?;
+    assert_eq!(diag["ok"], true);
+    assert!(diag["result"]["total"].as_u64().unwrap() >= 1);
+
+    // web_fetch SSRF / HTTP blocking
+    for (idx, bad_url) in [
+        "http://example.com",
+        "https://localhost/secret",
+        "https://127.0.0.1/admin",
+        "https://169.254.169.254/latest/meta-data",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let res = tool(
+            &mut agent,
+            &s,
+            "web_fetch",
+            &format!("wf-{idx}"),
+            json!({"url": bad_url}),
+        )?;
+        assert_eq!(res["ok"], false, "expected SSRF block for {bad_url}");
+    }
+
     agent.close()?;
     Ok(())
 }

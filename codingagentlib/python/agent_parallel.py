@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 
-ALLOWED={'read_file','list_files','search'}
+ALLOWED={'read_file','list_files','find_files','search','grep_search'}
 
 def run(runtime,session,args,parent_call_id):
     requests=args.get('requests');workers=args.get('workers',4)

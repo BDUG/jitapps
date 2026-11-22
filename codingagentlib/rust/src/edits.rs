@@ -95,6 +95,161 @@ pub(crate) fn apply(source: &str, edits: &Value) -> Result<(String, usize)> {
     Ok((result, spans.len()))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum PatchOp {
+    Add(String),
+    Update(Vec<Vec<(char, String)>>),
+    Delete,
+}
+
+pub(crate) fn parse_patch(patch: &str) -> Result<Vec<(String, PatchOp)>> {
+    let lines: Vec<&str> = patch.lines().collect();
+    let mut i = 0;
+    while i < lines.len() && lines[i].trim().is_empty() {
+        i += 1;
+    }
+    if i >= lines.len() || lines[i].trim() != "*** Begin Patch" {
+        return Err("Patch must start with '*** Begin Patch'".into());
+    }
+    i += 1;
+    let mut ops = vec![];
+    let mut ended = false;
+    while i < lines.len() {
+        let line = lines[i];
+        if line.trim() == "*** End Patch" {
+            ended = true;
+            break;
+        }
+        if let Some(path) = line.strip_prefix("*** Add File: ") {
+            let path = path.trim().to_owned();
+            if path.is_empty() {
+                return Err("Add File requires a path".into());
+            }
+            i += 1;
+            let mut content = Vec::new();
+            while i < lines.len() && !lines[i].starts_with("*** ") {
+                let l = lines[i];
+                let rest = l
+                    .strip_prefix('+')
+                    .ok_or_else(|| format!("Add File {path}: lines must start with '+'"))?;
+                content.push(rest);
+                i += 1;
+            }
+            let mut joined = content.join("\n");
+            if !content.is_empty() {
+                joined.push('\n');
+            }
+            ops.push((path, PatchOp::Add(joined)));
+        } else if let Some(path) = line.strip_prefix("*** Delete File: ") {
+            let path = path.trim().to_owned();
+            if path.is_empty() {
+                return Err("Delete File requires a path".into());
+            }
+            i += 1;
+            ops.push((path, PatchOp::Delete));
+        } else if let Some(path) = line.strip_prefix("*** Update File: ") {
+            let path = path.trim().to_owned();
+            if path.is_empty() {
+                return Err("Update File requires a path".into());
+            }
+            i += 1;
+            let mut hunks = vec![];
+            let mut current: Option<Vec<(char, String)>> = None;
+            while i < lines.len() && !lines[i].starts_with("*** ") {
+                let l = lines[i];
+                if l.starts_with("@@") {
+                    if let Some(h) = current.take() {
+                        hunks.push(h);
+                    }
+                    current = Some(vec![]);
+                } else if let Some(first) = l.chars().next() {
+                    if matches!(first, ' ' | '+' | '-') {
+                        let h = current
+                            .as_mut()
+                            .ok_or_else(|| format!("Update File {path}: hunk line before @@"))?;
+                        h.push((first, l[1..].to_owned()));
+                    } else {
+                        return Err(format!("Update File {path}: invalid patch line '{l}'").into());
+                    }
+                } else {
+                    return Err(format!("Update File {path}: empty line without prefix").into());
+                }
+                i += 1;
+            }
+            if let Some(h) = current.take() {
+                hunks.push(h);
+            }
+            if hunks.is_empty() {
+                return Err(format!("Update File {path}: at least one @@ hunk is required").into());
+            }
+            ops.push((path, PatchOp::Update(hunks)));
+        } else {
+            return Err(format!("Unexpected patch directive: {line}").into());
+        }
+    }
+    if !ended {
+        return Err("Patch must end with '*** End Patch'".into());
+    }
+    if ops.is_empty() {
+        return Err("Patch contains no file operations".into());
+    }
+    Ok(ops)
+}
+
+pub(crate) fn apply_hunks(source: &str, hunks: &[Vec<(char, String)>]) -> Result<String> {
+    if source.len() > 2_000_000 || source.contains('\0') {
+        return Err("apply_patch needs a UTF-8 text file under 2 MB".into());
+    }
+    let had_trailing_nl = source.ends_with('\n');
+    let mut lines: Vec<String> = source.lines().map(|l| l.trim_end_matches('\r').to_owned()).collect();
+    let mut cursor = 0usize;
+    for (hi, hunk) in hunks.iter().enumerate() {
+        let old_lines: Vec<&str> = hunk
+            .iter()
+            .filter(|(op, _)| *op == ' ' || *op == '-')
+            .map(|(_, s)| s.as_str())
+            .collect();
+        let new_lines: Vec<String> = hunk
+            .iter()
+            .filter(|(op, _)| *op == ' ' || *op == '+')
+            .map(|(_, s)| s.clone())
+            .collect();
+        if old_lines.is_empty() {
+            let pos = cursor.min(lines.len());
+            lines.splice(pos..pos, new_lines.clone());
+            cursor = pos + new_lines.len();
+            continue;
+        }
+        let mut found = None;
+        for start in cursor..=lines.len().saturating_sub(old_lines.len()) {
+            if lines[start..start + old_lines.len()]
+                .iter()
+                .zip(old_lines.iter())
+                .all(|(a, b)| a == b)
+            {
+                found = Some(start);
+                break;
+            }
+        }
+        let pos = found.ok_or_else(|| {
+            format!(
+                "Hunk {} did not match source context; reread the file",
+                hi + 1
+            )
+        })?;
+        lines.splice(pos..pos + old_lines.len(), new_lines.clone());
+        cursor = pos + new_lines.len();
+    }
+    let mut out = lines.join("\n");
+    if had_trailing_nl || !out.is_empty() {
+        out.push('\n');
+    }
+    if out.len() > 2_000_000 {
+        return Err("Patched file exceeds 2 MB limit".into());
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

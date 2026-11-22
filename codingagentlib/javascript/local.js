@@ -2,8 +2,8 @@
 const {spawn}=require('node:child_process'),path=require('node:path'),fs=require('node:fs'),core=require('./index.js'),{resolveExecutable}=require('./executable.js');
 const SCRIPT_TOOL_NAMES=['list_scripts','write_script','read_script','delete_script','run_script','python_env','script_run','script_library','python_tools','python_tool_save','python_target_save'];
 const PROGRAM_TOOL_NAMES=['run_command','read_command_output','run_script','script_run'];
-const EDIT_TOOLS=new Set(['write_file','replace_text','apply_edits','delete_file','restore_file','write_script','delete_script','python_tool_save','python_target_save','skill_save','workflow_save']);
-const COMMAND_TOOLS=new Set(['run_command','run_script','script_run','workflow_run','workflow_continue']);
+const EDIT_TOOLS=new Set(['write_file','replace_text','apply_edits','apply_patch','delete_file','restore_file','write_script','delete_script','python_tool_save','python_target_save','skill_save','workflow_save']);
+const COMMAND_TOOLS=new Set(['run_command','start_process','write_stdin','stop_process','run_script','script_run','workflow_run','workflow_continue']);
 
 function schemaFromArguments(args){
  if(!args||typeof args!=='object')return {type:'object',properties:{}};

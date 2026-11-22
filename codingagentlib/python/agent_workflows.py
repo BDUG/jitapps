@@ -10,7 +10,7 @@ import uuid
 from . import agent_checks
 from .agent_skills import page_int
 
-STEP_TOOLS={'list_files','read_file','search','write_file','replace_text','apply_edits','delete_file','restore_file','list_scripts','write_script','read_script','delete_script','run_command','run_script','script_run','read_command_output','changes'}
+STEP_TOOLS={'list_files','find_files','read_file','search','grep_search','write_file','replace_text','apply_edits','apply_patch','delete_file','restore_file','list_scripts','write_script','read_script','delete_script','run_command','run_script','script_run','read_command_output','changes'}
 TYPES={'string':lambda v:isinstance(v,str),'number':lambda v:isinstance(v,(int,float)) and not isinstance(v,bool),'boolean':lambda v:isinstance(v,bool),'object':lambda v:isinstance(v,dict),'array':lambda v:isinstance(v,list)}
 def identifier(value):
     if not isinstance(value,str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}',value):raise ValueError('Use an ID with letters, digits, underscores or hyphens (1–80 characters)')

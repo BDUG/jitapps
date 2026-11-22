@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1040" height="760" viewBox="0 0 1040 760" content="&lt;mxfile host=&quot;app.diagrams.net&quot;&gt;&lt;diagram id=&quot;react-loop&quot; name=&quot;ReAct Loop&quot;&gt;&lt;mxGraphModel dx=&quot;1040&quot; dy=&quot;760&quot; grid=&quot;1&quot; gridSize=&quot;10&quot;&gt;&lt;root&gt;&lt;mxCell id=&quot;0&quot;/&gt;&lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;&lt;/diagram&gt;&lt;/mxfile&gt;" style="background-color:#FAFAFA;">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#343B43"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#3F6F98"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#D97A16"/>
+    </marker>
+    <marker id="arrow-maroon" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#8B1E3F"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="760" fill="#FAFAFA"/>
+  <text x="480" y="34" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="700" fill="#343B43">TLAL OS ReAct Loop (Sense → Plan → Act → Observe → Reflect → Verify)</text>
+
+  <!-- Step 0: User Goal -->
+  <rect x="250" y="54" width="460" height="52" rx="8" fill="#F5F6F7" stroke="#D9DDE1" stroke-width="1.5"/>
+  <text x="480" y="77" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="600" fill="#343B43">User Goal + Host Permissions</text>
+  <text x="480" y="96" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Build vs Plan mode · allowEdits · allowCommands · verificationChecks</text>
+
+  <line x1="480" y1="106" x2="480" y2="138" stroke="#343B43" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- Step 1: SENSE -->
+  <rect x="210" y="140" width="540" height="62" rx="8" fill="#FFFFFF" stroke="#3F6F98" stroke-width="1.8"/>
+  <rect x="210" y="140" width="6" height="62" rx="3" fill="#3F6F98"/>
+  <text x="480" y="164" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#3F6F98">1. SENSE — Build ModelRequest</text>
+  <text x="480" y="185" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">sessionId · step · tools · compacted events · workingBrief · decisionGuidance · loopReview</text>
+
+  <!-- Optional Decision Model (assist/gate) -->
+  <rect x="780" y="140" width="156" height="62" rx="8" fill="#FFFFFF" stroke="#D97A16" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="858" y="162" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#D97A16">Decision Model</text>
+  <text x="858" y="179" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10.5" fill="#626A73">assist / gate</text>
+  <text x="858" y="193" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10" fill="#8B9299">request.decision</text>
+  <line x1="750" y1="171" x2="778" y2="171" stroke="#D97A16" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+
+  <line x1="480" y1="202" x2="480" y2="236" stroke="#343B43" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: PLAN (LLM Call) -->
+  <rect x="210" y="238" width="540" height="64" rx="8" fill="#8B1E3F" stroke="#8B1E3F" stroke-width="1.8"/>
+  <text x="480" y="262" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#FFFFFF">2. PLAN (LLM Call) — Return ModelResponse JSON</text>
+  <text x="480" y="283" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#F5F6F7">{ sessionId, step, status: "act" | "ask" | "done", plan, action, tasks?, reflection? }</text>
+
+  <!-- Branch: status == ask -->
+  <line x1="210" y1="270" x2="154" y2="270" stroke="#D97A16" stroke-width="1.6" marker-end="url(#arrow-orange)"/>
+  <rect x="20" y="240" width="132" height="60" rx="8" fill="#FFFFFF" stroke="#D97A16" stroke-width="1.5"/>
+  <text x="86" y="263" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="700" fill="#D97A16">status == "ask"</text>
+  <text x="86" y="281" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10.5" fill="#343B43">Pause (waiting)</text>
+  <text x="86" y="294" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10" fill="#626A73">Ask user question</text>
+
+  <!-- Branch: status == done -->
+  <line x1="750" y1="270" x2="778" y2="270" stroke="#8B1E3F" stroke-width="1.6" marker-end="url(#arrow-maroon)"/>
+  <rect x="780" y="236" width="156" height="68" rx="8" fill="#FFFFFF" stroke="#8B1E3F" stroke-width="1.6"/>
+  <text x="858" y="258" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="700" fill="#8B1E3F">status == "done"</text>
+  <text x="858" y="275" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10.5" fill="#343B43">Verify acceptance &amp;</text>
+  <text x="858" y="290" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10.5" fill="#626A73">source checks → Complete</text>
+
+  <!-- Branch: status == act -->
+  <line x1="480" y1="302" x2="480" y2="338" stroke="#343B43" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="530" y="324" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11" font-weight="600" fill="#343B43">status == "act"</text>
+
+  <!-- Step 2b: Policy, Mode & Decision Gate -->
+  <rect x="210" y="340" width="540" height="64" rx="8" fill="#FFFFFF" stroke="#D97A16" stroke-width="1.8"/>
+  <rect x="210" y="340" width="6" height="64" rx="3" fill="#D97A16"/>
+  <text x="480" y="364" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="#343B43">Guards: Execution Mode, Review &amp; Decision Gate</text>
+  <text x="480" y="385" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Plan mode blocks writes/cmds · Per-action review · Decision Gate can veto &amp; replan</text>
+
+  <!-- Veto loop arrow back to SENSE -->
+  <path d="M 210 372 L 175 372 L 175 171 L 208 171" fill="none" stroke="#D97A16" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow-orange)"/>
+  <text x="166" y="325" text-anchor="end" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#D97A16">Veto / repairHint</text>
+
+  <line x1="480" y1="404" x2="480" y2="438" stroke="#343B43" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- Step 3: ACT + OBSERVE -->
+  <rect x="210" y="440" width="540" height="72" rx="8" fill="#FFFFFF" stroke="#3F6F98" stroke-width="1.8"/>
+  <rect x="210" y="440" width="6" height="72" rx="3" fill="#3F6F98"/>
+  <text x="480" y="464" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#343B43">3. ACT + OBSERVE — Guarded Tool Execution</text>
+  <text x="480" y="484" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Files &amp; Patches (expectedHash + backup) · Commands &amp; Processes (allowlist)</text>
+  <text x="480" y="500" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Git · Code Nav · Web (SSRF-guarded) · spawn_agent · Browser Bridge</text>
+
+  <line x1="480" y1="512" x2="480" y2="548" stroke="#343B43" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- Step 4: RECORD + REFLECT -->
+  <rect x="210" y="550" width="540" height="72" rx="8" fill="#F5F6F7" stroke="#D9DDE1" stroke-width="1.8"/>
+  <text x="480" y="574" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#343B43">4. RECORD + REFLECT — Update Session &amp; Verify State</text>
+  <text x="480" y="594" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Append observation event (ok, result/error, SHA-256, checks)</text>
+  <text x="480" y="610" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Invalidate stale verification on edits · Compact history · Check cycle/stall guard</text>
+
+  <!-- Main loop back arrow from RECORD+REFLECT to SENSE -->
+  <path d="M 750 586 L 976 586 L 976 122 L 560 122 L 560 138" fill="none" stroke="#3F6F98" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <rect x="914" y="388" width="114" height="36" rx="6" fill="#FFFFFF" stroke="#3F6F98" stroke-width="1.4"/>
+  <text x="971" y="404" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11" font-weight="700" fill="#3F6F98">Next Turn</text>
+  <text x="971" y="418" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10" fill="#626A73">step + 1</text>
+
+  <!-- Footer legend -->
+  <rect x="210" y="654" width="540" height="72" rx="8" fill="#FFFFFF" stroke="#D9DDE1" stroke-width="1.2"/>
+  <text x="480" y="676" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="700" fill="#343B43">Cross-Runtime Parity</text>
+  <text x="480" y="695" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11" fill="#626A73">Python: ReactAgent + Runtime · JS: loop.js + LocalRuntime · Rust: CoreAgent + tools.rs</text>
+  <text x="480" y="712" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11" fill="#626A73">VS Code: Controller + Rust worker · Browser App: shared-agent/ui.js + Relay</text>
+</svg>

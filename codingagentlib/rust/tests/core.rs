@@ -190,3 +190,62 @@ fn embedded_migration_preserves_host_context() -> codingagentlib::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn decision_mode_assist_and_gate() -> codingagentlib::Result<()> {
+    use codingagentlib::DecisionMode;
+    use std::sync::{Arc, Mutex};
+
+    let events = Arc::new(Mutex::new(Vec::<Value>::new()));
+    let ev_hook = events.clone();
+
+    let mut options = CoreOptions::new(|r, _| {
+        assert!(
+            r["context"].as_array().map(|a| a.iter().any(|item| item.get("decision").is_some())).unwrap_or(false),
+            "expected advisory decision in request context"
+        );
+        let events = r["events"].as_array().unwrap();
+        let rejected = events.iter().any(|e| e["kind"] == "decision_gate" && e["value"]["decision"]["approve"] == false);
+        let ran = events.iter().any(|e| e["kind"] == "tool_result");
+        if ran {
+            Ok(json!({"sessionId":r["sessionId"],"step":r["step"],"status":"done","plan":"Complete","action":null,"summary":"Done after gate"}))
+        } else if !rejected {
+            Ok(json!({"sessionId":r["sessionId"],"step":r["step"],"status":"act","plan":"Try unsafe","action":{"tool":"bad_tool","args":{}}}))
+        } else {
+            Ok(json!({"sessionId":r["sessionId"],"step":r["step"],"status":"act","plan":"Use safe tool","action":{"tool":"safe_tool","args":{}}}))
+        }
+    });
+    options.decision_mode = DecisionMode::Gate;
+    options.decision_model = Some(Box::new(|dreq, _| {
+        if dreq["phase"] == "gate" {
+            let tool = dreq["candidate"]["action"]["tool"].as_str().unwrap_or("");
+            if tool == "bad_tool" {
+                return Ok(json!({"approve":false,"rationale":"Use safe_tool instead","strategy":"Switch to safe_tool"}));
+            }
+            return Ok(json!({"approve":true,"rationale":"Approved"}));
+        }
+        Ok(json!({"approve":true,"strategy":"Prefer safe_tool","focus":"Read safely"}))
+    }));
+    options.tools = vec![
+        codingagentlib::core::CoreTool::new(
+            json!({"name":"bad_tool","description":"Bad","permission":"read","parameters":{"type":"object"}}),
+            |_, _, _| panic!("bad_tool must be blocked by decision gate"),
+        ),
+        codingagentlib::core::CoreTool::new(
+            json!({"name":"safe_tool","description":"Safe","permission":"read","parameters":{"type":"object"}}),
+            |_, _, _| Ok(json!({"safe":true})),
+        ),
+    ];
+    options.on_event = Some(Box::new(move |ev| {
+        ev_hook.lock().unwrap().push(ev.clone());
+        Ok(())
+    }));
+
+    let mut agent = create_agent(options)?;
+    let res = agent.run("Test decision gate", &RunOptions::default())?;
+    assert_eq!(res["status"], "complete");
+    let captured = events.lock().unwrap();
+    assert!(captured.iter().any(|e| e["kind"] == "decision"));
+    assert!(captured.iter().any(|e| e["kind"] == "decision_gate" && e["value"]["decision"]["approve"] == false));
+    Ok(())
+}

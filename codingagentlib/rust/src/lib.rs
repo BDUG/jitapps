@@ -14,6 +14,8 @@ pub mod graph_memory;
 pub mod extensions;
 pub mod mcp_stdio;
 pub mod beyond_react;
+pub mod decision;
+pub use decision::DecisionMode;
 pub mod providers;
 pub mod a2a;
 pub mod streaming;

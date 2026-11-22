@@ -7,7 +7,11 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Component, Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
+    process::{Child, ChildStdin},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
     time::SystemTime,
 };
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -130,11 +134,25 @@ pub(crate) fn walk(root: &Path, at: &Path, out: &mut Vec<String>) -> Result<()> 
     }
     Ok(())
 }
+pub(crate) struct InteractiveProcess {
+    pub(crate) child: Child,
+    pub(crate) stdin: Option<ChildStdin>,
+    pub(crate) stdout: Arc<Mutex<Vec<u8>>>,
+    pub(crate) stderr: Arc<Mutex<Vec<u8>>>,
+}
+impl Drop for InteractiveProcess {
+    fn drop(&mut self) {
+        self.stdin.take();
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
 pub struct Runtime {
     pub root: PathBuf,
     pub state: PathBuf,
     pub allowed: BTreeMap<String, PathBuf>,
     pub sessions: BTreeMap<String, Value>,
+    pub(crate) processes: BTreeMap<String, InteractiveProcess>,
     _lock: File,
 }
 impl Runtime {
@@ -235,6 +253,7 @@ impl Runtime {
             state,
             allowed,
             sessions,
+            processes: BTreeMap::new(),
             _lock: lock,
         })
     }

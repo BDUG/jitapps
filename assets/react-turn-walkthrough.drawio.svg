@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1020" height="720" viewBox="0 0 1020 720" content="&lt;mxfile host=&quot;app.diagrams.net&quot;&gt;&lt;diagram id=&quot;react-turn-walkthrough&quot; name=&quot;Concrete Turn Walkthrough&quot;&gt;&lt;mxGraphModel dx=&quot;1020&quot; dy=&quot;720&quot; grid=&quot;1&quot; gridSize=&quot;10&quot;&gt;&lt;root&gt;&lt;mxCell id=&quot;0&quot;/&gt;&lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;&lt;/mxGraphModel&gt;&lt;/diagram&gt;&lt;/mxfile&gt;" style="background-color:#FAFAFA;">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#343B43"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#3F6F98"/>
+    </marker>
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#D97A16"/>
+    </marker>
+    <marker id="arr-maroon" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#8B1E3F"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1020" height="720" fill="#FAFAFA"/>
+  <text x="510" y="34" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="700" fill="#343B43">Chapter 6 Walkthrough — Concrete Turn Flow (src/calc.py + pytest)</text>
+
+  <!-- Step 1a: Decision Model Advise -->
+  <rect x="200" y="54" width="620" height="58" rx="8" fill="#FFFFFF" stroke="#D97A16" stroke-width="1.6"/>
+  <rect x="200" y="54" width="6" height="58" rx="3" fill="#D97A16"/>
+  <text x="510" y="77" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="#343B43">Step 1a · Decision Model Advisory (phase: "advise")</text>
+  <text x="510" y="97" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Recommends strategy: "Apply targeted edit with apply_edits, then verify with pytest"</text>
+
+  <line x1="510" y1="112" x2="510" y2="142" stroke="#343B43" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- Step 1b: Main LLM ModelRequest -->
+  <rect x="200" y="144" width="620" height="62" rx="8" fill="#FFFFFF" stroke="#3F6F98" stroke-width="1.8"/>
+  <rect x="200" y="144" width="6" height="62" rx="3" fill="#3F6F98"/>
+  <text x="510" y="168" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="#3F6F98">Step 1b · SENSE → Main LLM ModelRequest (step: 2)</text>
+  <text x="510" y="189" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Includes read_file(src/calc.py) hash a1b2c3..., workingBrief, decision, tools, responseSchema</text>
+
+  <line x1="510" y1="206" x2="510" y2="236" stroke="#343B43" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- Step 2: Main LLM ModelResponse -->
+  <rect x="200" y="238" width="620" height="64" rx="8" fill="#8B1E3F" stroke="#8B1E3F" stroke-width="1.8"/>
+  <text x="510" y="262" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Step 2 · PLAN → LLM ModelResponse (status: "act")</text>
+  <text x="510" y="283" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#F5F6F7">apply_edits(src/calc.py, expectedHash: "a1b2c3...", "range(n)" → "range(n + 1)")</text>
+
+  <line x1="510" y1="302" x2="510" y2="332" stroke="#343B43" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- Step 3: Decision Gate -->
+  <rect x="200" y="334" width="620" height="62" rx="8" fill="#FFFFFF" stroke="#D97A16" stroke-width="1.8"/>
+  <rect x="200" y="334" width="6" height="62" rx="3" fill="#D97A16"/>
+  <text x="510" y="358" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="#343B43">Step 3 · Decision Gate (phase: "gate", candidate attached)</text>
+  <text x="510" y="379" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Inspects proposed apply_edits → returns {"approve": true} (or veto → repairHint replan)</text>
+
+  <!-- Veto loop back -->
+  <path d="M 200 365 L 150 365 L 150 175 L 198 175" fill="none" stroke="#D97A16" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-orange)"/>
+  <text x="142" y="275" text-anchor="end" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#D97A16">approve: false</text>
+  <text x="142" y="290" text-anchor="end" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="10" fill="#626A73">repairHint</text>
+
+  <line x1="510" y1="396" x2="510" y2="426" stroke="#343B43" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- Step 4: ACT + OBSERVE (apply_edits) -->
+  <rect x="200" y="428" width="620" height="72" rx="8" fill="#FFFFFF" stroke="#3F6F98" stroke-width="1.8"/>
+  <rect x="200" y="428" width="6" height="72" rx="3" fill="#3F6F98"/>
+  <text x="510" y="452" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="#343B43">Step 4 · ACT + OBSERVE → apply_edits &amp; Observation</text>
+  <text x="510" y="472" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Lock · Path check · Verify expectedHash · Literal snapshot match · Backup · Atomic write</text>
+  <text x="510" y="489" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11" fill="#3F6F98">Observation: { ok: true, hash: "f6e5d4...", edits: 1, replacements: 1 } · marks edited</text>
+
+  <line x1="510" y1="500" x2="510" y2="532" stroke="#3F6F98" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+
+  <!-- Next Turn: Turn 3 (run_command pytest) -->
+  <rect x="200" y="534" width="620" height="58" rx="8" fill="#F5F6F7" stroke="#D9DDE1" stroke-width="1.6"/>
+  <text x="510" y="557" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="#343B43">Turn 3 · Verify via run_command("pytest")</text>
+  <text x="510" y="577" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#626A73">Allowlist check → executes pytest → Observation: { exitCode: 0 } binds to hash f6e5d4...</text>
+
+  <line x1="510" y1="592" x2="510" y2="624" stroke="#8B1E3F" stroke-width="1.8" marker-end="url(#arr-maroon)"/>
+
+  <!-- Step 5: Final ModelResponse (done) -->
+  <rect x="200" y="626" width="620" height="64" rx="8" fill="#FFFFFF" stroke="#8B1E3F" stroke-width="1.8"/>
+  <rect x="200" y="626" width="6" height="64" rx="3" fill="#8B1E3F"/>
+  <text x="510" y="650" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#8B1E3F">Step 5 · VERIFY + DONE → Final ModelResponse (step: 4)</text>
+  <text x="510" y="671" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="11.5" fill="#343B43">{ status: "done", outcome: "complete", verification: ["pytest passed (exitCode 0)"], summary: "..." }</text>
+</svg>

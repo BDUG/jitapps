@@ -71,7 +71,7 @@ def build(output):
     # becomes a dependency of the portable core.
     ui=output/'agent-ui-bindings'
     ui.mkdir(exist_ok=True)
-    for relative in ['controller.cjs','worker.cjs','executable.cjs','execution-mode.cjs','loop-guard.cjs','verification.cjs','action-review.cjs','agent-library.cjs','chat-commands.cjs']:
+    for relative in ['controller.cjs','worker.cjs','executable.cjs','execution-mode.cjs','decision-model.cjs','loop-guard.cjs','verification.cjs','action-review.cjs','agent-library.cjs','chat-commands.cjs']:
         shutil.copy2(ROOT/'vscode/src'/relative,ui/relative)
     (ui/'index.js').write_text("module.exports={...require('./controller.cjs'),...require('./worker.cjs')};\n")
     (ui/'package.json').write_text(json.dumps(dict(name='@tlal/agent-ui-bindings',version='1.0.0',main='index.js',license='MIT'))+'\n')

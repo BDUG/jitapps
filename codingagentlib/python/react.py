@@ -26,7 +26,7 @@ import time
 from .agent import Agent
 from .decision_model import consult_decision_model, resolve_mode
 
-EDIT_TOOLS = {'write_file', 'replace_text', 'apply_edits', 'delete_file', 'write_script', 'delete_script', 'restore_file'}
+EDIT_TOOLS = {'write_file', 'replace_text', 'apply_edits', 'apply_patch', 'delete_file', 'write_script', 'delete_script', 'restore_file'}
 COMMAND_TOOLS = {'run_command', 'run_script', 'script_run'}
 
 
@@ -199,6 +199,7 @@ class ReactAgent:
         max_actions_per_turn=6,
         decision_model=None,
         decision_mode='auto',
+        _subagent_depth=0,
         **runtime_options,
     ):
         if agent is not None:
@@ -218,6 +219,7 @@ class ReactAgent:
         self.max_actions_per_turn = max_actions_per_turn
         self.decision_model = decision_model
         self.decision_mode = resolve_mode(decision_model, decision_mode)
+        self._subagent_depth = _subagent_depth
 
     def close(self):
         if self._owns_agent:
@@ -260,6 +262,17 @@ class ReactAgent:
             req['loopWarning'] = loop_info
         if repair_hint is not None:
             req['repairHint'] = repair_hint
+        if self._subagent_depth < 2 and isinstance(req.get('tools'), list):
+            req['tools'].append({
+                'name': 'spawn_agent',
+                'description': 'Spawn a bounded child coding agent on the workspace for an isolated subtask. Inherits/caps parent permissions.',
+                'arguments': {
+                    'goal': 'clear subtask goal',
+                    'allowEdits': 'optional boolean (capped by parent)',
+                    'allowCommands': 'optional boolean (capped by parent)',
+                    'maxSteps': 'optional integer 1..15, default 8',
+                },
+            })
         return req
 
     def run(
@@ -402,6 +415,30 @@ class ReactAgent:
                     self._emit(on_event, 'observe', sessionId=session_id, step=next_turn['step'], result=result)
                     if result['status'] != 'continue' or _failed(result.get('observation') or {}):
                         break
+                continue
+
+            # Handle model-callable sub-agent spawning (`spawn_agent`)
+            if parsed.get('status') == 'act' and isinstance(parsed.get('action'), dict) and parsed['action'].get('tool') == 'spawn_agent':
+                turn_info = self.agent.pending.pop(session_id, None)
+                act_args = parsed['action'].get('args') if isinstance(parsed['action'].get('args'), dict) else {}
+                sub_goal = str(act_args.get('goal') or '').strip()
+                parent_s = self.runtime.get(session_id)
+                call_id = f"{session_id}_{request['step']}"
+                self.agent.dispatch({'op': 'event', 'session': session_id, 'value': {k: v for k, v in parsed.items() if k in {'sessionId', 'step', 'status', 'plan', 'action', 'tasks'}}})
+                if self._subagent_depth >= 2 or not sub_goal:
+                    obs = {'id': call_id, 'tool': 'spawn_agent', 'ok': False, 'error': 'Provide a nonempty goal (max subagent depth 2)'}
+                else:
+                    sub_edits = bool(act_args.get('allowEdits', False)) and bool(parent_s.get('allowEdits'))
+                    sub_cmds = bool(act_args.get('allowCommands', False)) and bool(parent_s.get('allowCommands'))
+                    sub_steps = act_args.get('maxSteps', 8)
+                    sub_steps = max(1, min(15, sub_steps if isinstance(sub_steps, int) else 8))
+                    cmds = tuple(sorted(set(self.runtime.allowed) - {'*'}))
+                    with ReactAgent(self.runtime.root, commands=cmds, remember_sessions=False, _subagent_depth=self._subagent_depth + 1) as child:
+                        sub_res = child.run(sub_goal, model, allow_edits=sub_edits, allow_commands=sub_cmds, max_steps=sub_steps, cancel_event=cancel_event)
+                    obs = {'id': call_id, 'tool': 'spawn_agent', 'ok': sub_res.get('status') == 'complete', 'result': sub_res}
+                self.runtime.event(parent_s, 'observation', obs)
+                steps_taken += 1
+                self._emit(on_event, 'observe', sessionId=session_id, step=request['step'], result={'status': 'continue', 'sessionId': session_id, 'observation': obs})
                 continue
 
             # Standard single-action / ask / done turn

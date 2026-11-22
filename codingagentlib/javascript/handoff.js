@@ -11,7 +11,7 @@ function state(events=[]){const saved=events.filter(e=>e.kind==='user'&&e.value?
 function evidence(request){
  const events=request.events||[];let artifact=null,feedback=null;
  for(let index=0;index<events.length;index++){const e=events[index],v=e.value||{},r=v.result||{};if(e.kind==='user'&&v.status==='follow_up'){artifact=null;feedback=null;}if(e.kind!=='observation')continue;
-  if(v.ok===true&&['write_file','replace_text','apply_edits','restore_file'].includes(v.tool)){artifact={callId:v.id,tool:v.tool,path:r.path||null,hash:r.hash||null,eventOffset:index};feedback=null;}
+  if(v.ok===true&&['write_file','replace_text','apply_edits','apply_patch','restore_file'].includes(v.tool)){artifact={callId:v.id,tool:v.tool,path:r.path||null,hash:r.hash||null,eventOffset:index};feedback=null;}
   if(v.ok===true&&['delete_file','write_script','delete_script'].includes(v.tool)){feedback=null;if(v.tool==='delete_file'&&artifact?.path===r.path)artifact=null;}
   if(artifact&&index>artifact.eventOffset&&['run_command','run_script'].includes(v.tool)&&v.ok===true&&Number.isInteger(r.exitCode)&&!r.timedOut&&!r.cancelled&&!r.outputLimited)feedback={callId:v.id,tool:v.tool,eventOffset:index,exitCode:r.exitCode,checks:copy(v.checks||null),stdout:String(r.stdout||'').slice(0,6000),stderr:String(r.stderr||'').slice(0,6000),stdoutBytes:r.stdoutBytes??null,stderrBytes:r.stderrBytes??null,stdoutSha256:r.stdoutSha256||null,stderrSha256:r.stderrSha256||null,coverage:'Retained output previews may be incomplete; bytes and hashes describe complete retained logs.'};
  }

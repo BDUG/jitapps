@@ -348,6 +348,13 @@ Design reference: [Anthropic: writing effective tools for agents](https://www.an
 
 Command receipts expose `stdoutSha256` and `stderrSha256` for complete raw log bytes, even when returned previews are paged. Python and Rust compute these with streaming reads. Consumers can compare the full outputs without loading them into the model context; these hashes certify neither command correctness nor the completeness of a program's own logging. The VS Code unchanged-cycle guard uses full digests and avoids equating incomplete legacy previews.
 
+### Additional Coding-Agent Tools (Python, JavaScript `LocalRuntime`, and Native Rust)
+- **Multi-file unified patching**: `apply_patch` applies `*** Begin Patch` / `*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** End Patch` hunks atomically with edit permissions and session backups.
+- **Discovery & git inspection**: `find_files` (glob discovery), `grep_search` (case-sensitive/insensitive search with `include` glob), `parallel_read` (1–8 read-only requests), `git_status`, `git_diff`, `git_log`, and `discover_tools`.
+- **Code navigation & diagnostics**: `code_symbols`, `code_definition`, `code_references`, and `code_diagnostics` (AST/TypeScript bindings in Python; syntax/prefix/compiler-check navigation in native Rust).
+- **Multimodal & web**: `read_image` (returns bounded base64 `dataUrl` + SHA-256) and SSRF-guarded `web_fetch` / `web_search` (HTTPS-only, private/loopback IP blocking).
+- **Interactive processes & delegation**: `start_process` / `write_stdin` / `stop_process` (allowlisted piped child processes) and `spawn_agent` in `ReactAgent` (bounded child ReAct runs capped by parent permissions).
+
 ## Optional model handoff
 
 [Evidence-driven model handoff](README.md#model-handoff) adds shadow evaluation and an opt-in one-time primary-to-efficient switch, configurable in the relay and VS Code and available through JavaScript, Python and native Rust APIs. Saved role state survives resume; existing permissions and verification gates still apply.

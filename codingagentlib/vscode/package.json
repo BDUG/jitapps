@@ -349,6 +349,24 @@
           "scope": "machine",
           "description": "Optional one-time primary-to-continuation handoff. Shadow records readiness without switching. Inactive without a continuation role. Evaluator calls can incur costs. Existing configured sessions require unchanged roles."
         },
+        "codingagent.decisionMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "off",
+            "assist",
+            "gate"
+          ],
+          "default": "auto",
+          "scope": "machine",
+          "description": "Optional ReAct decision-model mode: auto (assist when decisionModel is configured, otherwise off), off, assist (advisory), or gate (pre-execution approval/veto)."
+        },
+        "codingagent.decisionModel": {
+          "type": "object",
+          "default": {},
+          "scope": "machine",
+          "description": "Optional separate provider configuration for the decision model ({ endpoint, model, transport, profileId })."
+        },
         "codingagent.inputModalities": {
           "type": "array",
           "items": {

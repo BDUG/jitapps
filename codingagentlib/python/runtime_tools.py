@@ -30,6 +30,7 @@ _EDIT_TOOLS = {
     'write_file',
     'replace_text',
     'apply_edits',
+    'apply_patch',
     'delete_file',
     'restore_file',
     'write_script',
@@ -41,6 +42,9 @@ _EDIT_TOOLS = {
 }
 _COMMAND_TOOLS = {
     'run_command',
+    'start_process',
+    'write_stdin',
+    'stop_process',
     'run_script',
     'script_run',
     'workflow_run',

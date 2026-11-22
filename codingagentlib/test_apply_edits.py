@@ -38,3 +38,66 @@ class ApplyEditsTests(unittest.TestCase):
         def edit(i):return runtime.dispatch({'op':'tool','session':sessions[i],'tool':'apply_edits','callId':'competing-'+str(i),'args':{'path':'source.txt','expectedHash':hashlib.sha256(b'old').hexdigest(),'edits':[{'find':'old','replacement':'writer'+str(i)}]}})
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(edit,range(2)))
         self.assertEqual(sum(r['ok'] for r in results),1);self.assertIn(path.read_text(),['writer0','writer1'])
+
+    def test_apply_patch_discovery_image_git_and_interactive_process(self):
+        import sys
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'src').mkdir()
+            (root / 'src' / 'mod.py').write_text('def hello():\n    return "old"\n', encoding='utf-8')
+            (root / 'drop.txt').write_text('remove me\n', encoding='utf-8')
+            (root / 'dot.png').write_bytes(b'\x89PNG\r\n\x1a\n\x00\x00\x00\r')
+            rt = Runtime(root, commands=[sys.executable])
+            try:
+                s = rt.dispatch({'op': 'start', 'goal': 'SDK parity', 'tool': 'test', 'allowEdits': True, 'allowCommands': True})
+                sid = s['id']
+
+                # find_files & grep_search
+                found = rt.dispatch({'op': 'tool', 'session': sid, 'callId': 'ff', 'tool': 'find_files', 'args': {'pattern': '*.py', 'path': 'src'}})
+                self.assertEqual(found['result']['files'], ['src/mod.py'])
+                grep = rt.dispatch({'op': 'tool', 'session': sid, 'callId': 'gs', 'tool': 'grep_search', 'args': {'query': 'HELLO', 'caseSensitive': False, 'include': '*.py'}})
+                self.assertEqual(grep['result']['total'], 1)
+
+                # read_image
+                img = rt.dispatch({'op': 'tool', 'session': sid, 'callId': 'img', 'tool': 'read_image', 'args': {'path': 'dot.png'}})
+                self.assertEqual(img['result']['mimeType'], 'image/png')
+                self.assertTrue(img['result']['dataUrl'].startswith('data:image/png;base64,'))
+
+                # apply_patch (add + update + delete)
+                patch = "\n".join([
+                    "*** Begin Patch",
+                    "*** Add File: src/added.txt",
+                    "+created",
+                    "*** Update File: src/mod.py",
+                    "@@",
+                    " def hello():",
+                    '-    return "old"',
+                    '+    return "new"',
+                    "*** Delete File: drop.txt",
+                    "*** End Patch",
+                ])
+                patched = rt.dispatch({'op': 'tool', 'session': sid, 'callId': 'ap', 'tool': 'apply_patch', 'args': {'patch': patch}})
+                self.assertTrue(patched['ok'])
+                self.assertEqual((root / 'src' / 'added.txt').read_text(encoding='utf-8'), 'created\n')
+                self.assertIn('return "new"', (root / 'src' / 'mod.py').read_text(encoding='utf-8'))
+                self.assertFalse((root / 'drop.txt').exists())
+
+                # start_process + write_stdin + stop_process
+                proc = rt.dispatch({'op': 'tool', 'session': sid, 'callId': 'sp', 'tool': 'start_process', 'args': {'command': sys.executable, 'args': ['-u', '-c', 'import sys; print("got:" + sys.stdin.readline().strip(), flush=True)']}})
+                pid = proc['result']['processId']
+                wr = rt.dispatch({'op': 'tool', 'session': sid, 'callId': 'ws', 'tool': 'write_stdin', 'args': {'processId': pid, 'input': 'ping\n', 'eof': True, 'waitMs': 2000}})
+                self.assertIn('got:ping', wr['result']['stdout'])
+                self.assertFalse(wr['result']['running'])
+                self.assertEqual(wr['result']['exitCode'], 0)
+
+                # web_fetch SSRF guard blocks http, localhost, and private IPs
+                for idx, bad_url in enumerate((
+                    'http://example.com',
+                    'https://localhost/secret',
+                    'https://127.0.0.1/admin',
+                    'https://169.254.169.254/latest/meta-data',
+                )):
+                    wf = rt.dispatch({'op': 'tool', 'session': sid, 'callId': f'wf-{idx}', 'tool': 'web_fetch', 'args': {'url': bad_url}})
+                    self.assertFalse(wf['ok'], f'Expected SSRF block for {bad_url}')
+            finally:
+                rt.close()

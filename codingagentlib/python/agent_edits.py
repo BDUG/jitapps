@@ -31,3 +31,105 @@ def apply(source,edits):
         result.extend((source[offset:start],replacement));offset=end
     result.append(source[offset:])
     return ''.join(result),len(spans)
+
+
+def parse_patch(patch):
+    if not isinstance(patch, str) or not patch.strip():
+        raise ValueError('Provide a nonempty patch string')
+    lines = patch.splitlines()
+    i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    if i >= len(lines) or lines[i].strip() != '*** Begin Patch':
+        raise ValueError("Patch must start with '*** Begin Patch'")
+    i += 1
+    ops = []
+    ended = False
+    while i < len(lines):
+        line = lines[i]
+        if line.strip() == '*** End Patch':
+            ended = True
+            break
+        if line.startswith('*** Add File: '):
+            path = line[len('*** Add File: '):].strip()
+            if not path:
+                raise ValueError('Add File requires a path')
+            i += 1
+            body = []
+            while i < len(lines) and not lines[i].startswith('*** '):
+                if not lines[i].startswith('+'):
+                    raise ValueError(f"Add File {path}: lines must start with '+'")
+                body.append(lines[i][1:])
+                i += 1
+            text = '\n'.join(body) + ('\n' if body else '')
+            ops.append((path, 'add', text))
+        elif line.startswith('*** Delete File: '):
+            path = line[len('*** Delete File: '):].strip()
+            if not path:
+                raise ValueError('Delete File requires a path')
+            i += 1
+            ops.append((path, 'delete', None))
+        elif line.startswith('*** Update File: '):
+            path = line[len('*** Update File: '):].strip()
+            if not path:
+                raise ValueError('Update File requires a path')
+            i += 1
+            hunks = []
+            current = None
+            while i < len(lines) and not lines[i].startswith('*** '):
+                l = lines[i]
+                if l.startswith('@@'):
+                    if current is not None:
+                        hunks.append(current)
+                    current = []
+                elif l and l[0] in (' ', '+', '-'):
+                    if current is None:
+                        raise ValueError(f'Update File {path}: hunk line before @@')
+                    current.append((l[0], l[1:]))
+                else:
+                    raise ValueError(f'Update File {path}: invalid patch line {l!r}')
+                i += 1
+            if current is not None:
+                hunks.append(current)
+            if not hunks:
+                raise ValueError(f'Update File {path}: at least one @@ hunk is required')
+            ops.append((path, 'update', hunks))
+        else:
+            raise ValueError(f'Unexpected patch directive: {line}')
+    if not ended:
+        raise ValueError("Patch must end with '*** End Patch'")
+    if not ops:
+        raise ValueError('Patch contains no file operations')
+    return ops
+
+
+def apply_hunks(source, hunks):
+    if not isinstance(source, str) or '\0' in source or len(source.encode('utf-8')) > MAX_BYTES:
+        raise ValueError('apply_patch needs a UTF-8 text file under 2 MB')
+    had_trailing_nl = source.endswith('\n')
+    lines = [l.rstrip('\r') for l in source.splitlines()]
+    cursor = 0
+    for hi, hunk in enumerate(hunks):
+        old_lines = [txt for op, txt in hunk if op in (' ', '-')]
+        new_lines = [txt for op, txt in hunk if op in (' ', '+')]
+        if not old_lines:
+            pos = min(cursor, len(lines))
+            lines[pos:pos] = new_lines
+            cursor = pos + len(new_lines)
+            continue
+        found = None
+        limit = len(lines) - len(old_lines)
+        for start in range(cursor, max(cursor, limit + 1)):
+            if lines[start:start + len(old_lines)] == old_lines:
+                found = start
+                break
+        if found is None:
+            raise ValueError(f'Hunk {hi + 1} did not match source context; reread the file')
+        lines[found:found + len(old_lines)] = new_lines
+        cursor = found + len(new_lines)
+    out = '\n'.join(lines)
+    if had_trailing_nl or out:
+        out += '\n'
+    if len(out.encode('utf-8')) > MAX_BYTES:
+        raise ValueError('Patched file exceeds 2 MB limit')
+    return out

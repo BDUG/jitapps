@@ -1,12 +1,19 @@
 """Local coding-agent workspace tools. File paths are bounded; commands are not an OS sandbox."""
 from __future__ import annotations
+import base64
 import codecs
 import errno
+import fnmatch
 import copy
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
+import queue
+import socket
+import urllib.parse
+import urllib.request
 import re
 import shutil
 import sqlite3
@@ -73,11 +80,20 @@ TOOLS = [
  {'name':'code_diagnostics','description':'Read TypeScript/JavaScript compiler diagnostics or Python syntax diagnostics without executing source. Python results are not a type checker.','arguments':{'path':'source path','cursor':'integer','limit':'1..200'}},
  {'name':'memory_reindex','description':'Rebuild up to limit missing learned memory vectors for the configured model. Repeat until done; never mixes vectors from different models.','arguments':{'limit':'1..10000 chunks, default 32'}},
  {'name':'list_files','description':'List workspace files recursively; cursor/limit provide pagination.','arguments':{'path':'relative directory, default .','cursor':'integer, default 0','limit':'1..500, default 100'}},
+ {'name':'find_files','description':'Find workspace files matching a glob pattern (optional path subdirectory, offset, limit).','arguments':{'pattern':'glob pattern, default *','path':'optional relative subdirectory','offset':'integer, default 0','limit':'1..1000, default 200'}},
  {'name':'read_file','description':'Read a UTF-8 text page and its SHA-256. Use returned SHA on edits.','arguments':{'path':'relative file','offset':'character offset, default 0','limit':'1..64000, default 12000'}},
  {'name':'read_files','description':'Read 1–16 UTF-8 text files with per-file offset/limit paging within a 64000-character combined budget.','arguments':{'files':'array of {path, offset?, limit?} or paths array','offset':'default character offset','limit':'default character limit per file'}},
+ {'name':'read_image','description':'Read a workspace image (.png, .jpg, .jpeg, .webp, .gif up to 8 MB) as base64 dataUrl with metadata.','arguments':{'path':'relative image path'}},
+ {'name':'web_fetch','description':'Fetch a public HTTPS URL (SSRF-guarded) in bounded text pages.','arguments':{'url':'https:// URL','offset':'character offset, default 0','limit':'1..64000, default 12000'}},
+ {'name':'web_search','description':'Search the web via HTTPS for public documentation or references.','arguments':{'query':'search query','limit':'1..10, default 5'}},
  {'name':'search','description':'Literal text search, excluding dependencies/private files; paginated matches.','arguments':{'query':'literal nonempty text','path':'relative directory, default .','cursor':'integer','limit':'1..200'}},
+ {'name':'grep_search','description':'Search workspace text with optional path subdirectory, glob include filter, caseSensitive flag, offset and limit.','arguments':{'query':'nonempty search text','path':'optional relative subdirectory','include':'optional glob filter e.g. *.py','caseSensitive':'boolean, default true','offset':'integer, default 0','limit':'1..1000, default 200'}},
+ {'name':'git_status','description':'Inspect read-only git working tree status and current branch.','arguments':{}},
+ {'name':'git_diff','description':'Inspect read-only git diff (optional staged flag, path filter, offset, limit).','arguments':{'staged':'boolean, default false','path':'optional relative file path','offset':'character offset, default 0','limit':'1..64000, default 12000'}},
+ {'name':'git_log','description':'Inspect read-only git commit history (optional limit, path filter, offset).','arguments':{'limit':'integer 1..200, default 20','path':'optional relative file path','offset':'character offset, default 0'}},
  {'name':'write_file','description':'Create/update text atomically. Existing files require expectedHash from read_file; new files require missing.','arguments':{'path':'relative file','content':'complete UTF-8 text','expectedHash':'SHA-256 or missing'}},
  {'name':'apply_edits','description':'Apply 1–32 exact edits to one existing UTF-8 file against its original snapshot. Validates every match and overlap before one atomic write; never sequentially matches generated replacement text. Requires edit permission and current expectedHash.','arguments':{'path':'existing relative file','expectedHash':'current SHA-256','edits':'array of {find:nonempty text,replacement:text,count?:exact match count 1..1000, default 1}'}},
+ {'name':'apply_patch','description':'Apply a unified multi-file Codex-style patch (*** Begin Patch / Add File / Update File / Delete File / *** End Patch) atomically.','arguments':{'patch':'complete unified patch text'}},
  {'name':'replace_text','description':'Exact source replacement guarded by SHA and expected occurrence count.','arguments':{'path':'relative file','find':'nonempty exact text','replacement':'text','expectedHash':'SHA-256','count':'expected occurrences, default 1'}},
  {'name':'delete_file','description':'Delete one file after reading it; creates a recovery copy. No directory deletion.','arguments':{'path':'relative file','expectedHash':'SHA-256'}},
  {'name':'list_scripts','description':'List this session’s managed working scripts.','arguments':{}},
@@ -85,6 +101,9 @@ TOOLS = [
  {'name':'read_script','description':'Read a page of a managed script.','arguments':{'path':'relative script name','offset':'character offset','limit':'1..64000'}},
  {'name':'delete_script','description':'Remove a managed script in this session.','arguments':{'path':'relative script name'}},
  {'name':'run_command','description':'Run an allowlisted executable with literal argv in a workspace subdirectory; returns real exit status, resolvedExecutable and output log IDs. Missing paths fall back to PATH by approved basename.','arguments':{'command':'allowlisted name','args':'array of strings','cwd':'relative directory, default .','stdin':'optional text','timeout':'milliseconds, 100..600000'}},
+ {'name':'start_process','description':'Start an allowlisted interactive child process with piped stdin/stdout/stderr; returns processId.','arguments':{'command':'allowlisted name','args':'array of strings','cwd':'relative directory, default .'}},
+ {'name':'write_stdin','description':'Write input (or eof) to a running interactive process and read available stdout/stderr output.','arguments':{'processId':'process ID from start_process','input':'optional text to write to stdin','eof':'optional boolean to close stdin','waitMs':'optional wait milliseconds 0..5000, default 200'}},
+ {'name':'stop_process','description':'Terminate an interactive child process started by start_process.','arguments':{'processId':'process ID from start_process'}},
  {'name':'run_script','description':'Execute a managed script using an allowlisted interpreter; missing interpreter paths fall back to PATH by approved basename.','arguments':{'path':'managed script name','command':'allowlisted interpreter','args':'array','cwd':'relative directory','timeout':'milliseconds'}},
  {'name':'read_command_output','description':'Read full stdout/stderr logs in pages; previews are not complete logs. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes.','arguments':{'jobId':'returned command job ID','stream':'stdout or stderr','offset':'character offset','limit':'1..64000'}},
  {'name':'changes','description':'Compare current project files with the initial manifest, including command-created changes.','arguments':{}},
@@ -204,6 +223,7 @@ class Runtime:
         self.project_memory=ProjectMemory(self.memory) if self.memory else None
         self.knowledge=ProjectKnowledge(self.memory) if self.memory else None
         self._knowledge_dirty=True
+        self._processes={}
         self.skills=Skills(self.state/'skills.sqlite3') if self.state else None
         self.tool_library=ToolLibrary(tool_library or self.state/'tool-library.sqlite3') if self.state else None
         if self.tool_library:self.private_paths.update(Path(str(self.tool_library.path.resolve())+suffix) for suffix in ('','-wal','-shm','-journal'))
@@ -629,6 +649,87 @@ class Runtime:
                 res=self.page(self.path(spec['path']),{'offset':spec.get('offset',default_offset),'limit':lim})
                 used+=len(res.get('text',''));out.append(res)
             return {'files':out,'totalCharacters':used,'truncated':truncated}
+        if name=='read_image':
+            p=self.path(a['path'])
+            if not p.is_file():raise FileNotFoundError('Image file not found: '+a['path'])
+            ext=p.suffix.lower()
+            mimes={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif'}
+            mime=mimes.get(ext)
+            if not mime:raise ValueError('Unsupported image extension; use png, jpg, jpeg, webp, or gif')
+            size=p.stat().st_size
+            if size>8*1024*1024:raise ValueError('Image exceeds 8 MB limit')
+            raw=p.read_bytes();sha=digest(raw);b64=base64.b64encode(raw).decode('ascii')
+            return {'path':a['path'],'mimeType':mime,'bytes':len(raw),'sha256':sha,'dataUrl':f'data:{mime};base64,{b64}'}
+        if name=='web_fetch':
+            url=a.get('url','')
+            self._validate_public_https_url(url)
+            raw,ctype=self._fetch_https(url)
+            text=self._strip_html(raw) if ('html' in ctype.lower() or raw.lstrip().startswith('<')) else raw
+            return {**self._page_text(text,a),'url':url,'contentType':ctype}
+        if name=='web_search':
+            query=a.get('query')
+            if not isinstance(query,str) or not query.strip():raise ValueError('Provide a nonempty search query')
+            lim=integer(a.get('limit'),5,1,10)
+            url='https://html.duckduckgo.com/html/?q='+urllib.parse.quote_plus(query.strip())
+            self._validate_public_https_url(url)
+            raw,_=self._fetch_https(url)
+            results=self._parse_ddg_html(raw,lim)
+            return {'query':query,'results':results,'total':len(results)}
+        if name=='find_files':
+            pattern=a.get('pattern') or '*'
+            if not isinstance(pattern,str):raise ValueError('pattern must be a string')
+            sub=a.get('path') or '.'
+            directory=self.path(sub,directory=True)
+            off=integer(a.get('offset'),0,0,2**31);lim=integer(a.get('limit'),200,1,1000)
+            matched=[]
+            for p in self.files(directory):
+                rel=str(p.relative_to(self.root)).replace('\\','/')
+                if fnmatch.fnmatch(rel,pattern) or ('/' not in pattern and fnmatch.fnmatch(p.name,pattern)):
+                    matched.append(rel)
+            return {'files':matched[off:off+lim],'offset':off,'nextOffset':min(len(matched),off+lim),'total':len(matched),'done':off+lim>=len(matched)}
+        if name=='grep_search':
+            query=a.get('query')
+            if not isinstance(query,str) or not query or len(query)>1000:raise ValueError('Provide a nonempty search query under 1000 characters')
+            sub=a.get('path') or '.'
+            include=a.get('include') or ''
+            case_sensitive=a.get('caseSensitive',True) is not False
+            needle=query if case_sensitive else query.casefold()
+            off=integer(a.get('offset'),0,0,2**31);lim=integer(a.get('limit'),200,1,1000)
+            matches=[]
+            for p in self.files(self.path(sub,directory=True)):
+                self.check(s)
+                rel=str(p.relative_to(self.root)).replace('\\','/')
+                if include and not (fnmatch.fnmatch(rel,include) or ('/' not in include and fnmatch.fnmatch(p.name,include))):continue
+                try:text=p.read_text(encoding='utf-8')
+                except (UnicodeError,OSError):continue
+                for i,line in enumerate(text.splitlines()):
+                    hay=line if case_sensitive else line.casefold()
+                    if needle in hay:matches.append({'path':rel,'line':i+1,'text':line[:500]})
+            return {'matches':matches[off:off+lim],'offset':off,'nextOffset':min(len(matches),off+lim),'total':len(matches),'done':off+lim>=len(matches)}
+        if name=='git_status':
+            out=self._git_cmd(['status','--porcelain=v1','-b'])
+            branch='';entries=[]
+            for line in out.splitlines():
+                if line.startswith('## '):branch=line[3:]
+                elif len(line)>=4:entries.append({'status':line[:2].strip(),'path':line[3:].strip()})
+            return {'branch':branch,'clean':not entries,'total':len(entries),'entries':entries}
+        if name=='git_diff':
+            staged=a.get('staged') is True
+            cmd=['diff']
+            if staged:cmd.append('--staged')
+            if a.get('path'):
+                self.path(a['path'])
+                cmd.extend(['--',a['path']])
+            out=self._git_cmd(cmd)
+            return {**self._page_text(out,a),'staged':staged}
+        if name=='git_log':
+            lim=integer(a.get('limit'),20,1,200)
+            cmd=['log','--oneline','-n',str(lim)]
+            if a.get('path'):
+                self.path(a['path'])
+                cmd.extend(['--',a['path']])
+            out=self._git_cmd(cmd)
+            return self._page_text(out,{'offset':a.get('offset',0)})
         if name=='search':
             query=a.get('query');
             if not isinstance(query,str) or not query or len(query)>1000:raise ValueError('Provide a literal query under 1000 characters')
@@ -643,6 +744,35 @@ class Runtime:
                     if cursor<=total<cursor+limit:matches.append({'path':relative,'line':i+1,'excerpt':line[:500]})
                     total+=1
             return {'matches':matches,'nextCursor':min(total,cursor+limit),'total':total,'done':cursor+limit>=total}
+        if name=='apply_patch':
+            with self._file_edit_lock:
+                self.check(s);self.edits(s)
+                ops=agent_edits.parse_patch(a.get('patch'))
+                prepared=[]
+                for rel,kind,payload in ops:
+                    p=self.path(rel)
+                    if p.is_dir():raise ValueError('File tools do not replace or delete directories')
+                    if kind=='add':
+                        if p.exists():raise FileExistsError(f'Add File target already exists: {rel}')
+                        prepared.append((rel,p,'added',payload))
+                    elif kind=='delete':
+                        if not p.is_file():raise FileNotFoundError(f'Delete File target does not exist: {rel}')
+                        prepared.append((rel,p,'deleted',None))
+                    else:
+                        source=p.read_text(encoding='utf-8')
+                        updated=agent_edits.apply_hunks(source,payload)
+                        prepared.append((rel,p,'updated',updated))
+                summary=[]
+                for rel,p,action,body in prepared:
+                    self.backup(s,p)
+                    if action=='deleted':
+                        p.unlink()
+                        summary.append({'path':rel,'action':'deleted'})
+                    else:
+                        raw=body.encode('utf-8')
+                        self.write(p,raw)
+                        summary.append({'path':rel,'action':action,'bytes':len(raw),'hash':digest(raw)})
+                return {'applied':True,'files':summary}
         if name in {'write_file','replace_text','apply_edits','delete_file','restore_file'}:
             with self._file_edit_lock:
                 self.check(s)
@@ -685,6 +815,9 @@ class Runtime:
             if name=='delete_script':self.edits(s);p.unlink();return {'deleted':a['path']}
             return self.command(s,a,script=p)
         if name=='run_command':return self.command(s,a)
+        if name=='start_process':return self._start_process(s,a)
+        if name=='write_stdin':return self._write_stdin(s,a)
+        if name=='stop_process':return self._stop_process(s,a)
         if name=='read_command_output':
             job=a.get('jobId');stream=a.get('stream','stdout')
             if job not in s['jobs'] or stream not in {'stdout','stderr'}:raise ValueError('Unknown command output')
@@ -1111,5 +1244,137 @@ class Runtime:
         return items[:limit]
     def close(self):
         self._context_cache=None
+        for proc in list(self._processes.values()):
+            try:
+                if proc['proc'].stdin:proc['proc'].stdin.close()
+            except OSError:pass
+            try:proc['proc'].kill()
+            except OSError:pass
+            try:proc['proc'].wait(timeout=1)
+            except (OSError,subprocess.TimeoutExpired):pass
+        self._processes.clear()
         for session in list(self.sessions.values()):
             if session['status']=='running':self.cancel(session)
+    def _git_cmd(self,args):
+        proc=subprocess.run(['git','-C',str(self.root),*args],capture_output=True,text=True,timeout=15)
+        if proc.returncode!=0:
+            raise ValueError((proc.stderr or f'git {args[0]} failed').strip())
+        return proc.stdout
+    def _page_text(self,value,args):
+        start=integer(args.get('offset'),0,0,2**31)
+        lim=integer(args.get('limit'),12000,1,64000)
+        if start>len(value):raise ValueError('Offset exceeds text length')
+        end=min(len(value),start+lim)
+        return {'text':value[start:end],'offset':start,'nextOffset':end if end<len(value) else None,'done':end>=len(value),'totalCharacters':len(value)}
+    def _start_process(self,s,a):
+        if not s['allowCommands']:raise PermissionError('Commands were not enabled for this session')
+        if len(self._processes)>=16:raise ValueError('Too many active interactive processes (max 16)')
+        command=a.get('command')
+        exe=self.resolve_command(command)
+        argv=a.get('args') or []
+        if not isinstance(argv,list) or len(argv)>100 or any(not isinstance(x,str) or '\0' in x or len(x)>20000 for x in argv):raise ValueError('Use up to 100 literal text arguments without NUL')
+        cwd=self.path(a.get('cwd','.'),directory=True)
+        proc=subprocess.Popen([str(exe),*argv],cwd=str(cwd),stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        out_q=queue.Queue();err_q=queue.Queue()
+        def pump(stream,q):
+            try:
+                while True:
+                    chunk=stream.read1(4096) if hasattr(stream,'read1') else stream.read(4096)
+                    if not chunk:break
+                    q.put(chunk)
+            except OSError:pass
+        threading.Thread(target=pump,args=(proc.stdout,out_q),daemon=True).start()
+        threading.Thread(target=pump,args=(proc.stderr,err_q),daemon=True).start()
+        pid=uuid.uuid4().hex[:16]
+        self._processes[pid]={'proc':proc,'out':out_q,'err':err_q,'stdin_closed':False}
+        return {'processId':pid,'command':command,'resolvedExecutable':str(exe)}
+    def _write_stdin(self,s,a):
+        if not s['allowCommands']:raise PermissionError('Commands were not enabled for this session')
+        pid=a.get('processId')
+        entry=self._processes.get(pid)
+        if not entry:raise ValueError(f'Unknown interactive process: {pid}')
+        proc=entry['proc']
+        if isinstance(a.get('input'),str):
+            if entry['stdin_closed'] or not proc.stdin:raise ValueError('Process stdin is already closed')
+            proc.stdin.write(a['input'].encode('utf-8'));proc.stdin.flush()
+        if a.get('eof') is True and not entry['stdin_closed']:
+            entry['stdin_closed']=True
+            try:proc.stdin.close()
+            except OSError:pass
+        wait_ms=integer(a.get('waitMs'),200,0,5000)
+        deadline=time.monotonic()+(wait_ms/1000.0)
+        exit_code=proc.poll()
+        while exit_code is None and time.monotonic()<deadline:
+            time.sleep(0.01)
+            exit_code=proc.poll()
+        if exit_code is not None:time.sleep(0.015)
+        def drain(q):
+            chunks=[]
+            while True:
+                try:chunks.append(q.get_nowait())
+                except queue.Empty:break
+            return b''.join(chunks).decode('utf-8','replace')
+        stdout=drain(entry['out']);stderr=drain(entry['err'])
+        running=exit_code is None
+        if not running:
+            self._processes.pop(pid,None)
+            for st in (proc.stdin,proc.stdout,proc.stderr):
+                try:
+                    if st:st.close()
+                except OSError:pass
+        return {'processId':pid,'running':running,'exitCode':exit_code,'stdout':stdout,'stderr':stderr}
+    def _stop_process(self,s,a):
+        if not s['allowCommands']:raise PermissionError('Commands were not enabled for this session')
+        pid=a.get('processId')
+        entry=self._processes.pop(pid,None)
+        if not entry:raise ValueError(f'Unknown interactive process: {pid}')
+        proc=entry['proc']
+        try:
+            if proc.stdin:proc.stdin.close()
+        except OSError:pass
+        try:proc.kill()
+        except OSError:pass
+        try:exit_code=proc.wait(timeout=2)
+        except (OSError,subprocess.TimeoutExpired):exit_code=None
+        return {'processId':pid,'stopped':True,'exitCode':exit_code}
+    def _validate_public_https_url(self,url):
+        if not isinstance(url,str) or not url.startswith('https://'):
+            raise ValueError('Only https:// URLs are permitted')
+        parsed=urllib.parse.urlparse(url)
+        host=(parsed.hostname or '').strip().lower()
+        if not host or '@' in parsed.netloc or host=='localhost' or host.endswith(('.local','.internal')):
+            raise ValueError('Local/private hosts are blocked')
+        def check_ip(ip_obj):
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_multicast or ip_obj.is_reserved or ip_obj.is_unspecified:
+                raise ValueError('Private or loopback IP addresses are blocked')
+        try:
+            check_ip(ipaddress.ip_address(host))
+        except ValueError as err:
+            if 'blocked' in str(err):raise
+            try:
+                for info in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM):
+                    check_ip(ipaddress.ip_address(info[4][0]))
+            except socket.gaierror:pass
+    def _fetch_https(self,url):
+        req=urllib.request.Request(url,headers={'User-Agent':'codingagentlib/1.0'})
+        with urllib.request.urlopen(req,timeout=10) as resp:
+            ctype=resp.headers.get('Content-Type','text/plain')
+            data=resp.read(262145)
+            if len(data)>262144:data=data[:262144]
+            return data.decode('utf-8','replace'),ctype
+    def _strip_html(self,html):
+        text=re.sub(r'<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>',' ',html,flags=re.I|re.S)
+        text=re.sub(r'<[^>]+>',' ',text)
+        return re.sub(r'\s+',' ',text).strip()
+    def _parse_ddg_html(self,html,limit):
+        results=[]
+        for chunk in html.split('class="result__a"')[1:]:
+            if len(results)>=limit:break
+            href_m=re.search(r'href="([^"]+)"',chunk)
+            title_m=re.search(r'>(.*?)</a>',chunk,re.S)
+            snip_m=re.search(r'class="result__snippet"[^>]*>(.*?)</a>',chunk,re.S)
+            href=href_m.group(1) if href_m else ''
+            title=self._strip_html(title_m.group(1)) if title_m else ''
+            snippet=self._strip_html(snip_m.group(1)) if snip_m else ''
+            if title and href:results.append({'title':title,'url':href,'snippet':snippet})
+        return results

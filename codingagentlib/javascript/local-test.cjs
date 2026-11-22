@@ -5,4 +5,12 @@ const coreAgent=createAgent({tools,model:async r=>{const obs=r.events.filter(e=>
 const coreRes=await coreAgent.run('Run script and program via CoreAgent',{allowEdits:true,allowCommands:true});assert.equal(coreRes.status,'complete');
 const libList=await runtime.scriptLibrary('list');assert.ok(Array.isArray(libList.scripts));
 const toolLibList=await runtime.toolLibrary('list');assert.ok(Array.isArray(toolLibList.items));
+const coreTools=await runtime.coreTools({allowEdits:true,allowCommands:true});
+const byName=new Map(coreTools.map(t=>[t.name,t]));
+for(const expected of ['find_files','grep_search','read_image','git_status','git_diff','git_log','apply_patch','start_process','write_stdin','stop_process'])assert.ok(byName.has(expected),'missing coreTool '+expected);
+assert.equal(byName.get('apply_patch').permission,'edits');
+assert.equal(byName.get('start_process').permission,'commands');
+assert.equal(byName.get('write_stdin').permission,'commands');
+assert.equal(byName.get('stop_process').permission,'commands');
+assert.equal(byName.get('find_files').permission,'read');
 console.log('PASS standalone JavaScript core/local runtime: real file write, verification command, trace, bounded pause and active-command cancellation.');}finally{await runtime.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

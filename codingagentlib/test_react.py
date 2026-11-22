@@ -144,6 +144,26 @@ class ReactAgentTests(unittest.TestCase):
                 self.assertTrue(any(e['kind'] == 'decision' for e in events))
                 self.assertTrue(any(e['kind'] == 'decision_gate' and not e['decision']['approve'] for e in events))
 
+    def test_spawn_agent_subagent_delegation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            (ws / 'note.txt').write_text('child-secret\n', encoding='utf-8')
+
+            def model(req):
+                if 'Inspect note.txt' in req.get('goal', ''):
+                    if not any(e.get('kind') == 'observation' for e in req['events']):
+                        return {'sessionId': req['sessionId'], 'step': req['step'], 'status': 'act', 'plan': 'Read note', 'action': {'tool': 'read_file', 'args': {'path': 'note.txt'}}}
+                    return {'sessionId': req['sessionId'], 'step': req['step'], 'status': 'done', 'plan': 'Done', 'action': None, 'outcome': 'complete', 'summary': 'Found child-secret'}
+                if not any(e.get('kind') == 'observation' and e['value'].get('tool') == 'spawn_agent' for e in req['events']):
+                    self.assertTrue(any(t['name'] == 'spawn_agent' for t in req['tools']))
+                    return {'sessionId': req['sessionId'], 'step': req['step'], 'status': 'act', 'plan': 'Delegate', 'action': {'tool': 'spawn_agent', 'args': {'goal': 'Inspect note.txt', 'maxSteps': 4}}}
+                return {'sessionId': req['sessionId'], 'step': req['step'], 'status': 'done', 'plan': 'Done', 'action': None, 'outcome': 'complete', 'summary': 'Delegated and verified'}
+
+            with ReactAgent(ws) as agent:
+                res = agent.run('Coordinate subtask', model)
+                self.assertEqual(res['status'], 'complete')
+                self.assertEqual(res['summary'], 'Delegated and verified')
+
 
 if __name__ == '__main__':
     unittest.main()
