@@ -53,6 +53,7 @@
   const briefGuidance = {
     markiX: "Preserve Markdown/RST syntax, unrelated exact source, custom directives and code. Propose complete reviewed source edits without claiming an unexecuted Sphinx build.",
     formiX: "Preserve formula IDs, source, notes and active selection. Use base/AMS TeX without delimiters, macros, HTML or external files. State assumptions and do not invent a numerical verification.",
+    trackiX: "Preserve issue IDs, keys, comments and sprints. Use valid statuses (backlog, todo, in_progress, in_review, done) and priorities without inventing completed verification.",
     cncfiX: "Preserve existing category, subcategory and item IDs, maturity levels and layout settings. Keep each item linked to a valid categoryId and subcategoryId, and propose complete reviewed edits.",
     schematiX: "Infer schemas and source-linked ontology concepts from examples. Preserve evidence, identify hypotheses, and propose reviewable graph edits.",
     mergiX: "Compare only checked text paths. Preserve all left/right/base inputs and unrelated results. Propose merged results for review; never claim semantic correctness, tests or source-file writes.",
@@ -154,6 +155,7 @@
   const startingPoints = {
     markiX: ["Draft a clear technical guide", "Create a structured editable guide in the current Markdown or RST format, preserving existing content and source-only constructs.", "Headings, lists, examples and next steps are clear, source format stays intact, and changes require review."],
     formiX: ["Create a formula reference sheet", "Add related editable formulas, clear variable definitions and assumptions for the requested topic.", "Sources render with local base/AMS TeX, notation is consistent, unrelated formulas remain intact, and proposed changes require review."],
+    trackiX: ["Plan a sprint and triage issues", "Organize backlog epics, stories, and bugs into the active sprint with priorities, story points, and clear acceptance summaries.", "Existing issue keys and comments remain intact, blockers are explicit, and proposed board updates require review."],
     cncfiX: ["Map a cloud native platform stack", "Add categorized CNCF projects with accurate maturity levels, subcategories, and concise architecture notes.", "All items belong to valid categories/subcategories, existing selections remain valid, and proposed changes require review."],
     schematiX: ["Discover example structure", "Infer candidate schemas and a source-linked ontology and knowledge graph from the imported examples.", "Source evidence is preserved, inferred constraints are identified as hypotheses, and graph edits remain reviewable."],
     mergiX: ["Review and merge selected changes", "Explain semantic differences in the checked paths and propose compatible merged results, identifying conflicts that require a decision.", "Comparison inputs and unchecked paths are unchanged; merged results are reviewable, unresolved choices are disclosed, and no tests or filesystem writes are claimed."],

@@ -109,7 +109,8 @@
   }
   function inventory(
     rows,
-    { query = "", sort = "original", offset = 0, limit = 25 } = {},
+    { query = "", sort = "original", offset = 0, limit = 25,
+      field = "", operator = "contains", value = "", sortKey = "", direction = "asc" } = {},
   ) {
     if (
       !Array.isArray(rows) ||
@@ -120,6 +121,28 @@
       limit > 1000
     )
       throw Error("Use inventory rows and a valid page range.");
+    if (!["contains", "equals", "empty", "atLeast", "atMost"].includes(operator) ||
+        !["asc", "desc"].includes(direction) || typeof field !== "string" || typeof sortKey !== "string")
+      throw Error("Choose a valid inventory field filter and sort direction.");
+    const numeric = value => {
+      if (typeof value !== "number" && typeof value !== "string" || String(value).trim() === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    };
+    const bound = ["atLeast", "atMost"].includes(operator) && field ? numeric(value) : null;
+    if (field && ["atLeast", "atMost"].includes(operator) && bound === null)
+      throw Error("Enter a finite number for the inventory filter.");
+    const get = (row, key) => Object.hasOwn(row, key) ? row[key] : undefined;
+    const blank = value => value === undefined || value === null || String(value).trim() === "";
+    const fieldMatch = row => {
+      if (!field) return true;
+      const cell = get(row, field), text = String(cell ?? "").toLocaleLowerCase();
+      if (operator === "empty") return blank(cell);
+      if (operator === "equals") return !blank(cell) && text === String(value).toLocaleLowerCase();
+      if (operator === "contains") return text.includes(String(value).toLocaleLowerCase());
+      const number = numeric(cell);
+      return number !== null && (operator === "atLeast" ? number >= bound : number <= bound);
+    };
     const terms = String(query)
       .trim()
       .toLocaleLowerCase()
@@ -139,11 +162,23 @@
     let entries = rows
       .map((row, index) => ({ index, row }))
       .filter(({ row }) => {
+        if (!fieldMatch(row)) return false;
         if (!terms.length) return true;
         const text = JSON.stringify(row).toLocaleLowerCase();
         return terms.every((term) => text.includes(term));
       });
-    if (sort === "label") {
+    if (sortKey) {
+      const compare = new Intl.Collator(undefined, {numeric: true, sensitivity: "base"}).compare;
+      entries.sort((a, b) => {
+        const left = get(a.row, sortKey), right = get(b.row, sortKey);
+        // Missing values stay last in both directions; original identities remain stable.
+        if (blank(left) || blank(right)) return Number(blank(left)) - Number(blank(right)) || a.index - b.index;
+        const ln = numeric(left), rn = numeric(right);
+        const order = ln !== null && rn !== null ? ln - rn :
+          ln !== null ? -1 : rn !== null ? 1 : compare(String(left), String(right));
+        return order * (direction === "desc" ? -1 : 1) || a.index - b.index;
+      });
+    } else if (sort === "label") {
       const compare = new Intl.Collator(undefined, { numeric: true }).compare;
       entries.sort(
         (a, b) => compare(label(a.row), label(b.row)) || a.index - b.index,

@@ -13,6 +13,23 @@ const workflowEvents=[{index:0,kind:'observation',value:{id:'wf',tool:'workflow_
 const paired=[{index:0,kind:'action',value:{id:'source',tool:'read_file',args:{path:'src/important.js'}}},{index:1,kind:'observation',value:{id:'source',tool:'read_file',ok:true,result:{text:'important source '.repeat(400),hash:'source-hash'}}},...Array.from({length:30},(_,i)=>({index:i+2,kind:'assistant',value:{plan:'later work'}})),{index:32,kind:'observation',value:{id:'failed-read',tool:'read_file',ok:false,error:'Permission denied'}}];const pairedBefore=JSON.stringify(paired);const pairedView=C.pack({events:paired}).payload;assert.ok(pairedView.events.some(e=>e.kind==='action'&&e.value.args.path==='src/important.js'),'Retain action arguments for pinned evidence');assert.deepEqual(pairedView.events.find(e=>e.value?.id==='source'&&e.kind==='observation').value.result,paired[1].value.result,'A failed read does not displace the latest successful evidence');assert.ok(pairedView.events.some(e=>e.value?.id==='failed-read'));
 const browserPair=[{index:0,kind:'assistant',value:{status:'act',action:{tool:'read_file',args:{path:'browser-source.js'}}}},{index:1,kind:'observation',value:{id:'browser-call',tool:'read_file',ok:true,result:{text:'browser source'}}},...Array.from({length:30},(_,i)=>({index:i+2,kind:'assistant',value:{plan:'later work'}}))];assert.ok(C.pack({events:browserPair}).payload.events.some(e=>e.value?.action?.args.path==='browser-source.js'),'Pair browser-only assistant action history');
 assert.equal(JSON.stringify(paired),pairedBefore);
+// All pages in the newest sensing batch must remain readable, not only the
+// final child's public test file. Otherwise repeated reads never expose source.
+const batchSource='function repairMe() { return "current full source"; }\n'.repeat(200);
+const batchEvents=[
+ {index:0,kind:'action',value:{id:'batch',tool:'parallel_read',args:{requests:[{id:'source',tool:'read_file',args:{path:'source.js'}},{id:'test',tool:'read_file',args:{path:'test.js'}}]}}},
+ {index:1,kind:'observation',value:{id:'batch',tool:'parallel_read',ok:true,result:{format:'codingagentlib/parallel-read-v1',allSucceeded:true,results:[{id:'source',tool:'read_file',ok:true,result:{path:'source.js',text:batchSource,hash:'actual-source-hash'}},{id:'test',tool:'read_file',ok:true,result:{text:'assert(repairMe())'}}]}}}
+];
+const batchBefore=JSON.stringify(batchEvents),batchView=C.pack({events:batchEvents}).payload;
+assert.deepEqual(batchView.events.at(-1).value.result,batchEvents.at(-1).value.result);
+assert.equal(batchView.events[0].value.args.requests[0].args.path,'source.js');
+assert.equal(JSON.stringify(batchEvents),batchBefore);
+batchEvents[1].value.ok=false;batchEvents[1].value.result.allSucceeded=false;
+batchEvents[1].value.result.results[1]={id:'test',tool:'read_file',ok:false,error:'Unavailable test file'};
+assert.equal(C.pack({events:batchEvents}).payload.events.at(-1).value.result.results[0].result.text,batchSource);
+assert.equal(JSON.stringify(batchView.events.at(-1).value.result.results[0].result.text),JSON.stringify(batchSource));
+const multiFiles=[{kind:'observation',value:{id:'files',tool:'read_files',ok:true,result:{files:[{path:'source.js',text:batchSource}]}}}];
+assert.deepEqual(C.pack({events:multiFiles}).payload.events.at(-1).value.result,multiFiles[0].value.result);
 for(const mode of ['aggressive','balanced']){const view=C.pack({events:paired},{mode});assert.equal(view.stats.afterCharacters,JSON.stringify(view.payload).length);assert.equal(view.stats.beforeCharacters,JSON.stringify({events:paired}).length);}
 
 const recentTools=[{index:0,kind:'observation',value:{id:'old',tool:'code_symbols',ok:true,result:{symbols:['old']}}},...Array.from({length:20},(_,i)=>({index:i+1,kind:'observation',value:{id:'tool-'+i,tool:'other-'+i,ok:true,result:{}}})),{index:21,kind:'observation',value:{id:'fresh',tool:'code_symbols',ok:true,result:{symbols:['fresh']}}},...Array.from({length:30},(_,i)=>({index:i+22,kind:'assistant',value:{plan:'later'}}))];assert.ok(C.pack({events:recentTools}).payload.events.some(e=>e.value?.id==='fresh'),'Keep tools by latest use rather than first insertion order');

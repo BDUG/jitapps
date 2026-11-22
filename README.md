@@ -8,6 +8,8 @@ Twenty-four local-first apps for architecture, cloud native landscapes, graphics
 
 Every document app includes shared, Unicode-aware whole-word search, field-scoped replacement previews, paged results and full search-report export under **Workspace → Find & replace**. shelliX offers matching command-history filters and filtered history export. See the [shared workspace guide](shared-suite/README.md#search-and-review-across-apps).
 
+All 23 document editors also expose **Workspace → Tool actions** with reviewed edits and inventories that support field filters, numeric bounds, stable sorting and filtered export. shelliX provides a read-only command receipt inventory with the same query options. See the [inventory and capability guide](shared-suite/WORKSPACE.md#field-aware-inventory-views-across-the-suite).
+
 Document apps also offer read-only **Document preflight** under **Workspace → Inspect & share**, with app-specific findings, JSON reports and an editable AI-fix draft. shelliX can parse scripts with **Check shell syntax** without executing them.
 
 Use **Workspace → Templates** to save, search, import/export and review reusable native documents across sessions. shelliX has a command snippet library that fills inputs without automatic execution. Template libraries are separate from rolling recovery checkpoints.
@@ -339,7 +341,7 @@ Chat and coding-agent requests also support [multimodal image/audio/PDF referenc
 
 ## Workspace coding agent
 
-Optional **multi-model collaboration** lets solver and critic profiles discuss approaches before the active model coordinates the next action. Configure it in **AI provider settings → Multi-model coding-agent collaboration**; it is off by default. Adaptive routing consults at planning, failure and verification checkpoints, with a configurable call budget and inspectable discussions. See the [configuration and integration guide](codingagentlib/MODEL_COLLABORATION.md).
+Optional **multi-model collaboration** lets solver and critic profiles discuss approaches before the active model coordinates the next action. Configure it in **AI provider settings → Multi-model coding-agent collaboration**; it is off by default. Adaptive routing consults at planning, failure and verification checkpoints, with a configurable call budget and inspectable discussions. See the [configuration and integration guide](codingagentlib/README.md#model-collaboration).
 
 Advanced capabilities include [compiler/AST navigation, optional learned embeddings, independent review, task dependencies and real-model evaluations](shared-agent/TECHNIQUES.md). The guide also records the remaining technique gaps and setup requirements.
 
@@ -384,7 +386,7 @@ cargo test --manifest-path codingagentlib/rust/Cargo.toml
 
 A [standalone VS Code extension](codingagentlib/vscode/README.md) packages the native Rust agent with model chat, live trace, sessions and ZIP exports; it needs neither Python nor the suite server.
 
-The [cross-language embedding API](codingagentlib/INTEGRATION.md) offers host tools, model callbacks, progress/approval hooks and cancellation for JavaScript, Python and Rust, with a small Rust UI example.
+The [cross-language embedding API](codingagentlib/README.md#integration) offers host tools, model callbacks, progress/approval hooks and cancellation for JavaScript, Python and Rust, with a small Rust UI example.
 
 See [language examples, capabilities and protocol](codingagentlib/README.md) for permissions, step budgets, cancellation, packaging and the differences between the JavaScript and Python/Rust drivers.
 
@@ -494,7 +496,7 @@ Graph retrieval now shares Unicode search and deterministic traversal tests acro
 
 rstiX keeps recoverable drafts for source files and need fields, validates combined edits atomically, and guards exports and Undo against omitted pending changes. Portable draft backups and raw source downloads remain available when local browser recovery fails.
 
-The [coding SDK](codingagentlib/README.md) separates provider-independent orchestration from guarded workspace execution. Coding agents build a bounded, source-provenanced project ontology and knowledge graph automatically. Download/load graphs and ontologies per project through Project memory; treat them as reference data, not verified facts. Parameterized Python scripts, a reusable recipe library, pinned targets, versioned skills and JSON-RPC/MCP shell transports are documented in the [Coding Guide](codingagentlib/CODING_GUIDE.md).
+The [coding SDK](codingagentlib/README.md) separates provider-independent orchestration from guarded workspace execution. Coding agents build a bounded, source-provenanced project ontology and knowledge graph automatically. Download/load graphs and ontologies per project through Project memory; treat them as reference data, not verified facts. Parameterized Python scripts, a reusable recipe library, pinned targets, versioned skills and JSON-RPC/MCP shell transports are documented in the [Coding Guide](codingagentlib/README.md#coding-guide).
 
 [rstiX](rstiX/README.md) browses and edits RST/Sphinx-Needs documents with a sketch-style dependency graph and the common suite UX. Dependency edits update actual RST options, while graph dragging only updates layout. Native projects, RST ZIPs, needs.json and separate graph/ontology downloads make projects portable; no directives or configuration are executed.
 
@@ -536,7 +538,7 @@ In editors, **Workspace → Tool actions → Refresh inventory** opens a searcha
 
 All apps include **Notes & tasks** via **Tasks → Current app notes** or the app’s Workspace panel: app-scoped planning notes and checklists, reviewed JSON imports from local/virtual disk, JSON/Markdown exports and unsent AI drafts from unfinished tasks. Notebooks persist in this browser separately from native project files; export them for backup or transfer.
 
-Coding agents optionally support [evidence-driven model handoff](codingagentlib/MODEL_HANDOFF.md): configure primary/continuation roles in the relay or standalone VS Code extension, evaluate readiness in shadow mode, then opt into one persistent switch after implementation and real execution feedback. Existing permissions and completion checks remain authoritative.
+Coding agents optionally support [evidence-driven model handoff](codingagentlib/README.md#model-handoff): configure primary/continuation roles in the relay or standalone VS Code extension, evaluate readiness in shadow mode, then opt into one persistent switch after implementation and real execution feedback. Existing permissions and completion checks remain authoritative.
 
 architeX also provides [AI source import](architex/README.md#ai-source-importer-sketches-graphics-pdf-and-code) for sketches, graphics, PDFs, source code and archives, with explicit semantic merge options, proposal review and Undo.
 

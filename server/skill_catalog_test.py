@@ -19,7 +19,7 @@ class CatalogTests(unittest.TestCase):
         import re
         source=(Path(__file__).resolve().parent.parent/'shared-suite/apps.js').read_text()
         apps=re.findall(r"[\"']?id[\"']?\s*:\s*[\"']([^\"']+)[\"']",source)
-        self.assertEqual(len(apps),24)
+        self.assertEqual(len(apps),25)
         for app in apps:
             with self.subTest(app=app):
                 self.assertIn(app,APPS)
@@ -117,6 +117,10 @@ class CatalogTests(unittest.TestCase):
         for edits in [[],{id:{}},{'not-selected':{'name':'Bad','description':'','content':'x'}},{id:{'name':'x','description':'','content':''}},{id:{'name':'x','description':'','content':'x'*100001}}]:
             with self.assertRaises(ValueError):self.catalog.save_profile('codeiX',{**profile,'overrides':edits})
         with self.assertRaises(ValueError):self.catalog.save_profile('codeiX',{**profile,'selected':['fake:custom'],'overrides':{'fake:custom':{'name':'x','description':'','content':'x'}}})
+    def test_external_codingagentlib_vscode_app_passes_through_augment(self):
+        messages=[{'role':'user','content':'hi'}]
+        self.assertEqual(augment(self.catalog,{'app':'codingagentlib-vscode'},messages),(messages,None))
+        with self.assertRaises(ValueError):augment(self.catalog,{'app':'unknown-app'},messages)
 
     def test_ssrf_and_invalid_inputs(self):
         for url in ['http://github.com/x','https://localhost/x','https://github.com@127.0.0.1/x','https://github.com:123/x','file:///etc/passwd']:

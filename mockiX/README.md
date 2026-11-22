@@ -52,3 +52,8 @@ These are native Figma-style design and Flowstep-style planning features. Figma 
 mockiX uses the shared TLAL OS theme and bundled Inter font for editor controls, neutral surfaces, focus states and maroon primary actions. Its wireframe-window icon follows the suite's 64 × 64 circular neutral badge with blue linework and an orange accent. The same asset appears in the header, favicon, desktop and app navigation. The wordmark uses the suite's emphasized X. These styles apply to editor chrome; native screen/component colors and exported prototypes retain their document styling.
 
 The shared **Workspace** panel adds named recovery points, search, native validation and reviewed change application. **Recovery → Import change review** loads an exported selected-change package only against its matching native base. Import prepares a preview; application remains explicit and saves a recovery point first.
+
+
+## Workspace inventory and capabilities
+
+Use **Workspace → Tool actions** to preview an 8px grid alignment that preserves sizes, links and locked layers while keeping positions inside each screen. Browse/filter/export screen and component inventory, including numeric position/size filters. Applying an edit requires review and records a recovery point.

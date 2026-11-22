@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>trackiX · Agile issue tracker</title><link rel="icon" href="../assets/icons/trackiX.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="../shared-ai/chat.css"><link rel="stylesheet" href="../shared-ai/multimodal.css"><link rel="stylesheet" href="../shared-ai/input-ste.css"><link rel="stylesheet" href="../shared-suite/suite.css"><link rel="stylesheet" href="../shared-suite/workspace.css"><link rel="stylesheet" href="../shared-agent/agent.css"><link rel="stylesheet" href="../shared-suite/theme.css"></head><body>
+<header><a class="brand" href="./"><div><strong class="brand-name">tracki<span>X</span></strong><small>Issue &amp; sprint studio</small></div></a><input id="name" maxlength="160" aria-label="Board name"><span id="save-state" role="status">Local board</span><button id="new-board">New board</button><button id="import">Open</button><button id="open-export" class="primary">Export</button><input id="file" type="file" accept=".json,application/json" data-disk-label="trackiX board JSON" hidden></header>
+<main>
+<aside aria-label="Sprints and backlog">
+  <h1>Backlog &amp; Sprints</h1>
+  <p>Plan epics, stories, bugs, and sprints locally.</p>
+  <div class="actions"><button id="add-issue" class="primary">+ Issue</button><button id="add-sprint">+ Sprint</button></div>
+  <label>Project key<input id="project-key" maxlength="12" aria-label="Project key"></label>
+  <details open><summary>Sprints</summary><div id="sprint-list"></div></details>
+  <a href="README.md">trackiX guide ↗</a>
+</aside>
+<section id="workspace" aria-label="Issue board">
+  <div class="toolbar">
+    <button id="undo">↶ Undo</button>
+    <button id="redo">↷ Redo</button>
+    <button id="view-board" type="button">Board</button>
+    <button id="view-list" type="button">List</button>
+    <input id="search" type="search" placeholder="Search key, summary, assignee…" aria-label="Search issues">
+    <select id="filter-sprint" aria-label="Filter by sprint"></select>
+    <select id="filter-type" aria-label="Filter by type"><option value="">All types</option><option value="epic">Epic</option><option value="story">Story</option><option value="task">Task</option><option value="bug">Bug</option><option value="subtask">Subtask</option></select>
+  </div>
+  <p id="metrics-bar" role="status"></p>
+  <div id="board-wrap"></div>
+  <p id="status" role="status">Ready</p>
+</section>
+<aside aria-label="Issue inspector">
+  <details open>
+    <summary>Selected issue · <span id="issue-key-label"></span></summary>
+    <label>Summary<input id="issue-summary" maxlength="240"></label>
+    <label>Type<select id="issue-type"><option value="epic">Epic</option><option value="story">Story</option><option value="task">Task</option><option value="bug">Bug</option><option value="subtask">Subtask</option></select></label>
+    <label>Status<select id="issue-status"><option value="backlog">Backlog</option><option value="todo">To Do</option><option value="in_progress">In Progress</option><option value="in_review">In Review</option><option value="done">Done</option></select></label>
+    <label>Priority<select id="issue-priority"><option value="lowest">Lowest</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="highest">Highest</option></select></label>
+    <label>Assignee<input id="issue-assignee" maxlength="120" placeholder="Unassigned"></label>
+    <label>Story points<input id="issue-points" type="number" min="0" max="100"></label>
+    <label>Sprint<select id="issue-sprint"></select></label>
+    <label>Labels (comma-separated)<input id="issue-labels" maxlength="240"></label>
+    <label>Blocked by keys<input id="issue-blocked" maxlength="240" placeholder="TRK-1, TRK-2"></label>
+    <label>Description<textarea id="issue-desc" rows="4" maxlength="8000"></textarea></label>
+    <div class="actions"><button id="duplicate-issue" type="button">Duplicate</button><button id="delete-issue" type="button">Delete</button></div>
+  </details>
+  <details open>
+    <summary>Comments</summary>
+    <ul id="issue-comments"></ul>
+    <label>Add comment<textarea id="comment-text" rows="2" maxlength="4000"></textarea></label>
+    <button id="add-comment" type="button">Post comment</button>
+  </details>
+</aside>
+</main>
+<dialog id="export-dialog"><div class="dialog-head"><h2>Export trackiX board</h2><button id="export-close" aria-label="Close export">×</button></div><label>Format<select id="format"><option value="json">trackiX board · editable JSON</option><option value="csv">Issue inventory · CSV</option></select></label><button id="doExport" class="primary">Download</button></dialog>
+<script src="model.js"></script><script src="render.js"></script><script src="app.js"></script>
+<script src="../shared-ai/multimodal.js"></script><script src="../shared-ai/input-ste.js"></script><script src="../shared-ai/paging-spec.js"></script><script src="../shared-ai/paging.js"></script><script src="../shared-ai/protocol.js"></script><script src="../shared-ai/prompt-fragments.js"></script><script src="ai-adapter.js"></script><script src="../shared-ai/chat.js"></script><script src="../shared-suite/templates.js?v=content-collections-20261028"></script><script src="../shared-ai/prompt-library-core.js?v=native-starters-20261031"></script><script src="../shared-ai/prompt-library.js?v=native-starters-20261031"></script><script src="../shared-suite/apps.js?v=tlal-mockix-20261031"></script><script src="../shared-suite/disk.js"></script><script src="../shared-suite/ui.js?v=review-delta-20261108"></script><script src="../shared-suite/workspace-core.js"></script><script src="../shared-suite/workspace-store.js"></script><script src="../shared-suite/workspace-adapters.js"></script><script src="../shared-suite/workspace-recipes.js"></script><script src="../shared-suite/workspace-insights.js"></script><script src="../shared-suite/command-preferences.js"></script><script src="../shared-suite/quality.js"></script><script src="../shared-suite/offline-review.js"></script><script src="../shared-suite/workspace.js"></script><script src="../shared-suite/project-zip.js"></script><script src="../shared-suite/project-zip-ui.js"></script><script src="../shared-suite/capabilities.js"></script><script src="../shared-suite/content-hub-core.js?v=textix-embeds-20261108"></script><script src="../shared-suite/content-hub-visual.js?v=textix-embeds-20261108"></script><script src="../shared-suite/content-hub-ui.js?v=textix-embeds-20261108"></script><script src="../shared-suite/capabilities-ui.js"></script><script src="../codingagentlib/javascript/spec.js?v=parallel-read-20261029"></script><script src="../codingagentlib/javascript/checks.js?v=project-apply-20261023-1"></script><script src="../codingagentlib/javascript/context.js?v=project-memory-20261031"></script><script src="../codingagentlib/javascript/acceptance.js?v=acceptance-20261023-1"></script><script src="../codingagentlib/javascript/planning.js?v=agent-techniques-20261025"></script><script src="../codingagentlib/javascript/tool-routing.js?v=20261029"></script><script src="../codingagentlib/javascript/loop.js?v=evidence-perf-20261031"></script><script src="../shared-agent/window.js?v=project-apply-20261023-1"></script><script src="../shared-agent/project.js?v=agent-techniques-20261025"></script><script src="../shared-agent/workflows.js?v=handoff-import-20261023-1"></script><script src="../codingagentlib/javascript/independent-review.js?v=evidence-links-20261029"></script><script src="../shared-agent/model-transport.js?v=model-retries-20261027"></script><script src="../shared-agent/request-log.js?v=http-payload-trace-20261028"></script><script src="../codingagentlib/javascript/handoff.js?v=20261030"></script><script src="../shared-agent/ui.js?v=project-memory-20261031"></script></body></html>

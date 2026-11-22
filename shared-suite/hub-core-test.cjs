@@ -87,3 +87,22 @@ assert.equal(C.actionSearch(C.actionTargets())[0].target, "suite-tasks-open");
 console.log(
   "PASS: workspace action allowlist, available-target filtering, token/case matching and independent result metadata.",
 );
+
+// Field views retain original row identities; they never coerce or modify source data.
+const rowsForFields=[{id:'a',count:10,status:'ready',text:'<script>bad()</script>'},{id:'b',count:'2',status:'draft'},{id:'c',count:2,status:'ready'},{id:'d',count:null},{id:'e',count:'not a number'},{id:'f'}];
+const rowsBefore=JSON.stringify(rowsForFields);
+assert.deepEqual(C.inventory(rowsForFields,{field:'status',operator:'equals',value:'READY'}).all.map(e=>e.index),[0,2]);
+assert.deepEqual(C.inventory(rowsForFields,{field:'count',operator:'atLeast',value:'2'}).all.map(e=>e.index),[0,1,2]);
+assert.deepEqual(C.inventory(rowsForFields,{field:'count',operator:'atMost',value:'2'}).all.map(e=>e.index),[1,2]);
+assert.deepEqual(C.inventory(rowsForFields,{field:'count',operator:'empty'}).all.map(e=>e.index),[3,5]);
+assert.deepEqual(C.inventory(rowsForFields,{sortKey:'count'}).all.map(e=>e.index),[1,2,0,4,3,5]);
+assert.deepEqual(C.inventory(rowsForFields,{sortKey:'count',direction:'desc'}).all.map(e=>e.index),[4,0,1,2,3,5]);
+assert.equal(C.inventory(rowsForFields,{field:'text',value:'<script>'}).matched,1);
+assert.equal(C.inventory(rowsForFields,{field:'toString',operator:'empty'}).matched,6);
+assert.equal(C.inventory(rowsForFields,{query:'ready',field:'count',operator:'atLeast',value:5}).matched,1);
+assert.equal(C.inventory(rowsForFields,{sortKey:'count',limit:2,offset:2}).entries[0].index,0);
+for(const value of ['', 'Infinity','NaN','not numeric'])assert.throws(()=>C.inventory(rowsForFields,{field:'count',operator:'atLeast',value}),/finite number/);
+assert.throws(()=>C.inventory(rowsForFields,{operator:'eval'}),/valid inventory/);
+assert.throws(()=>C.inventory(rowsForFields,{direction:'sideways'}),/valid inventory/);
+assert.equal(JSON.stringify(rowsForFields),rowsBefore);
+console.log('PASS: literal field filters, finite numeric bounds, stable mixed-value sorting, missing-last ordering, pagination identity and nonmutation.');

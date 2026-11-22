@@ -12,6 +12,7 @@ import sys
 import threading
 from pathlib import Path
 from http.server import ThreadingHTTPServer
+MCP_HTTP_LOCK = threading.RLock()
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -58,7 +59,18 @@ class Handler(relay.Handler):
         if hasattr(self.server,'search_store') and Path(self.translate_path(self.path)).resolve()==self.server.search_store.path.resolve():
             self.send_error(404);return None
         return super().send_head()
+    def do_DELETE(self):
+        if self.path!='/api/mcp':self.send_error(404);return
+        if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'MCP requires its same localhost origin'});return
+        from server import mcp_http
+        sessions=getattr(self.server,'mcp_sessions',None)
+        removed=sessions.close(self.headers.get('Mcp-Session-Id')) if sessions else False
+        mcp_http.send(self,200 if removed else 404,{})
+
     def do_GET(self):
+        if self.path=='/api/mcp':
+            from server import mcp_http
+            mcp_http.send(self,405,{'error':'Server-initiated MCP streams are not advertised; use POST'});return
         if self.path=='/api/agent/health':
             if not self.local_admin() or self.headers.get('X-Architex-Request')!='1':self.send_json(403,{'error':'Agent runtime requires its same localhost origin'});return
             self.send_json(200,self.server.agent_runtime.health());return
@@ -72,7 +84,7 @@ class Handler(relay.Handler):
             except (ValueError,OSError):self.send_json(500,{'error':'Google search configuration is unavailable'})
             return
         if self.path=='/api/research/health':self.send_json(200,{'service':'reportix','protocolVersion':1});return
-        if self.path=='/.well-known/agent.json':
+        if self.path in {'/.well-known/agent.json','/.well-known/agent-card.json'}:
             from codingagentlib.python.a2a import agent_card
             host=self.headers.get('Host','127.0.0.1:8000')
             self.send_json(200,agent_card(url=f'http://{host}/api/a2a'));return
@@ -233,12 +245,14 @@ class Handler(relay.Handler):
                         self.server.a2a_server=srv
                     self.send_json(200,srv.handle(data))
                 elif self.path=='/api/mcp':
-                    from codingagentlib.rpc import MCPService
-                    svc=getattr(self.server,'mcp_service',None)
-                    if svc is None:
-                        svc=MCPService(self.server.agent_runtime)
-                        self.server.mcp_service=svc
-                    self.send_json(200,svc.frame(data))
+                    from server import mcp_http
+                    with MCP_HTTP_LOCK:
+                        sessions=getattr(self.server,'mcp_sessions',None)
+                        if sessions is None:
+                            sessions=mcp_http.Sessions(self.server.agent_runtime)
+                            self.server.mcp_sessions=sessions
+                    status,result,identity=sessions.handle(data,self.headers.get('Mcp-Session-Id'))
+                    mcp_http.send(self,status,result,identity)
                 else:self.send_json(200,self.server.agent_runtime.dispatch(data))
             except PermissionError as error:self.send_json(403,{'error':str(error)})
             except (ValueError,KeyError,TypeError,UnicodeError,RecursionError) as error:self.send_json(400,{'error':str(error)})

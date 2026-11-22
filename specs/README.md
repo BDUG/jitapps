@@ -11,7 +11,9 @@ This directory tracks formal specifications, acceptance criteria, and live verif
 
 ## Index
 
+- [RELEASE-QUALIFICATION-SPEC.md](RELEASE-QUALIFICATION-SPEC.md) — Live reliability, installed-editor, app format, independent protocol, sandbox and CI qualification requirements.
 - [SUITE-SPEC.md](SUITE-SPEC.md) — Suite-wide architecture, security, UX, and app contract invariants across all 24 apps.
+- [EXT-SPEC.md](EXT-SPEC.md) — Coding Agent Extension Pack v1.2; [implementation and acceptance map](EXT-IMPLEMENTATION.md).
 - [CODING-AGENT-SPEC.md](CODING-AGENT-SPEC.md) — Coding Agent runtime, `ReactAgent`, `uv` Python environments, `ScriptLibrary`, `MemoryManager`, `StructMem`/`egGENT`/`A-MEM`/`MAGMA`/`GAM`, conversation compression, and SDKs.
 - [Coding Agent & SDK Handbook](../docs/coding-agent-book/HANDBOOK.md) — Practical cookbooks for Python, JavaScript/TypeScript, Rust, and the CLI.
 - [CNCFIX-SPEC.md](CNCFIX-SPEC.md) — `cncfiX` CNCF Landscape Diagram Builder specification.

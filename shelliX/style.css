@@ -15,3 +15,12 @@
 
 /* Both input modes expose a visible, multiline drafting field. */
 .shell-input{align-items:flex-start}.shell-input #shell-command{flex:1;min-width:160px;width:100%;margin:0;padding:10px 12px;min-height:88px;border:1px solid var(--line);border-radius:7px;background:white;font:14px/1.6 var(--mono);resize:vertical}.shell-input #shell-command:focus-visible{outline:2px solid #3f6f98;outline-offset:2px}@media(max-width:600px){.shell-input #shell-command{flex-basis:100%;min-width:0}}
+
+/* Command inventory is a read-only view, separate from the terminal/editor. */
+#shell-inventory{box-sizing:border-box;width:min(960px,calc(100vw - 40px));max-height:90vh;overflow:auto}
+#shell-inventory .sw-row{display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin:12px 0}
+#shell-inventory label{display:flex;flex-direction:column;gap:4px;font-size:12px}
+#shell-inventory :is(input,select){box-sizing:border-box;max-width:100%;min-width:0}
+#shell-inventory .sw-row>input{flex:1 1 180px}
+#shell-inventory pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:42vh;overflow:auto}
+#shell-inventory .sd-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}

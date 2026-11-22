@@ -87,3 +87,8 @@ The browser check requires Playwright and Chromium. It runs a temporary offline
 suite server and mocks the AI provider; no paid model is called. Tests cover exact
 source preservation, visual/source edits, import/export, project ZIP, virtual disk,
 AI review, autosave/recovery, safe rendering and mobile layout.
+
+
+## Workspace inventory and capabilities
+
+Use **Workspace → Tool actions** for a heading inventory (including Markdown setext and RST headings), prose whitespace cleanup and final-newline review. Cleanup preserves hard breaks, code/raw blocks and line endings. Filter and export the inventory without changing source.

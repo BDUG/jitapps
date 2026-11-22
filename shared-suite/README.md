@@ -1,6 +1,6 @@
 # Shared desktop and virtual disk
 
-The suite desktop lives at `/` and lists all 21 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
+The suite desktop lives at `/` and lists all 24 applications. Each card opens an app; the small **Desktop** button in every app returns here. SVG icons are shared by the desktop cards, app headers and browser tabs.
 
 ## Save and open files
 
@@ -413,3 +413,13 @@ In every app, **Review → Refresh review** now compares the new capture with th
 Comparisons use the existing quality-baseline matching rules: a severity, message or path change may appear as a new finding and an old finding no longer reported. Index shifts can move paths. Compare the intended document and scope; no longer reported does not prove fixed, and selected tasks are not verification evidence. shelliX compares its loaded-session audit, where old failures may remain after retries. Review comparisons stay in page memory and reset on reload/navigation; use the existing Quality baseline exports for portable baseline workflows. Comparing and exporting do not change documents, notebooks or unsent AI drafts, send requests, or execute commands.
 
 Apps without bundled catalogue starters, including formiX and markiX, can use **My saved native templates → Save current as new template** and browse/pin their saved copies in the shared catalogue.
+
+
+## Field-aware inventories and editing actions
+
+All document editors expose **Workspace → Tool actions**. Browse native inventory
+records with per-field text/empty/numeric filters and stable field sorting, then
+export all matching records or selected rows. shelliX offers a read-only command
+receipt inventory through its history controls and Workspace menu. See the
+[workspace inventory guide](WORKSPACE.md#field-aware-inventory-views-across-the-suite)
+for examples, reviewed edits and verification limits.

@@ -34,7 +34,7 @@ def augment(catalog,data,messages):
                 if not app and str(parsed.get('protocol','')).startswith('codeix'):app='codeiX'
             except (ValueError,TypeError,AttributeError):pass
             break
-    if app is None:return messages,None
+    if app is None or app=='codingagentlib-vscode':return messages,None
     app_id(app)
     query=''
     for message in reversed(messages):

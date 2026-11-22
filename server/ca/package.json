@@ -1,0 +1,10 @@
+{
+  "name": "pirates-game",
+  "version": "1.0.0",
+  "description": "A text-based pirate adventure inspired by Sid Meier's Pirates!",
+  "main": "src/game.js",
+  "scripts": {
+    "start": "node src/game.js"
+  },
+  "type": "module"
+}

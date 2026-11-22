@@ -18,3 +18,33 @@
 ## 3. Acceptance Gate
 - `node scripts/verify-suite.cjs` passes with 0 failures.
 - `python3 -m unittest server.skill_catalog_test desktop-tauri/scripts/test_prepare.py` passes with 0 failures.
+
+## 4. Inventory and capability access across all apps
+
+- All 23 document editors expose Workspace → Tool actions with native validation,
+  reviewed application/recovery and portable inventories. Missing script wiring
+  must not leave registered editing capabilities inaccessible.
+- Inventory browsing supports literal per-field contains/equality/empty filters,
+  finite numeric lower/upper bounds, and stable ascending/descending field sorting.
+  Mixed/missing values and invalid numeric input are handled explicitly. Filtering,
+  sorting and pagination never modify the native document.
+- Filtered exports include every matching record, not only the current page.
+  Existing selected-item identity, stale-snapshot checks, AI exclusions and CSV
+  formula protection remain in force. Clearing a view resets its filters/sorting.
+- shelliX uses its separate workspace and exposes a read-only command receipt
+  inventory with equivalent filters/sorting and JSON/CSV export. Audit events and
+  executable history are never rewritten or run by inventory operations.
+- Acceptance: deterministic query tests cover numeric bounds, mixed values,
+  literal untrusted text, stable identity and pagination; browser checks visit all
+  24 apps, exercise native capability access and filter/export behavior, and assert
+  no document/audit mutation or unsolicited model/command execution.
+
+## 5. Browser readiness evidence
+
+`node scripts/verify-app-readiness.cjs --report /tmp/app-readiness.json` runs
+selected inventory, native validation/application, recovery and format workflows
+against a disposable relay configuration and workspace. Playwright must be
+available; `CHROMIUM_PATH` selects an installed Chromium-compatible executable.
+The report preserves each workflow's actual output. This qualification is separate
+from the unit gate and does not imply every feature/format or live AI integration
+has been verified.

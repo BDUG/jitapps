@@ -23,13 +23,15 @@ Use `--case python-add` to select one case, `--repeat 3` for repeated fresh tria
 
 ## Cases and scoring
 
-The versioned [cases.json](cases.json) contains three bounded tasks:
+The versioned [cases.json](cases.json) contains five bounded tasks:
 
 | Case | Task | Held-out checks |
 | --- | --- | --- |
 | `python-add` | Repair an addition function | Negatives, zero, floats, unchanged tests/unrelated file. |
 | `javascript-label` | Repair a shared text helper without breaking its caller | Trim/case behavior, caller HTML, empty input, stable exports and files. |
 | `python-validation` | Add strict positive-integer validation | Valid input, booleans/floats/zero/negatives/malformed values, unchanged unrelated code/tests. |
+| `python-csv-totals` | Repair a CSV parser and its aggregation caller | Quoted CSV, reordered/missing/extra columns, blank customers, exact Decimal totals, nonfinite values and filtering. Both modules require changes. |
+| `javascript-paged-catalog` | Repair a large catalog helper and paginated search | Inspection beyond the default source page, preserved metadata, literal queries, Unicode/nulls, page boundaries, immutable inputs and invalid paging options. |
 
 Fixtures include public checks that fail before the repair. The evaluator—not the model—runs additional checks after the agent finishes. These checker scripts are passed directly by the runner rather than placed in the agent's file-tool workspace. OS-level access is still possible without a sandbox; this is a quality evaluation, not an adversarial isolation benchmark.
 
@@ -47,6 +49,8 @@ JSON reports include:
 - Success, completion state, errors, held-out results and protected-file integrity.
 - Elapsed time, planning steps, tool calls, model requests and reviewer verdicts.
 - Submitted/returned character counts and active navigation/memory metadata.
+- Actual tool receipts retained after provider failures/timeouts, rather than
+  reporting the empty initial session as though no work happened.
 - Explicit limitations. Token usage is `null` when the relay does not report it; character counts are not token or cost measurements.
 
 Compare a later run against a matching baseline:
@@ -64,10 +68,22 @@ Reports are measurements of these cases, not a general coding-ability score. Kee
 
 ```sh
 node evaluations/coding-agent/test.cjs
+node evaluations/coding-agent/fixtures-test.cjs
 ```
 
-This self-test supplies a local fixture provider through the real relay/runtime pipeline. It verifies a passing repair, independent review, held-out execution, detection of a deliberately modified public test, and baseline comparison. Its reports use **mode: replay** and are **not real-model evaluation results**. The negative tampering case is expected to print FAIL; the self-test passes only if that regression is detected.
+The pipeline self-test supplies a local fixture provider through the real
+relay/runtime pipeline. It verifies repairs, independent review, multi-file and
+paged-source execution, held-out scoring, detection of a deliberately modified
+public test, preservation of executed-tool metrics after a provider outage, and
+baseline comparison. Its reports use **mode: replay** and are
+**not real-model evaluation results**. The negative tampering case is expected to
+print FAIL; the self-test passes only if that regression is detected.
+
+The fixture checker runs every original public test and held-out check against
+the broken source and reference repairs. It also verifies that repairing only one
+module cannot pass the multi-file cases. Both checks are included in the default
+suite gate. No live-provider success rate is implied by these deterministic runs.
 
 ## Model handoff experiments
 
-Use `--handoff-mode off|continuation|shadow|auto` with configured relay roles to compare primary-only, continuation-only, shadow evaluation and one-way handoff. Detector requests count toward the model-call budget. Reports retain decisions and per-call role/model identity, duration and available usage; `costUsd` is null until priced externally using actual provider rates. See the [handoff guide](../../codingagentlib/MODEL_HANDOFF.md#evaluate-before-automatic-rollout). Fixture replay validates routing, not real-model quality or savings.
+Use `--handoff-mode off|continuation|shadow|auto` with configured relay roles to compare primary-only, continuation-only, shadow evaluation and one-way handoff. Detector requests count toward the model-call budget. Reports retain decisions and per-call role/model identity, duration and available usage; `costUsd` is null until priced externally using actual provider rates. See the [handoff guide](../../codingagentlib/README.md#model-handoff-evaluate-before-automatic-rollout). Fixture replay validates routing, not real-model quality or savings.

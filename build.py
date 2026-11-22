@@ -49,9 +49,9 @@ def plan(target, install=False):
         output = ROOT / "dist/python"
         if install:
             steps += [(ROOT, [python, "-m", "pip", "install", "build>=1,<2"])]
-        # Do not run from ROOT: this file is also named build.py and would shadow
-        # the installed PyPA build module when using `python -m build` there.
-        steps += [(folder, [python, "-m", "build", "--outdir", str(output), str(folder)])]
+        # Do not run from ROOT (build.py) or codingagentlib (setuptools build/):
+        # either would shadow the installed PyPA build module on sys.path[0].
+        steps += [(output, [python, "-m", "build", "--outdir", str(output), str(folder)])]
     elif target == "javascript":
         output = ROOT / "dist/javascript"
         steps += [(folder / "javascript", ["npm", "pack", "--pack-destination", str(output)])]

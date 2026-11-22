@@ -62,6 +62,9 @@ class IntegrationTests(unittest.TestCase):
                 req=urllib.request.Request(base+'/'+str(catalog.path.relative_to(ROOT)))
                 with self.assertRaises(urllib.error.HTTPError) as error:client.open(req)
                 self.assertEqual(error.exception.code,404)
+                from server.skill_api import augment
+                msgs=[{'role':'user','content':'hi'}]
+                self.assertEqual(augment(catalog,{'app':'codingagentlib-vscode'},msgs),(msgs,None))
             finally:http.shutdown();thread.join();http.server_close();http.agent_runtime.close();catalog.close()
 
 if __name__=='__main__':unittest.main()

@@ -108,3 +108,8 @@ While a command or agent operation runs, command entry, the AI input, mode switc
 The unified display does not add interactive stdin or a persistent PTY. Set **Working directory** to retain the starting directory between commands; a `cd` inside one `sh -c` command affects only that command.
 
 From the command input, **Ctrl+R** focuses history search without executing or replacing the draft. **Escape** from history search returns to that command input. The agent-goal keyboard shortcut ignores composition and repeated key events.
+
+
+## Workspace inventory and capabilities
+
+Use **Command inventory** beside history search or in the Workspace menu to inspect recorded command attempts and receipts. Filter by status/command or numeric exit code, sort fields and export every matching command as JSON or formula-protected CSV. Refresh after the session changes. Browsing/exporting does not execute commands or alter the audit log.

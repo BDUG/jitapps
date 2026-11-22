@@ -75,7 +75,7 @@ class BuildTests(unittest.TestCase):
             command = run.call_args.args[0]
             self.assertEqual(command[0], build.sys.executable)
             self.assertEqual(command[-1], str(Path(folder) / "codingagentlib"))
-            self.assertEqual(run.call_args.kwargs["cwd"], Path(folder) / "codingagentlib")
+            self.assertEqual(run.call_args.kwargs["cwd"], Path(folder) / "dist/python")
             self.assertEqual(run.call_args.kwargs["env"]["PYTHON"], build.sys.executable)
             self.assertTrue(run.call_args.kwargs["check"])
 

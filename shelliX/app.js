@@ -53,6 +53,8 @@ $('terminal-input-mode').onchange=()=>setMode($('terminal-input-mode').value);
 $('prompt').addEventListener('input',()=>{if($('prompt').value)setMode('agent',false);});
 $('shell-command').addEventListener('input',()=>setMode('shell',false));
 window.ShelliXTerminal={mode:setMode};
+// Read-only audit snapshot for portable command inventories; never restore or execute events.
+window.ShelliXHistory={snapshot:()=>JSON.parse(JSON.stringify({sessionId:session?.id||null,events:session?.events||[]}))};
 document.addEventListener('keydown',event=>{if(event.ctrlKey&&event.key.toLowerCase()==='c'&&(busy||session?.toolRunning)&&!getSelection().toString()){event.preventDefault();$('stop').click();}});
 function renderLocal(){for(const line of localLines){const box=node('article','');box.append(node('strong',line.title),node('pre',line.text));$('output').append(box);}}
 function clearScreen(){localLines=[];screenStart=session?.events.length||0;render();status('Screen cleared. Saved session history is retained.');($('terminal-input-mode').value==='agent'?$('prompt'):$('shell-command')).focus();}

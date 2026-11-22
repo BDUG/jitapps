@@ -4,6 +4,10 @@ A practical guide to running the suite coding agent, understanding every stage o
 its LLM exchange, and embedding the agent through the SDK. Examples describe this
 repository's implementation. No provider account is needed for the local examples.
 
+Runnable cross-language UI: [SVG and rich text with AI chat and trace export](../../codingagentlib/examples/two-views/README.md).
+
+Extension host: [durable jobs, governance and verification gates](../../codingagentlib/extension_pack/README.md), with public Python SDK configuration and protocol boundaries.
+
 ## Contents
 
 1. [Choose an interface](#1-choose-an-interface)
@@ -464,7 +468,7 @@ An `available` hook can revoke a tool each turn and immediately before execution
 Host callbacks must enforce their own resource boundaries and authentication.
 
 Runnable cross-language examples and capability contracts are linked from the
-[SDK reference](../../codingagentlib/SDK.md). Rust uses `CoreOptions`, `CoreTool`
+[SDK reference](../../codingagentlib/README.md#sdk). Rust uses `CoreOptions`, `CoreTool`
 and `SessionStore`; callback signatures differ from the coding `Agent` example.
 
 ## 11. Connect a model transport
@@ -641,11 +645,11 @@ with recorded envelopes before enabling effectful tools.
 | Workspace tool receipts and guards | [agent_runtime.py](../../codingagentlib/python/agent_runtime.py) |
 | Node worker bridge | [local.js](../../codingagentlib/javascript/local.js) |
 | Generic generated contracts | [contracts.d.ts](../../codingagentlib/javascript/contracts.d.ts) |
-| Generic lifecycle/tool dispatch | [core.py](../../codingagentlib/python/core.py), [SDK reference](../../codingagentlib/SDK.md) |
+| Generic lifecycle/tool dispatch | [core.py](../../codingagentlib/python/core.py), [SDK reference](../../codingagentlib/README.md#sdk) |
 | Provider mapping | [Python adapter](../../codingagentlib/python/providers.py), [JavaScript adapter](../../codingagentlib/javascript/providers.js) |
 | Browser orchestration and transport | [ui.js](../../shared-agent/ui.js), [browser agent guide](../../shared-agent/README.md) |
-| Host integration and context | [Integration guide](../../codingagentlib/INTEGRATION.md) |
-| Tools, project knowledge, MCP and recipes | [Coding guide](../../codingagentlib/CODING_GUIDE.md) |
+| Host integration and context | [Integration guide](../../codingagentlib/README.md#integration) |
+| Tools, project knowledge, MCP and recipes | [Coding guide](../../codingagentlib/README.md#coding-guide) |
 | Native capabilities | [Rust guide](../../codingagentlib/rust/README.md), [VS Code guide](../../codingagentlib/vscode/README.md) |
 
 When implementation and a shortened example differ, use the runtime's current

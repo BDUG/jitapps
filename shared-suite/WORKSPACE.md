@@ -357,3 +357,45 @@ Up/Down from the query focuses commands; Up/Down, Home and End navigate the resu
 Each app’s native editing catalog is also searchable: **Configure edit: …** opens its settings, filters the editing panel and focuses its controls without applying a transformation. Direct commands open project ZIP import/export, shared-disk ZIP backup/restore, or the coding-agent window. They do not run an agent, apply an import or perform a backup automatically. Existing validation, reviews, run choices and recovery remain authoritative. No document content or search text is stored in command preferences.
 
 Editing workflows can be renamed and duplicated in **Workspace → Tools → Reusable editing workflows**. Each saved step shows its action and settings, with Move up, Move down and Remove step controls. The last step cannot be removed. Changes save to this app's local workflow library without changing the document or source presets; preview the workflow to review its combined result before applying it. Exported workflow libraries retain the edited order and names.
+
+
+### Field-aware inventory views across the suite
+
+All 23 document editors now expose **Workspace → Tool actions**, including
+markiX, formiX, cncfiX and mockiX. Refresh the inventory, choose a **Filter field**
+and use literal contains/equality, empty-or-missing values, or finite numeric
+lower/upper bounds. Global text search combines with the field condition. Choose
+a **Sort field** and direction for stable numeric/natural ordering; empty values
+stay last. Clear inventory filters restores document order without editing the
+project or clearing selected records.
+
+For example, filter codeiX files by `bytes` at least `1000`, a projectiX inventory
+by `progress` at most `50`, or a CNCF landscape by `maturity` equals `sandbox`.
+Set **Export scope → Filtered items** to export every matching row, including
+matches on later pages. Selected exports keep original row identities through
+sorting. Existing stale-document checks, CSV formula protection and AI-excluded
+file guards still apply. JSON preserves values; a protected CSV is for data
+exchange rather than executing spreadsheet formulas.
+
+markiX inventories now recognize Markdown setext and RST headings through its
+native parser, and omit headings inside code blocks. Its prose cleanup preserves
+Markdown hard breaks, code/raw blocks and original line endings. mockiX grid
+alignment preserves locked elements and keeps positions within screen bounds.
+cncfiX offers **Sort items within each category**, preserving category slots,
+item IDs, classifications and links. All edits still require preview and explicit
+Apply reviewed changes, with a recovery point before application.
+
+shelliX has its own **Command inventory** button beside history search and in its
+Workspace menu. It joins recorded command attempts to actual receipts and offers
+field filters, sorting, paging and filtered JSON/CSV exports. `passed` requires a
+zero exit code; `unknown` means no receipt is recorded. Missing/non-numeric exit
+codes do not satisfy numeric filters. Export refuses a stale session snapshot
+until Refresh. This inventory never runs a command or rewrites the audit log.
+
+Browser verification: `CHROMIUM_PATH=/path/to/chrome node shared-suite/inventory-fields-browser-test.cjs`.
+The test starts a private temporary server and visits all 24 apps, checks native
+inventory access, exercises field controls with deterministic inventory records,
+verifies full filtered exports and unchanged source, and covers native preview,
+Apply and recovery in the four newly wired document editors. It separately checks
+shell receipt filtering/export and stale-history protection. Existing per-app
+browser suites remain the broader coverage for native editing operations.

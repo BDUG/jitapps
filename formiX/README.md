@@ -59,3 +59,8 @@ node formiX/browser-test.cjs
 The browser check starts a temporary suite server and exercises local rendering, templates, source edits, standalone SVG/LaTeX/JSON downloads, imports, invalid-source feedback, virtual-disk exchange, AI proposal review, persistence and mobile layout without paid model calls.
 
 MathJax 3.2.2 is distributed under Apache-2.0; its license and source reference are in [`vendor/`](vendor/README.md).
+
+
+## Workspace inventory and capabilities
+
+Use **Workspace → Tool actions** to preview missing formula-title labels or outer LaTeX whitespace cleanup, and inspect/export a filterable formula inventory. Apply reviewed changes records a recovery point; inventory browsing does not alter formulas.

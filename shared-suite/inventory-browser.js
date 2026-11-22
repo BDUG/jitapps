@@ -18,6 +18,22 @@
   box.innerHTML =
     '<h3>Browse document inventory</h3><div class="sw-row"><input id="sc-query" type="search" aria-label="Search inventory" placeholder="Find names, IDs, types or values…"><select id="sc-order" aria-label="Sort inventory"><option value="original">Document order</option><option value="label">Label / name</option><option value="type">Type / kind</option></select><button type="button" id="sc-select-page">Select this page</button><button type="button" id="sc-select-matching">Select matching items</button><button type="button" id="sc-invert-matching">Invert matching selection</button><button type="button" id="sc-clear-selection">Clear selection</button></div><p id="sc-count" role="status">Refresh inventory to browse this document.</p><div id="sc-records"></div><div class="sc-pages"><button type="button" id="sc-prev">Previous page</button><span id="sc-page" role="status"></span><button type="button" id="sc-next">Next page</button></div><div class="sw-row"><label>Export scope<select id="sc-scope"><option value="all">All current items</option><option value="filtered">Filtered items</option><option value="selected">Selected items</option></select></label><button type="button" id="sc-ai-selected">Draft AI request for selected items</button></div>';
   q("#sc-inventory").before(box);
+  const fields = document.createElement("div");
+  fields.className = "sw-row";
+  fields.innerHTML = '<label>Filter field<select id="sc-field"><option value="">No field filter</option></select></label><select id="sc-operator" aria-label="Field condition"><option value="contains">Contains text</option><option value="equals">Equals</option><option value="empty">Is empty or missing</option><option value="atLeast">Number at least</option><option value="atMost">Number at most</option></select><input id="sc-value" aria-label="Field value" placeholder="Literal text or number"><label>Sort field<select id="sc-sort-field"><option value="">Use document ordering above</option></select></label><select id="sc-direction" aria-label="Field sort direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select><button type="button" id="sc-reset-view">Clear inventory filters</button>';
+  box.querySelector("#sc-count").before(fields);
+  function refreshFields() {
+    const keys = [...new Set((items || []).flatMap(row => Object.keys(row)))].sort();
+    for (const id of ["#sc-field", "#sc-sort-field"]) {
+      const select = q(id), previous = select.value, first = select.options[0];
+      select.replaceChildren(first);
+      for (const key of keys) {
+        const option = document.createElement("option");
+        option.value = key; option.textContent = key; select.append(option);
+      }
+      select.value = keys.includes(previous) ? previous : "";
+    }
+  }
   const details = document.createElement("details"),
     summary = document.createElement("summary");
   summary.textContent = "Raw inventory JSON preview";
@@ -43,19 +59,20 @@
   let queryCache = null;
   const pageSize = 25;
   function result() {
-    const query = q("#sc-query").value,
-      sort = q("#sc-order").value;
+    const options = {query: q("#sc-query").value, sort: q("#sc-order").value,
+      field: q("#sc-field").value, operator: q("#sc-operator").value,
+      value: q("#sc-value").value, sortKey: q("#sc-sort-field").value,
+      direction: q("#sc-direction").value, limit: pageSize};
+    const key = JSON.stringify(options);
     if (
       !queryCache ||
       queryCache.items !== items ||
-      queryCache.query !== query ||
-      queryCache.sort !== sort
+      queryCache.key !== key
     ) {
       queryCache = {
         items,
-        query,
-        sort,
-        result: Q.inventory(items || [], { query, sort, limit: pageSize }),
+        key,
+        result: Q.inventory(items || [], options),
       };
     }
     const result = queryCache.result,
@@ -85,21 +102,21 @@
     q("#sc-ai-selected").disabled = !selected.size;
     q("#sc-scope option[value=selected]").disabled = !selected.size;
   }
-  q("#sc-select-page").onclick = () => {
+  q("#sc-select-page").onclick = () => safe(() => {
     for (const entry of result().entries) selected.add(entry.index);
     updateSelection();
-  };
-  q("#sc-select-matching").onclick = () => {
+  });
+  q("#sc-select-matching").onclick = () => safe(() => {
     for (const entry of result().all) selected.add(entry.index);
     updateSelection();
-  };
-  q("#sc-invert-matching").onclick = () => {
+  });
+  q("#sc-invert-matching").onclick = () => safe(() => {
     for (const entry of result().all)
       selected.has(entry.index)
         ? selected.delete(entry.index)
         : selected.add(entry.index);
     updateSelection();
-  };
+  });
   q("#sc-query").addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown") {
       const first = q("#sc-records").querySelector('input[type="checkbox"]');
@@ -143,6 +160,9 @@
     inputs[next]?.focus();
   });
   function render() {
+    q("#sc-operator").disabled = !q("#sc-field").value;
+    q("#sc-value").disabled = !q("#sc-field").value || q("#sc-operator").value === "empty";
+    q("#sc-direction").disabled = !q("#sc-sort-field").value;
     if (!selected.size && q("#sc-scope").value === "selected")
       q("#sc-scope").value = "all";
     const found = result();
@@ -238,6 +258,7 @@
     safe(() => {
       const value = read();
       items = value.rows;
+      refreshFields();
       baseline = JSON.stringify(value.doc);
       selected.clear();
       offset = 0;
@@ -261,22 +282,32 @@
           " inventory items. Search, select and export the complete filtered result, not just the current page.",
       );
     });
-  q("#sc-query").oninput = () => {
-    offset = 0;
-    render();
+  function changeView() {
+    safe(() => {
+      offset = 0;
+      q("#sc-value").disabled = q("#sc-operator").value === "empty";
+      render();
+      status("Inventory view updated. Filtered export includes all matching items.");
+    });
+  }
+  q("#sc-query").oninput = q("#sc-value").oninput = changeView;
+  for (const id of ["#sc-order", "#sc-field", "#sc-operator", "#sc-sort-field", "#sc-direction"])
+    q(id).onchange = changeView;
+  q("#sc-reset-view").onclick = () => {
+    q("#sc-query").value = q("#sc-field").value = q("#sc-value").value = q("#sc-sort-field").value = "";
+    q("#sc-order").value = "original";
+    q("#sc-operator").value = "contains";
+    q("#sc-direction").value = "asc";
+    changeView();
   };
-  q("#sc-order").onchange = () => {
-    offset = 0;
-    render();
-  };
-  q("#sc-prev").onclick = () => {
+  q("#sc-prev").onclick = () => safe(() => {
     offset = Math.max(0, offset - 25);
     render();
-  };
-  q("#sc-next").onclick = () => {
+  });
+  q("#sc-next").onclick = () => safe(() => {
     offset += 25;
     render();
-  };
+  });
   q("#sc-clear-selection").onclick = () => {
     selected.clear();
     updateSelection();
