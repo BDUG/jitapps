@@ -390,6 +390,21 @@ The [cross-language embedding API](codingagentlib/README.md#integration) offers 
 
 See [language examples, capabilities and protocol](codingagentlib/README.md) for permissions, step budgets, cancellation, packaging and the differences between the JavaScript and Python/Rust drivers.
 
+### Two-view SDK example (`EmbeddedAgent`)
+
+The [two-views example](codingagentlib/examples/two-views/README.md) runs a shared browser UI (SVG circle + rich-text note + AI chat + exportable JSON trace) backed by `EmbeddedAgent` in Python, JavaScript/TypeScript (Node 18+), or native Rust (`svg_color` and `rich_text` tools):
+
+```sh
+python3 codingagentlib/examples/two-views/serve.py python
+# Or Node.js (JavaScript/TypeScript SDK):
+python3 codingagentlib/examples/two-views/serve.py javascript
+# Or native Rust (build first):
+cargo build --locked --manifest-path codingagentlib/rust/Cargo.toml --example two_views
+python3 codingagentlib/examples/two-views/serve.py rust
+```
+
+Open **http://127.0.0.1:8765** (`--port 8766` to change ports). By default it uses a deterministic callback (`svg_color purple` or `rich_text Hello world`); set `TWO_VIEWS_MODEL_URL`, `TWO_VIEWS_MODEL`, and optional `TWO_VIEWS_API_KEY` for natural-language chat against an OpenAI-compatible endpoint.
+
 ## Shared skill catalog
 
 The server starts a local SQLite vector index and a background source-refresh worker for AI chat and coding-agent retrieval. A bundled, attributed snapshot provides cached skill documents and directory references without an embedding service or GPU.
