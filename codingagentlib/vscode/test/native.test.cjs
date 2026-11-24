@@ -56,3 +56,18 @@ test('failed worker spawn rejects subsequent requests without hanging', {skip:pr
     await assert.rejects(worker.dispatch({op:'health'}), /ENOENT|exited|EPIPE/);
   } finally { await worker.close(); }
 });
+
+test('default nodejs and python3 tools execute inline code via native worker', async t => {
+  const {root, worker} = await fixture(t, ['node', 'python3']);
+  const health = await worker.dispatch({op:'health'});
+  const toolNames = new Set((health.tools || []).map(x => x.name || x));
+  assert.ok(toolNames.has('nodejs'));
+  assert.ok(toolNames.has('python3'));
+  const session = await worker.call('agent_start', {goal:'Run nodejs and python3', allow_commands:true});
+  const nObs = await worker.dispatch({op:'tool', session:session.id, tool:'nodejs', args:{code:"console.log('vs-node-ok')"}, callId:'vn1'});
+  assert.equal(nObs.ok, true);
+  assert.ok(nObs.result.stdout.includes('vs-node-ok'));
+  const pObs = await worker.dispatch({op:'tool', session:session.id, tool:'python3', args:{code:"print('vs-py-ok')"}, callId:'vp1'});
+  assert.equal(pObs.ok, true);
+  assert.ok(pObs.result.stdout.includes('vs-py-ok'));
+});

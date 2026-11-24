@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 function panel(initial={}){
  const ids=new Map(),posted=[];let saved=initial,receive;
- class Element{constructor(){this.children=[];this.value='';this.textContent='';this.dataset={};}append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}setAttribute(){}scrollIntoView(){}focus(){}remove(){}}
+ class Element{constructor(){this.children=[];this.value='';this.textContent='';this.dataset={};this.attributes={};}append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}setAttribute(k,v){this.attributes[k]=String(v);}getAttribute(k){return this.attributes[k];}scrollIntoView(){}focus(){}remove(){}}
  const document={getElementById(id){if(!ids.has(id))ids.set(id,new Element());return ids.get(id);},createElement:()=>new Element(),querySelectorAll:()=>[]};
  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../media/panel.js'),'utf8'),{JSON,setTimeout,document,window:{addEventListener:(_name,fn)=>receive=fn},acquireVsCodeApi:()=>({getState:()=>saved,setState:value=>saved=JSON.parse(JSON.stringify(value)),postMessage:value=>posted.push(value)})});
  return {q:id=>document.getElementById(id),posted,saved:()=>saved,state:extra=>receive({data:{kind:'state',workspaceKey:'rootA',workspace:'A',session:'s',running:false,...extra}}),event:data=>receive({data})};
@@ -173,4 +173,47 @@ test('snapshots drawer lists snapshots and triggers create, rollback, and delete
  acts.children[1].onclick();
  assert.equal(p.posted.at(-1).command,'deleteSnapshot');
  assert.equal(p.posted.at(-1).id,'snap-1');
+});
+
+test('context compression button reflects state, disables while running, and posts compressContext',()=>{
+ const p=panel();
+ const btn=p.q('compress-context');
+ btn.dataset={command:'compressContext'};
+ p.state({compactHistory:true,contextBudget:{events:6,totalEvents:20,characters:12000,originalCharacters:95000}});
+ assert.equal(btn.disabled,false);
+ assert.equal(btn.getAttribute('aria-pressed'),'true');
+ assert.ok(btn.title.includes('6/20 events'));
+ p.state({running:true,compactHistory:false});
+ assert.equal(btn.disabled,true);
+ assert.equal(btn.getAttribute('aria-pressed'),'false');
+});
+
+test('resource browser opens, renders tabs, toggles disable, and saves inline edits',()=>{
+ const p=panel();p.state();
+ p.q('browser-drawer').hidden=true;
+ p.q('browser-btn').onclick();
+ assert.equal(p.q('browser-drawer').hidden,false);
+ assert.equal(p.posted.at(-1).command,'listResources');
+ p.event({kind:'resourcesList',catalog:{
+  memory:[{id:'m1',category:'memory',source:'project-memory',title:'Arch Note',description:'note',content:'Original',disabled:false,edited:false,editable:true}],
+  skills:[{id:'s1',category:'skills',source:'workspace',title:'s1',description:'Skill 1',content:'Do X',disabled:false,edited:false,editable:true}],
+  agents:[],tools:[],workflows:[]
+ }});
+ assert.equal(p.q('browser-list').children.length,1);
+ const row=p.q('browser-list').children[0];
+ const acts=row.children[0].children[1];
+ // Disable button
+ acts.children[0].onclick();
+ assert.equal(p.posted.at(-1).command,'toggleResource');
+ assert.equal(p.posted.at(-1).category,'memory');
+ assert.equal(p.posted.at(-1).id,'m1');
+ // Edit button -> opens inline editor -> Save
+ acts.children[1].onclick();
+ const editor=p.q('browser-list').children[0].children[1];
+ editor.children[0].value='Updated Title';
+ editor.children[1].value='Updated Content';
+ editor.children[2].children[0].onclick();
+ assert.equal(p.posted.at(-1).command,'editResource');
+ assert.equal(p.posted.at(-1).description,'Updated Title');
+ assert.equal(p.posted.at(-1).content,'Updated Content');
 });

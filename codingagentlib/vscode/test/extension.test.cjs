@@ -13,7 +13,8 @@ const previous=global.fetch;global.fetch=async(_url,options)=>{assert.equal(opti
 if(request.goal==='Generate retained output'){const observed=request.events.some(e=>e.kind==='observation');return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({sessionId:request.sessionId,step:request.step,status:observed?'done':'act',plan:'Generate one output',summary:'Output retained',action:observed?null:{tool:'run_command',args:{command:process.execPath,args:['-e',"process.stdout.write('host output marker')"+(largeProposal?';/*'+'x'.repeat(6500)+'*/':'')]}}})},finish_reason:'stop'}],usage:{prompt_tokens:1,completion_tokens:1}}));}assert.equal(request.ideContext.diagnostics[0].path,'reference.txt');assert.equal(request.ideContext.diagnostics[0].message,'Current editor diagnostic');const observed=request.events.some(e=>e.kind==='observation');return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({sessionId:request.sessionId,step:request.step,status:observed?'done':'act',plan:'Write requested file',tasks:[{id:'write',title:'Write greeting',status:observed?'done':'in_progress'}],summary:'Written',action:observed?null:{tool:'write_file',args:{path:'hello.txt',content:'VS Code native run',expectedHash:'missing'}}})},finish_reason:'stop'}],usage:{prompt_tokens:10,completion_tokens:5,total_tokens:15}}));};
 t.after(async()=>{global.fetch=previous;await module.exports.deactivate();await fs.rm(workspace,{recursive:true,force:true});});
 module.exports.activate(context);await commands.get('codingagent.open')();receive({command:'ready'});
-assert.equal(commands.size,7);
+assert.equal(commands.size,8);
+assert.ok(commands.has('codingagent.compressContext'));
 await commands.get('codingagent.settings')();
 assert.ok(calls.some(c=>Array.isArray(c)&&c[0]==='workbench.action.openSettings'&&c[1]==='codingagent'));
 

@@ -16,6 +16,7 @@ pub mod mcp_stdio;
 pub mod beyond_react;
 pub mod decision;
 pub use decision::DecisionMode;
+pub mod research;
 pub mod providers;
 pub mod a2a;
 pub mod streaming;

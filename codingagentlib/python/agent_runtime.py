@@ -28,7 +28,7 @@ from .tool_library import ToolLibrary
 from .agent_skills import Skills
 from .agent_navigation import Navigation
 from .agent_embeddings import LocalEmbeddings
-from . import agent_package, agent_checks, agent_context, agent_project, agent_acceptance, agent_review, agent_workflows, agent_planning, agent_independent_review, agent_tool_discovery, agent_parallel, agent_instructions, agent_verification, agent_edits
+from . import agent_package, agent_checks, agent_context, agent_project, agent_acceptance, agent_review, agent_workflows, agent_planning, agent_independent_review, agent_tool_discovery, agent_parallel, agent_instructions, agent_verification, agent_edits, internet_research
 import signal
 import subprocess
 import threading
@@ -84,8 +84,10 @@ TOOLS = [
  {'name':'read_file','description':'Read a UTF-8 text page and its SHA-256. Use returned SHA on edits.','arguments':{'path':'relative file','offset':'character offset, default 0','limit':'1..64000, default 12000'}},
  {'name':'read_files','description':'Read 1–16 UTF-8 text files with per-file offset/limit paging within a 64000-character combined budget.','arguments':{'files':'array of {path, offset?, limit?} or paths array','offset':'default character offset','limit':'default character limit per file'}},
  {'name':'read_image','description':'Read a workspace image (.png, .jpg, .jpeg, .webp, .gif up to 8 MB) as base64 dataUrl with metadata.','arguments':{'path':'relative image path'}},
- {'name':'web_fetch','description':'Fetch a public HTTPS URL (SSRF-guarded) in bounded text pages.','arguments':{'url':'https:// URL','offset':'character offset, default 0','limit':'1..64000, default 12000'}},
- {'name':'web_search','description':'Search the web via HTTPS for public documentation or references.','arguments':{'query':'search query','limit':'1..10, default 5'}},
+ {'name':'web_fetch','description':'Fetch a public HTTPS URL (SSRF-guarded) with clean Markdown/code/text extraction, focus-aware truncation, and untrusted_web_content delimiters.','arguments':{'url':'https:// URL','focus_query':'optional heading relevance focus query','format':'markdown | code_only | text, default markdown','max_chars':'100..25000, default 12000'}},
+ {'name':'web_search','description':'Search the web via HTTPS returning metadata only (title, url, snippet <= 300 chars, published_date), optionally anchored by target_stack.','arguments':{'query':'search query','target_stack':'optional stack/version anchor e.g. Python 3.12','max_results':'1..10, default 5'}},
+ {'name':'rag_search','description':'Query a configured state-of-the-art RAG database (qdrant, pinecone, weaviate, chroma, milvus, pgvector, elasticsearch, opensearch, lancedb, faiss, custom) with hybrid/dense/sparse/rerank search and untrusted_rag_content delimiters.','arguments':{'query':'search query','provider':'optional RAG system override','collection':'optional collection/index override','namespace':'optional namespace/partition','search_mode':'hybrid | dense | sparse | rerank','top_k':'1..50, default 5','min_score':'0.0..1.0','filter':'optional metadata filter object','target_stack':'optional stack/version anchor'}},
+ {'name':'summarize_research','description':'Distill 1–5 fetched web or RAG sources into a structured ResearchBrief (summary, version_constraints, code_examples, gotchas, citations) and discard raw pages.','arguments':{'sources':'array of 1..5 fetched source objects {url, text}','objective':'technical question or goal','target_stack':'optional target stack string','output_format':'api_reference | bug_workaround | migration_guide | comparison'}},
  {'name':'search','description':'Literal text search, excluding dependencies/private files; paginated matches.','arguments':{'query':'literal nonempty text','path':'relative directory, default .','cursor':'integer','limit':'1..200'}},
  {'name':'grep_search','description':'Search workspace text with optional path subdirectory, glob include filter, caseSensitive flag, offset and limit.','arguments':{'query':'nonempty search text','path':'optional relative subdirectory','include':'optional glob filter e.g. *.py','caseSensitive':'boolean, default true','offset':'integer, default 0','limit':'1..1000, default 200'}},
  {'name':'git_status','description':'Inspect read-only git working tree status and current branch.','arguments':{}},
@@ -101,6 +103,8 @@ TOOLS = [
  {'name':'read_script','description':'Read a page of a managed script.','arguments':{'path':'relative script name','offset':'character offset','limit':'1..64000'}},
  {'name':'delete_script','description':'Remove a managed script in this session.','arguments':{'path':'relative script name'}},
  {'name':'run_command','description':'Run an allowlisted executable with literal argv in a workspace subdirectory; returns real exit status, resolvedExecutable and output log IDs. Missing paths fall back to PATH by approved basename.','arguments':{'command':'allowlisted name','args':'array of strings','cwd':'relative directory, default .','stdin':'optional text','timeout':'milliseconds, 100..600000'}},
+ {'name':'nodejs','description':'Execute inline JavaScript or a workspace script with Node.js (requires allowCommands and node/nodejs allowlisted).','arguments':{'code':'inline JavaScript source (mutually exclusive with path)','path':'workspace-relative .js/.mjs/.cjs file','args':'optional array of CLI args','cwd':'relative directory, default .','stdin':'optional text','timeout':'milliseconds, 100..600000'}},
+ {'name':'python3','description':'Execute inline Python 3 code or a workspace script with python3 (requires allowCommands and python3/python allowlisted).','arguments':{'code':'inline Python 3 source (mutually exclusive with path)','path':'workspace-relative .py file','args':'optional array of CLI args','cwd':'relative directory, default .','stdin':'optional text','timeout':'milliseconds, 100..600000'}},
  {'name':'start_process','description':'Start an allowlisted interactive child process with piped stdin/stdout/stderr; returns processId.','arguments':{'command':'allowlisted name','args':'array of strings','cwd':'relative directory, default .'}},
  {'name':'write_stdin','description':'Write input (or eof) to a running interactive process and read available stdout/stderr output.','arguments':{'processId':'process ID from start_process','input':'optional text to write to stdin','eof':'optional boolean to close stdin','waitMs':'optional wait milliseconds 0..5000, default 200'}},
  {'name':'stop_process','description':'Terminate an interactive child process started by start_process.','arguments':{'processId':'process ID from start_process'}},
@@ -187,11 +191,16 @@ def command_allowlist(commands):
     return allowed
 
 class Runtime:
-    def __init__(self, workspace=None, commands=(), embedding_dir=None, navigation_dir=None, tool_library=None, state_dir=None, remember_sessions=True, command_wrapper=None):
+    def __init__(self, workspace=None, commands=(), embedding_dir=None, navigation_dir=None, tool_library=None, state_dir=None, remember_sessions=True, command_wrapper=None, research_config=None, rag_config=None):
         if not isinstance(remember_sessions, bool): raise ValueError('remember_sessions must be boolean')
         if command_wrapper is not None and not callable(command_wrapper): raise ValueError('command_wrapper must be callable')
         self.command_wrapper = command_wrapper
         self.remember_sessions = remember_sessions
+        merged_research = dict(research_config or {})
+        if isinstance(rag_config, dict):
+            merged_research['rag'] = {**(merged_research.get('rag') or {}), **rag_config}
+        self.research_config = internet_research.normalize_research_config(merged_research)
+        self.rag_fn = None
         self.root = Path(workspace).expanduser().resolve() if workspace else None
         if self.root and not self.root.is_dir(): raise ValueError('Agent workspace must be an existing directory')
         self.allowed = command_allowlist(commands)
@@ -478,10 +487,10 @@ class Runtime:
             result=agent_parallel.run(self,s,args,call_id) if name=='parallel_read' else self.execute(s,name,args);response={'ok':True,'result':result}
             if name=='parallel_read' and not result['allSucceeded']:response.update(ok=False,error='One or more independent reads failed or were cancelled; inspect individual receipts without replaying successful reads')
             if name in {'workflow_run','workflow_continue'} and result['status'] in {'failed','cancelled','interrupted'}:response.update(ok=False,error=result['reason'])
-            if name in {'write_file','apply_edits','replace_text','delete_file','restore_file','run_command','run_script','script_run'}:self._knowledge_dirty=True
+            if name in {'write_file','apply_edits','replace_text','delete_file','restore_file','run_command','run_script','script_run','nodejs','python3'}:self._knowledge_dirty=True
             if checks:response['checks']=agent_checks.evaluate(result,checks)
-            if name in {'read_file','read_script','read_context','read_history','search','run_command','run_script','script_run','read_command_output'}:
-                text=result.get('text') if isinstance(result.get('text'),str) else (result.get('stdout','')+'\n'+result.get('stderr','') if name in {'run_command','run_script','script_run'} else json.dumps(result,ensure_ascii=False))
+            if name in {'read_file','read_script','read_context','read_history','search','run_command','run_script','script_run','nodejs','python3','read_command_output'}:
+                text=result.get('text') if isinstance(result.get('text'),str) else (result.get('stdout','')+'\n'+result.get('stderr','') if name in {'run_command','run_script','script_run','nodejs','python3'} else json.dumps(result,ensure_ascii=False))
                 if text.strip():
                     try:response['memory']=self.memory.store(s['id'],text,source=name+':'+str(args.get('path',result.get('jobId',''))),collection='observations',document=call_id,metadata={'tool':name,'callId':call_id,'hash':result.get('hash'),'snapshot':result.get('snapshot'),'jobId':result.get('jobId'),'offset':result.get('offset'),'outputPaged':result.get('outputPaged',False)})
                     except (sqlite3.Error,OSError,ValueError):response['memory']={'error':'Working-memory indexing is unavailable; the actual tool result remains in the audit log.'}
@@ -660,21 +669,36 @@ class Runtime:
             if size>8*1024*1024:raise ValueError('Image exceeds 8 MB limit')
             raw=p.read_bytes();sha=digest(raw);b64=base64.b64encode(raw).decode('ascii')
             return {'path':a['path'],'mimeType':mime,'bytes':len(raw),'sha256':sha,'dataUrl':f'data:{mime};base64,{b64}'}
+        if name in {'web_fetch','web_search','rag_search','summarize_research'} and self.research_config.get('enabled') is False:
+            raise ValueError('Research module is disabled by configuration')
         if name=='web_fetch':
             url=a.get('url','')
-            self._validate_public_https_url(url)
-            raw,ctype=self._fetch_https(url)
-            text=self._strip_html(raw) if ('html' in ctype.lower() or raw.lstrip().startswith('<')) else raw
-            return {**self._page_text(text,a),'url':url,'contentType':ctype}
+            fmt=a.get('format','markdown')
+            max_chars=a.get('max_chars',a.get('limit',self.research_config.get('maxChars',internet_research.DEFAULT_MAX_CHARS)))
+            return internet_research.web_fetch(url,focus_query=a.get('focus_query'),fmt=fmt,max_chars=max_chars)
         if name=='web_search':
             query=a.get('query')
-            if not isinstance(query,str) or not query.strip():raise ValueError('Provide a nonempty search query')
-            lim=integer(a.get('limit'),5,1,10)
-            url='https://html.duckduckgo.com/html/?q='+urllib.parse.quote_plus(query.strip())
-            self._validate_public_https_url(url)
-            raw,_=self._fetch_https(url)
-            results=self._parse_ddg_html(raw,lim)
-            return {'query':query,'results':results,'total':len(results)}
+            lim=a.get('max_results',a.get('limit',5))
+            stack=a.get('target_stack') or self.research_config.get('targetStack') or None
+            return internet_research.web_search(query,target_stack=stack,max_results=lim)
+        if name=='rag_search':
+            return internet_research.rag_search(
+                a.get('query',''),
+                config=self.research_config,
+                provider=a.get('provider'),
+                endpoint=a.get('endpoint'),
+                collection=a.get('collection'),
+                namespace=a.get('namespace'),
+                top_k=a.get('top_k',a.get('topK')),
+                min_score=a.get('min_score',a.get('minScore')),
+                search_mode=a.get('search_mode',a.get('searchMode')),
+                filter_obj=a.get('filter'),
+                target_stack=a.get('target_stack'),
+                max_chars=a.get('max_chars',a.get('limit')),
+                rag_fn=self.rag_fn,
+            )
+        if name=='summarize_research':
+            return internet_research.summarize_research(a.get('sources'),objective=a.get('objective',''),target_stack=a.get('target_stack') or self.research_config.get('targetStack') or None,output_format=a.get('output_format','api_reference'),budget_exhausted=bool(a.get('budget_exhausted',False)))
         if name=='find_files':
             pattern=a.get('pattern') or '*'
             if not isinstance(pattern,str):raise ValueError('pattern must be a string')
@@ -815,6 +839,7 @@ class Runtime:
             if name=='delete_script':self.edits(s);p.unlink();return {'deleted':a['path']}
             return self.command(s,a,script=p)
         if name=='run_command':return self.command(s,a)
+        if name in {'nodejs','python3'}:return self._interpreter_tool(s,name,a)
         if name=='start_process':return self._start_process(s,a)
         if name=='write_stdin':return self._write_stdin(s,a)
         if name=='stop_process':return self._stop_process(s,a)
@@ -876,6 +901,26 @@ class Runtime:
             if action=='research':return self.memory_suite.dispatch({**a,'action':'gam_research'},session=s)
             raise ValueError('Unsupported memory_research action; use research or memorize')
         raise ValueError('Unknown tool')
+    def _interpreter_tool(self,s,name,a):
+        code=a.get('code');path=a.get('path')
+        if (code is None and path is None) or (code is not None and path is not None):
+            raise ValueError(f'{name} requires exactly one of code or path')
+        extra_args=a.get('args',[])
+        if not isinstance(extra_args,list) or any(not isinstance(x,str) for x in extra_args):
+            raise ValueError('args must be an array of strings')
+        if code is not None:
+            if not isinstance(code,str) or not code.strip():
+                raise ValueError('code must be a nonempty string')
+            flag='-e' if name=='nodejs' else '-c'
+            argv=[flag,code,*extra_args]
+        else:
+            p=self.path(path)
+            if not p.is_file():raise FileNotFoundError(f'Script not found: {path}')
+            argv=[str(p),*extra_args]
+        candidates=('node','nodejs') if name=='nodejs' else ('python3','python')
+        exe=next((c for c in candidates if c in self.allowed),candidates[0])
+        cmd_args={'command':exe,'args':argv,**{k:a[k] for k in ('cwd','stdin','timeout') if k in a}}
+        return self.command(s,cmd_args)
     def _script_run(self,s,a):
         if not s['allowCommands']: raise PermissionError('Commands were not enabled for this session')
         lib_record,lib_revision=None,None
@@ -960,6 +1005,14 @@ class Runtime:
     def dispatch(self,data):
         operation=data.get('op')
         if operation=='health':return self.health()
+        if operation in ('research_config','configure_research'):
+            if 'config' in data or 'researchConfig' in data or 'rag' in data:
+                incoming=data.get('config') or data.get('researchConfig') or ({'rag':data['rag']} if isinstance(data.get('rag'),dict) else {})
+                merged={**self.research_config,**(incoming if isinstance(incoming,dict) else {})}
+                if isinstance(self.research_config.get('rag'),dict) and isinstance((incoming or {}).get('rag'),dict):
+                    merged['rag']={**self.research_config['rag'],**incoming['rag']}
+                self.research_config=internet_research.normalize_research_config(merged)
+            return internet_research.redact_research_config(self.research_config)
         if operation=='tool_library':
             self.enabled()
             result=self.tool_library.dispatch(data)
@@ -1199,7 +1252,7 @@ class Runtime:
                     value=event.get('value',{})
                     if event['kind']=='observation' and value.get('ok') and value.get('tool') in {'write_file','replace_text','apply_edits','delete_file','write_script','delete_script','restore_file','apply_project'}:last_edit=index
                     if event['kind']=='user_action' and value.get('operation') in {'script_write','script_delete','restore_file'}:last_edit=index
-                    if event['kind']=='observation' and value.get('tool') in {'run_command','run_script','script_run'}:last_command=index;latest_command=value
+                    if event['kind']=='observation' and value.get('tool') in {'run_command','run_script','script_run','nodejs','python3'}:last_command=index;latest_command=value
                 command_result=latest_command.get('result',{}) if latest_command else {}
                 verified=latest_command is not None and latest_command.get('ok') is True and type(command_result.get('exitCode')) is int and command_result['exitCode']==0 and not command_result.get('timedOut') and not command_result.get('cancelled')
                 needs_verification=last_edit>=0 and (last_command<last_edit or not verified)

@@ -7,6 +7,17 @@ from .python.agent_harness import ScriptLibrary
 from .python.agent_memory_manager import MemoryManager
 from .python.agent_memory_architectures import UnifiedMemorySuite, StructMemStore, EggentEpisodicGraph, AMemNetwork, MagmaMultiGraph, GamMemoryEngine
 from .python.decision_model import build_decision_request, consult_decision_model, normalize_decision
+from .python.internet_research import (
+    DEFAULT_RESEARCH_CONFIG,
+    RAG_PROVIDERS,
+    RAG_SEARCH_MODES,
+    ResearchError,
+    normalize_research_config,
+    rag_search,
+    redact_research_config,
+    run_research,
+    summarize_research,
+)
 from .python.tree_search import TreeSearchAgent
 from .python.codeact import CodeActAgent, CodeActREPL
 from .python.pipelines import AgentlessPipeline
@@ -29,4 +40,4 @@ from .python.adapters import from_embedded
 from .python.runtime_tools import runtime_tools, script_tools, program_tools, script_library_tools
 from .python.core import create_agent, CoreAgent, MemorySessionStore, capabilities, replay
 __version__ = '0.1.0'
-__all__ = ['create_model_mosaic','query_graph','ProjectKnowledge','ToolLibrary','PythonEnvironments','ScriptLibrary','MemoryManager','UnifiedMemorySuite','StructMemStore','EggentEpisodicGraph','AMemNetwork','MagmaMultiGraph','GamMemoryEngine','ReactAgent','TreeSearchAgent','CodeActAgent','CodeActREPL','AgentlessPipeline','StateGraph','END','PlannerExecutorAgent','HybridPlanReflexionAgent','MultiAgentOrchestrator','ReflexionLoop','build_decision_request','consult_decision_model','normalize_decision','ShellMCP','RPCTransport','HttpMCPTransport','A2AServer','A2AClient','agent_card','a2a_delegation_tool','ACPServer','SSEStreamBridge','ag_ui_events','format_sse','GenAITracer','ReactOtelObserver','TraceContext','ModelRequest', 'ModelResponse', 'ToolDefinition', 'ToolResult', 'AgentEvent', 'AgentError', 'from_embedded', 'runtime_tools', 'script_tools', 'program_tools', 'script_library_tools', 'create_agent', 'CoreAgent', 'MemorySessionStore', 'capabilities', 'replay', 'Runtime', 'TOOLS', 'Agent', 'EmbeddedAgent', 'ContextRegistry', 'ModelHandoff']
+__all__ = ['create_model_mosaic','query_graph','ProjectKnowledge','ToolLibrary','PythonEnvironments','ScriptLibrary','MemoryManager','UnifiedMemorySuite','StructMemStore','EggentEpisodicGraph','AMemNetwork','MagmaMultiGraph','GamMemoryEngine','ReactAgent','TreeSearchAgent','CodeActAgent','CodeActREPL','AgentlessPipeline','StateGraph','END','PlannerExecutorAgent','HybridPlanReflexionAgent','MultiAgentOrchestrator','ReflexionLoop','build_decision_request','consult_decision_model','normalize_decision','ResearchError','run_research','summarize_research','rag_search','RAG_PROVIDERS','RAG_SEARCH_MODES','DEFAULT_RESEARCH_CONFIG','normalize_research_config','redact_research_config','ShellMCP','RPCTransport','HttpMCPTransport','A2AServer','A2AClient','agent_card','a2a_delegation_tool','ACPServer','SSEStreamBridge','ag_ui_events','format_sse','GenAITracer','ReactOtelObserver','TraceContext','ModelRequest', 'ModelResponse', 'ToolDefinition', 'ToolResult', 'AgentEvent', 'AgentError', 'from_embedded', 'runtime_tools', 'script_tools', 'program_tools', 'script_library_tools', 'create_agent', 'CoreAgent', 'MemorySessionStore', 'capabilities', 'replay', 'Runtime', 'TOOLS', 'Agent', 'EmbeddedAgent', 'ContextRegistry', 'ModelHandoff']

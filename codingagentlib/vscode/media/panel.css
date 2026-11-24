@@ -10,6 +10,20 @@ body{display:flex;flex-direction:column;overflow:hidden;font-family:var(--vscode
 .topbar-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .icon-btn{background:transparent;color:var(--vscode-icon-foreground,var(--vscode-foreground));border:none;border-radius:4px;padding:3px 6px;margin:0;font-size:14px;line-height:1;cursor:pointer}
 .icon-btn:hover{background:var(--vscode-toolbar-hoverBackground,var(--vscode-button-secondaryHoverBackground))}
+.icon-btn.active{color:var(--vscode-focusBorder)}
+.browser-tabs{display:flex;flex-wrap:wrap;gap:4px}
+.browser-tab{background:transparent;border:1px solid var(--vscode-panel-border);color:var(--vscode-descriptionForeground)}
+.browser-tab.active{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:transparent}
+.browser-filter{width:100%;margin:4px 0 6px;padding:4px 8px;border:1px solid var(--vscode-panel-border);border-radius:6px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);font:inherit;font-size:12px}
+.browser-row{display:flex;flex-direction:column;gap:6px;padding:6px 8px;border:1px solid var(--vscode-panel-border);border-radius:6px}
+.browser-row.is-disabled{opacity:.6}
+.browser-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.browser-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.browser-badge{font-size:10px;padding:0 5px;border-radius:999px;border:1px solid var(--vscode-panel-border);color:var(--vscode-descriptionForeground)}
+.browser-badge.active{border-color:var(--vscode-focusBorder);color:var(--vscode-foreground)}
+.browser-editor{display:flex;flex-direction:column;gap:4px}
+.browser-editor input,.browser-editor textarea{width:100%;padding:4px 6px;border:1px solid var(--vscode-panel-border);border-radius:4px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);font:inherit;font-size:12px}
+.browser-editor textarea{min-height:72px;resize:vertical}
 .sessions-drawer{flex:0 0 auto;max-height:38vh;overflow-y:auto;border-bottom:1px solid var(--vscode-panel-border);background:var(--vscode-editor-background);padding:6px 10px}
 .sessions-header{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:600;color:var(--vscode-descriptionForeground);margin-bottom:4px}
 .mini-btn{padding:2px 8px;font-size:11px;border-radius:4px}

@@ -14,3 +14,4 @@ Object.defineProperty(module.exports,'mcpTransports',{enumerable:true,get:()=>re
 Object.defineProperty(module.exports,'a2a',{enumerable:true,get:()=>require('./a2a.js')});
 Object.defineProperty(module.exports,'streaming',{enumerable:true,get:()=>require('./streaming.js')});
 Object.defineProperty(module.exports,'otelGenai',{enumerable:true,get:()=>require('./otel-genai.js')});
+Object.defineProperty(module.exports,'internetResearch',{enumerable:true,get:()=>require('./internet-research.js')});

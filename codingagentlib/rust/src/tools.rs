@@ -38,6 +38,8 @@ pub fn names() -> &'static [&'static str] {
         "read_image",
         "web_fetch",
         "web_search",
+        "rag_search",
+        "summarize_research",
         "git_status",
         "git_diff",
         "git_log",
@@ -47,6 +49,8 @@ pub fn names() -> &'static [&'static str] {
         "delete_script",
         "run_script",
         "run_command",
+        "nodejs",
+        "python3",
         "read_command_output",
         "start_process",
         "write_stdin",
@@ -97,6 +101,8 @@ pub fn description(name: &str) -> &str {
 "delete_script"=>"Delete a session-local managed script. args: path, expectedHash?. Requires edits.",
 "run_script"=>"Execute managed script with allowlisted interpreter; missing interpreter paths fall back to PATH by approved basename. args: path, command, args? (literal string array), timeout? (milliseconds max 120000).",
 "run_command"=>"Execute allowlisted program with literal args. args: command, args? (string array), cwd? (relative workspace directory), timeout? (milliseconds max 120000). Missing executable paths fall back to PATH by approved basename; receipts include resolvedExecutable. Requires command permission; OS access is not sandboxed.",
+"nodejs"=>"Execute inline JavaScript or a workspace script with Node.js (requires command permission and node/nodejs allowlisted). args: code or path, args?, cwd?, timeout?.",
+"python3"=>"Execute inline Python 3 code or a workspace script with python3 (requires command permission and python3/python allowlisted). args: code or path, args?, cwd?, timeout?.",
 "read_command_output"=>"Read persisted command output pages. Command receipts include stdoutSha256/stderrSha256 for full raw log bytes. args: jobId, stream? (stdout/stderr), offset?, limit?.",
 "changes"=>"SHA-256 differences from initial session manifest. Reports added/modified/deleted files.",
 "read_project_memory"=>"Read approved project note snapshot, not policy or verification. args: id, offset? (characters), limit? (1..8000). Cannot switch projects.",
@@ -125,8 +131,10 @@ pub fn description(name: &str) -> &str {
 "code_references"=>"Find whole-word references to the symbol at a 1-based line and column across workspace files.",
 "code_diagnostics"=>"Run read-only syntax and delimiter diagnostics on a workspace source file.",
 "read_image"=>"Read a workspace image (.png, .jpg, .jpeg, .webp, .gif up to 8 MB) as base64 dataUrl with metadata.",
-"web_fetch"=>"Fetch a public HTTPS URL (SSRF-guarded) in bounded text pages.",
-"web_search"=>"Search the web via HTTPS for public documentation or references.",
+"web_fetch"=>"Fetch a public HTTPS URL (SSRF-guarded) with clean Markdown/code/text extraction, focus-aware truncation, and untrusted_web_content delimiters.",
+"web_search"=>"Search the web via HTTPS returning metadata only (title, url, snippet <= 300 chars, published_date), optionally anchored by target_stack.",
+"rag_search"=>"Query a configured state-of-the-art RAG database (qdrant, pinecone, weaviate, chroma, milvus, pgvector, elasticsearch, opensearch, lancedb, faiss, custom) with hybrid/dense/sparse/rerank search and untrusted_rag_content delimiters.",
+"summarize_research"=>"Distill 1-5 fetched sources into a structured ResearchBrief (summary, version_constraints, code_examples, gotchas, citations) and discard raw pages.",
 "restore_file"=>"Restore a file modified or deleted in the current session from its session backup (requires expectedHash).",
 "apply_patch"=>"Apply a unified multi-file Codex-style patch (*** Begin Patch / Add File / Update File / Delete File / *** End Patch) atomically.",
 "start_process"=>"Start an allowlisted interactive child process with piped stdin/stdout/stderr; returns processId.",
@@ -781,37 +789,251 @@ pub(crate) fn execute(
             }
             Ok(res)
         }
+        "web_fetch" | "web_search" | "rag_search" | "summarize_research"
+            if runtime.research_config["enabled"] == false =>
+        {
+            return Err("Research module is disabled by configuration".into());
+        }
         "web_fetch" => {
+            let started = Instant::now();
             let url = text(args, "url")?;
-            validate_public_https_url(url)?;
+            crate::research::validate_public_url(url, false)?;
             let raw = curl_https(url)?;
-            let text_body = if raw.trim_start().starts_with('<') {
-                strip_html_tags(&raw)
-            } else {
-                raw
-            };
-            let mut res = page(&text_body, args)?;
-            if let Some(obj) = res.as_object_mut() {
-                obj.insert("url".into(), json!(url));
-            }
-            Ok(res)
+            let fmt = args.get("format").and_then(Value::as_str).unwrap_or("markdown");
+            let focus = args.get("focus_query").and_then(Value::as_str);
+            let max_chars = args
+                .get("max_chars")
+                .or_else(|| args.get("limit"))
+                .and_then(Value::as_u64)
+                .unwrap_or(crate::research::DEFAULT_MAX_CHARS as u64) as usize;
+            let cleaned = crate::research::html_to_clean(&raw, fmt)?;
+            let (bounded, truncated) = crate::research::focus_truncate(&cleaned, focus, max_chars);
+            let wrapped = crate::research::wrap_untrusted(url, &bounded);
+            Ok(json!({
+                "url": url,
+                "format": fmt,
+                "text": wrapped,
+                "truncated": truncated,
+                "totalCharacters": cleaned.chars().count(),
+                "trace": {
+                    "trace_id": ident(),
+                    "tool_name": "web_fetch",
+                    "latency_ms": started.elapsed().as_millis() as u64,
+                    "char_count": wrapped.chars().count(),
+                    "truncated": truncated,
+                    "error_code": Value::Null
+                }
+            }))
         }
         "web_search" => {
+            let started = Instant::now();
             let query = text(args, "query")?;
             if query.trim().is_empty() {
                 return Err("Provide a nonempty search query".into());
             }
             let lim = args
-                .get("limit")
+                .get("max_results")
+                .or_else(|| args.get("limit"))
                 .and_then(Value::as_u64)
                 .unwrap_or(5)
                 .clamp(1, 10) as usize;
-            let encoded = percent_encode(query.trim());
+            let anchored = match args.get("target_stack").and_then(Value::as_str) {
+                Some(s) if !s.trim().is_empty() => format!("{} {}", query.trim(), s.trim()),
+                _ => query.trim().to_owned(),
+            };
+            let encoded = percent_encode(&anchored);
             let url = format!("https://html.duckduckgo.com/html/?q={encoded}");
-            validate_public_https_url(&url)?;
+            crate::research::validate_public_url(&url, false)?;
             let html = curl_https(&url)?;
-            let results = parse_ddg_html(&html, lim);
-            Ok(json!({"query": query, "results": results, "total": results.len()}))
+            let results: Vec<Value> = parse_ddg_html(&html, lim)
+                .into_iter()
+                .map(|mut item| {
+                    if let Some(s) = item["snippet"].as_str() {
+                        item["snippet"] = json!(s.chars().take(300).collect::<String>());
+                    }
+                    item["published_date"] = Value::Null;
+                    item
+                })
+                .collect();
+            Ok(json!({
+                "query": anchored,
+                "results": results,
+                "total": results.len(),
+                "trace": {
+                    "trace_id": ident(),
+                    "tool_name": "web_search",
+                    "latency_ms": started.elapsed().as_millis() as u64,
+                    "char_count": 0,
+                    "truncated": false,
+                    "error_code": Value::Null
+                }
+            }))
+        }
+        "summarize_research" => {
+            let sources = args
+                .get("sources")
+                .and_then(Value::as_array)
+                .ok_or("Provide 1 to 5 sources")?;
+            let objective = args.get("objective").and_then(Value::as_str).unwrap_or("");
+            let target_stack = args
+                .get("target_stack")
+                .and_then(Value::as_str)
+                .or_else(|| {
+                    runtime.research_config["targetStack"]
+                        .as_str()
+                        .filter(|s| !s.is_empty())
+                });
+            let budget_exhausted = args
+                .get("budget_exhausted")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            crate::research::summarize_research(sources, objective, target_stack, budget_exhausted)
+        }
+        "rag_search" => {
+            let started = Instant::now();
+            let query = text(args, "query")?;
+            if query.trim().is_empty() {
+                return Err("Provide a nonempty RAG search query".into());
+            }
+            let cfg = crate::research::normalize_research_config(&runtime.research_config)?;
+            let rag = &cfg["rag"];
+            let provider = args
+                .get("provider")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| rag["provider"].as_str().unwrap_or("qdrant"))
+                .trim()
+                .to_ascii_lowercase();
+            if !crate::research::RAG_PROVIDERS.contains(&provider.as_str()) {
+                return Err(format!("Unsupported RAG provider {provider}").into());
+            }
+            let endpoint = args
+                .get("endpoint")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| rag["endpoint"].as_str().unwrap_or(""))
+                .trim();
+            if endpoint.is_empty() {
+                return Err("ERR_RAG_UNCONFIGURED: RAG endpoint is not configured".into());
+            }
+            let allow_localhost = rag["allowLocalhost"].as_bool().unwrap_or(true);
+            crate::research::validate_rag_url(endpoint, allow_localhost)?;
+            let collection = args
+                .get("collection")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| rag["collection"].as_str().unwrap_or("default"));
+            let namespace = args
+                .get("namespace")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| rag["namespace"].as_str().unwrap_or(""));
+            let search_mode = args
+                .get("search_mode")
+                .or_else(|| args.get("searchMode"))
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| rag["searchMode"].as_str().unwrap_or("hybrid"));
+            let top_k = args
+                .get("top_k")
+                .or_else(|| args.get("topK"))
+                .and_then(Value::as_u64)
+                .unwrap_or_else(|| rag["topK"].as_u64().unwrap_or(5))
+                .clamp(1, 50) as usize;
+            let min_score = args
+                .get("min_score")
+                .or_else(|| args.get("minScore"))
+                .and_then(Value::as_f64)
+                .unwrap_or_else(|| rag["minScore"].as_f64().unwrap_or(0.0))
+                .clamp(0.0, 1.0);
+            let max_chars = args
+                .get("max_chars")
+                .or_else(|| args.get("limit"))
+                .and_then(Value::as_u64)
+                .unwrap_or_else(|| cfg["maxChars"].as_u64().unwrap_or(crate::research::DEFAULT_MAX_CHARS as u64))
+                .clamp(100, crate::research::HARD_MAX_CHARS as u64) as usize;
+            let stack = args
+                .get("target_stack")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| cfg["targetStack"].as_str().unwrap_or(""));
+            let anchored = if stack.trim().is_empty() {
+                query.trim().to_owned()
+            } else {
+                format!("{} {}", query.trim(), stack.trim())
+            };
+            let api_key = rag["apiKey"].as_str().unwrap_or("");
+            let timeout_ms = rag["timeoutMs"].as_u64().unwrap_or(5000);
+            let emb_endpoint = rag["embeddingEndpoint"].as_str().unwrap_or("");
+            let mut vector_val: Option<Value> = None;
+            if !emb_endpoint.is_empty() {
+                crate::research::validate_rag_url(emb_endpoint, allow_localhost)?;
+                let mut emb_headers = serde_json::Map::new();
+                if !api_key.is_empty() {
+                    emb_headers.insert("Authorization".into(), json!(format!("Bearer {api_key}")));
+                }
+                let emb_model = rag["embeddingModel"].as_str().unwrap_or("");
+                let mut emb_payload = json!({"input": anchored});
+                if !emb_model.is_empty() {
+                    emb_payload["model"] = json!(emb_model);
+                }
+                let emb_resp = curl_post_json(emb_endpoint, &emb_payload, &emb_headers, timeout_ms)?;
+                if let Some(v) = emb_resp["data"][0]["embedding"].as_array().or_else(|| emb_resp["embedding"].as_array()) {
+                    vector_val = Some(Value::Array(v.clone()));
+                }
+            }
+            let (req_url, req_payload, req_headers) = crate::research::build_rag_request(
+                &provider,
+                endpoint,
+                &anchored,
+                collection,
+                namespace,
+                top_k,
+                min_score,
+                search_mode,
+                api_key,
+                vector_val.as_ref(),
+                args.get("filter"),
+                rag.get("headers"),
+            );
+            let raw_data = curl_post_json(&req_url, &req_payload, &req_headers, timeout_ms)?;
+            let hits = crate::research::parse_rag_response(&provider, &raw_data, collection, top_k, min_score);
+            let per_hit_cap = (max_chars / hits.len().max(1)).max(200);
+            let mut any_truncated = false;
+            let mut total_chars = 0usize;
+            let mut results = vec![];
+            for hit in hits {
+                let raw_content = hit["content"].as_str().unwrap_or("");
+                let (bounded, trunc) = crate::research::focus_truncate(raw_content, Some(query), per_hit_cap);
+                any_truncated |= trunc;
+                let source = hit["source"].as_str().unwrap_or("");
+                let wrapped = crate::research::wrap_untrusted_rag(&provider, source, &bounded);
+                total_chars += wrapped.chars().count();
+                results.push(json!({
+                    "id": hit["id"],
+                    "title": hit["title"],
+                    "source": source,
+                    "url": source,
+                    "content": wrapped,
+                    "text": wrapped,
+                    "score": hit["score"],
+                    "truncated": trunc,
+                    "metadata": hit["metadata"],
+                }));
+            }
+            Ok(json!({
+                "provider": provider,
+                "collection": collection,
+                "search_mode": search_mode,
+                "query": anchored,
+                "results": results,
+                "total": results.len(),
+                "trace": {
+                    "trace_id": ident(),
+                    "tool_name": "rag_search",
+                    "provider": provider,
+                    "collection": collection,
+                    "search_mode": search_mode,
+                    "latency_ms": started.elapsed().as_millis() as u64,
+                    "char_count": total_chars,
+                    "truncated": any_truncated,
+                    "error_code": Value::Null
+                }
+            }))
         }
         "read_image" => {
             let relative = text(args, "path")?;
@@ -972,6 +1194,7 @@ pub(crate) fn execute(
             Ok(json!({"deleted": relative}))
         }
         "run_command" | "run_script" => run_command(runtime, id, name, args, cancel),
+        "nodejs" | "python3" => run_interpreter_tool(runtime, id, name, args, cancel),
         "start_process" => start_process(runtime, id, args),
         "write_stdin" => write_stdin(runtime, id, args, cancel),
         "stop_process" => stop_process(runtime, id, args),
@@ -986,7 +1209,7 @@ pub(crate) fn execute(
                     event["kind"] == "observation"
                         && matches!(
                             event["value"]["tool"].as_str(),
-                            Some("run_command" | "run_script")
+                            Some("run_command" | "run_script" | "nodejs" | "python3")
                         )
                         && event["value"]["result"]["jobId"] == job
                 });
@@ -1431,6 +1654,8 @@ fn is_workflow_step_tool(name: &str) -> bool {
             | "read_script"
             | "delete_script"
             | "run_script"
+            | "nodejs"
+            | "python3"
             | "run_command"
             | "search_text"
             | "grep_search"
@@ -1518,6 +1743,58 @@ impl Drop for ChildGuard {
         self.terminate();
     }
 }
+fn run_interpreter_tool(
+    runtime: &mut Runtime,
+    id: &str,
+    name: &str,
+    args: &Value,
+    cancel: &CancelHandle,
+) -> Result<Value> {
+    let code = args.get("code").and_then(Value::as_str);
+    let path_arg = args.get("path").and_then(Value::as_str);
+    if code.is_some() == path_arg.is_some() {
+        return Err(format!("{name} requires exactly one of code or path").into());
+    }
+    let mut argv: Vec<String> = Vec::new();
+    if let Some(src) = code {
+        if src.trim().is_empty() {
+            return Err("code must be a nonempty string".into());
+        }
+        argv.push(if name == "nodejs" { "-e" } else { "-c" }.to_owned());
+        argv.push(src.to_owned());
+    } else if let Some(rel) = path_arg {
+        let resolved = resolve(&runtime.root, rel)?;
+        if !resolved.is_file() {
+            return Err(format!("Script not found: {rel}").into());
+        }
+        argv.push(resolved.to_string_lossy().into_owned());
+    }
+    if let Some(extra) = args.get("args") {
+        let arr = extra.as_array().ok_or("args must be an array of strings")?;
+        for item in arr {
+            argv.push(item.as_str().ok_or("args must be an array of strings")?.to_owned());
+        }
+    }
+    let candidates: &[&str] = if name == "nodejs" {
+        &["node", "nodejs"]
+    } else {
+        &["python3", "python"]
+    };
+    let exe = candidates
+        .iter()
+        .find(|c| runtime.allowed.contains_key(**c))
+        .copied()
+        .unwrap_or(candidates[0]);
+    let mut cmd_args = json!({"command": exe, "args": argv});
+    if let Some(cwd) = args.get("cwd") {
+        cmd_args["cwd"] = cwd.clone();
+    }
+    if let Some(timeout) = args.get("timeout") {
+        cmd_args["timeout"] = timeout.clone();
+    }
+    run_command(runtime, id, "run_command", &cmd_args, cancel)
+}
+
 fn run_command(
     runtime: &mut Runtime,
     id: &str,
@@ -1705,6 +1982,8 @@ pub fn schema(name: &str) -> Value {
         "delete_script" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"},"expectedHash":{"type":"string"}}}),
         "run_script" => json!({"type":"object","required":["path","command"],"properties":{"path":{"type":"string"},"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"timeout":{"type":"integer","minimum":100,"maximum":120000}}}),
         "run_command" => json!({"type":"object","required":["command"],"properties":{"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"},"timeout":{"type":"integer","minimum":100,"maximum":120000}}}),
+        "nodejs" => json!({"type":"object","properties":{"code":{"type":"string"},"path":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"},"timeout":{"type":"integer","minimum":100,"maximum":120000}}}),
+        "python3" => json!({"type":"object","properties":{"code":{"type":"string"},"path":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"},"timeout":{"type":"integer","minimum":100,"maximum":120000}}}),
         "read_command_output" => json!({"type":"object","required":["jobId"],"properties":{"jobId":{"type":"string"},"stream":{"type":"string","enum":["stdout","stderr"]},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
         "read_file" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
         "read_files" => json!({"type":"object","properties":{"files":{"type":"array","items":{"type":"object"}},"paths":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
@@ -1740,15 +2019,17 @@ pub fn schema(name: &str) -> Value {
         "code_references" => json!({"type":"object","required":["path","line","column"],"properties":{"path":{"type":"string"},"line":{"type":"integer","minimum":1},"column":{"type":"integer","minimum":1},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
         "code_diagnostics" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000}}}),
         "read_image" => json!({"type":"object","required":["path"],"properties":{"path":{"type":"string"}}}),
-        "web_fetch" => json!({"type":"object","required":["url"],"properties":{"url":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":32000}}}),
-        "web_search" => json!({"type":"object","required":["query"],"properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":10}}}),
+        "web_fetch" => json!({"type":"object","required":["url"],"properties":{"url":{"type":"string"},"focus_query":{"type":"string"},"format":{"type":"string","enum":["markdown","code_only","text"]},"max_chars":{"type":"integer","minimum":100,"maximum":25000}}}),
+        "web_search" => json!({"type":"object","required":["query"],"properties":{"query":{"type":"string"},"target_stack":{"type":"string"},"max_results":{"type":"integer","minimum":1,"maximum":10}}}),
+        "rag_search" => json!({"type":"object","required":["query"],"properties":{"query":{"type":"string"},"provider":{"type":"string","enum":["qdrant","pinecone","weaviate","chroma","milvus","pgvector","elasticsearch","opensearch","lancedb","faiss","custom"]},"collection":{"type":"string"},"namespace":{"type":"string"},"search_mode":{"type":"string","enum":["hybrid","dense","sparse","rerank"]},"top_k":{"type":"integer","minimum":1,"maximum":50},"min_score":{"type":"number","minimum":0,"maximum":1},"filter":{"type":"object"},"target_stack":{"type":"string"},"max_chars":{"type":"integer","minimum":100,"maximum":25000}}}),
+        "summarize_research" => json!({"type":"object","required":["sources"],"properties":{"sources":{"type":"array","minItems":1,"maxItems":5},"objective":{"type":"string"},"target_stack":{"type":"string"},"output_format":{"type":"string","enum":["api_reference","bug_workaround","migration_guide","comparison"]},"budget_exhausted":{"type":"boolean"}}}),
         _ => json!({"type": "object", "properties": {}}),
     }
 }
 
 fn tool_permission(name: &str) -> &'static str {
     match name {
-        "run_command" | "run_script" | "workflow_run" | "tool_run" | "start_process"
+        "run_command" | "run_script" | "nodejs" | "python3" | "workflow_run" | "tool_run" | "start_process"
         | "write_stdin" | "stop_process" => "commands",
         "write_file" | "apply_edits" | "apply_patch" | "replace_text" | "delete_file"
         | "restore_file" | "write_script" | "delete_script" | "memory_store" | "skill_save"
@@ -1866,6 +2147,51 @@ fn git_cmd(root: &Path, args: &[&str]) -> Result<String> {
         .into());
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+fn curl_post_json(
+    url: &str,
+    payload: &Value,
+    headers: &serde_json::Map<String, Value>,
+    timeout_ms: u64,
+) -> Result<Value> {
+    let timeout_secs = (timeout_ms / 1000).clamp(1, 30).to_string();
+    let body = serde_json::to_string(payload)?;
+    let mut cmd = Command::new("curl");
+    cmd.args([
+        "--proto",
+        "=http,https",
+        "-fsSL",
+        "--max-time",
+        &timeout_secs,
+        "--max-filesize",
+        "5242880",
+        "-X",
+        "POST",
+        "-H",
+        "Content-Type: application/json",
+        "-H",
+        "Accept: application/json",
+        "-A",
+        "codingagentlib/1.0",
+    ]);
+    for (k, v) in headers {
+        if let Some(vs) = v.as_str() {
+            cmd.arg("-H").arg(format!("{k}: {vs}"));
+        }
+    }
+    cmd.arg("-d").arg(&body).arg(url);
+    let out = cmd.output().map_err(|e| format!("Failed to invoke curl: {e}"))?;
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+        return Err(if err.is_empty() {
+            "ERR_FETCH_TIMEOUT: RAG HTTP request failed".into()
+        } else {
+            format!("ERR_FETCH_TIMEOUT: {err}")
+        }
+        .into());
+    }
+    serde_json::from_slice(&out.stdout).map_err(|e| format!("Invalid RAG JSON response: {e}").into())
 }
 
 fn extract_symbols(ext: &str, body: &str) -> Vec<(&'static str, String, usize)> {
@@ -2272,68 +2598,6 @@ fn run_diagnostics(target: &Path, relative: &str, body: &str) -> (&'static str, 
         diags.push(json!({"path": relative, "line": lno, "severity": "error", "message": format!("Unclosed '{open}'") }));
     }
     ("structural", diags)
-}
-
-fn validate_public_https_url(url: &str) -> Result<()> {
-    let rest = url
-        .strip_prefix("https://")
-        .ok_or("Only https:// URLs are permitted")?;
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-    if authority.is_empty() || authority.contains('@') {
-        return Err("Invalid HTTPS URL authority".into());
-    }
-    let host_port = if authority.starts_with('[') {
-        authority
-            .split(']')
-            .next()
-            .unwrap_or("")
-            .trim_start_matches('[')
-    } else {
-        authority.split(':').next().unwrap_or("")
-    };
-    let lower = host_port.to_ascii_lowercase();
-    if lower.is_empty()
-        || lower == "localhost"
-        || lower.ends_with(".local")
-        || lower.ends_with(".internal")
-    {
-        return Err("Local/private hosts are blocked".into());
-    }
-    if let Ok(ip) = lower.parse::<std::net::IpAddr>() {
-        if is_private_or_local_ip(ip) {
-            return Err("Private or loopback IP addresses are blocked".into());
-        }
-    } else {
-        use std::net::ToSocketAddrs;
-        if let Ok(addrs) = (host_port, 443).to_socket_addrs() {
-            for addr in addrs {
-                if is_private_or_local_ip(addr.ip()) {
-                    return Err("Resolved host points to a private or loopback IP".into());
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
-fn is_private_or_local_ip(ip: std::net::IpAddr) -> bool {
-    match ip {
-        std::net::IpAddr::V4(v4) => {
-            v4.is_loopback()
-                || v4.is_private()
-                || v4.is_link_local()
-                || v4.is_unspecified()
-                || v4.is_multicast()
-                || v4.octets()[0] == 100 && (v4.octets()[1] & 0b1100_0000) == 64
-        }
-        std::net::IpAddr::V6(v6) => {
-            v6.is_loopback()
-                || v6.is_unspecified()
-                || v6.is_multicast()
-                || (v6.segments()[0] & 0xfe00) == 0xfc00
-                || (v6.segments()[0] & 0xffc0) == 0xfe80
-        }
-    }
 }
 
 fn curl_https(url: &str) -> Result<String> {

@@ -3,10 +3,10 @@ const crypto=require('node:crypto');
 function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])]));return value;}
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 const signature=action=>hash({tool:action.tool,args:action.args,checks:action.checks??null});
-const retrySignature=action=>signature(['run_command','run_script'].includes(action.tool)?{tool:action.tool,args:action.args}:action);
+const retrySignature=action=>signature(['run_command','run_script','nodejs','python3'].includes(action.tool)?{tool:action.tool,args:action.args}:action);
 // Old receipts with incomplete previews cannot establish identical full output.
 function comparable(tool,result){
- if(!['run_command','run_script'].includes(tool))return true;
+ if(!['run_command','run_script','nodejs','python3'].includes(tool))return true;
  if(!result||typeof result!=='object')return false;
  const digested=['stdout','stderr'].every(stream=>/^[a-f0-9]{64}$/.test(result[stream+'Sha256']||''));
  if(digested)return true;

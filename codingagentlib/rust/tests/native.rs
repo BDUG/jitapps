@@ -1177,3 +1177,19 @@ fn code_navigation_diagnostics_and_web_ssrf_guard() -> Result<()> {
     agent.close()?;
     Ok(())
 }
+
+#[test]
+fn default_nodejs_and_python3_tools() -> codingagentlib::Result<()> {
+    let dir = Workspace::new()?;
+    let mut agent = Agent::new(&dir.0, &["node", "python3"])?;
+    let s = start(&mut agent, false, true)?;
+    let n_res = tool(&mut agent, &s, "nodejs", "n1", json!({"code":"console.log('rust-node-ok')" }))?;
+    assert_eq!(n_res["ok"], true, "nodejs failed: {n_res}");
+    assert!(n_res["result"]["stdout"].as_str().unwrap_or("").contains("rust-node-ok"));
+
+    let p_res = tool(&mut agent, &s, "python3", "p1", json!({"code":"print('rust-py-ok')" }))?;
+    assert_eq!(p_res["ok"], true, "python3 failed: {p_res}");
+    assert!(p_res["result"]["stdout"].as_str().unwrap_or("").contains("rust-py-ok"));
+    agent.close()?;
+    Ok(())
+}

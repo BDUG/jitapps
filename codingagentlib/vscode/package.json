@@ -61,6 +61,10 @@
         "title": "RabbitHole: Export Result ZIP"
       },
       {
+        "command": "codingagent.compressContext",
+        "title": "RabbitHole: Compress Conversation Context"
+      },
+      {
         "command": "codingagent.settings",
         "title": "RabbitHole: Open Settings",
         "icon": "$(gear)"
@@ -461,6 +465,143 @@
             }
           },
           "description": "Readiness evaluator role configuration: endpoint, model, transport and declared inputModalities. Relay roles also require profileId. No API keys here; use Configure Model Provider for role-specific endpoints and SecretStorage. Empty evaluator reuses primary for a separate call."
+        },
+        "codingagent.research.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "machine",
+          "description": "Enable the isolated Research Module tools (web_search, web_fetch, rag_search, summarize_research)."
+        },
+        "codingagent.research.maxToolCalls": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 15,
+          "scope": "machine",
+          "description": "Hard iteration budget for bounded research loops (default 5, hard cap 15)."
+        },
+        "codingagent.research.maxChars": {
+          "type": "integer",
+          "default": 12000,
+          "minimum": 100,
+          "maximum": 25000,
+          "scope": "machine",
+          "description": "Maximum character ceiling for focus-aware truncation in web_fetch and rag_search."
+        },
+        "codingagent.research.targetStack": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Default target stack/version anchor (e.g. 'Python 3.12, FastAPI 0.115') appended to research queries."
+        },
+        "codingagent.research.rag.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "Optionally query a configured RAG database during research."
+        },
+        "codingagent.research.rag.provider": {
+          "type": "string",
+          "enum": [
+            "qdrant",
+            "pinecone",
+            "weaviate",
+            "chroma",
+            "milvus",
+            "pgvector",
+            "elasticsearch",
+            "opensearch",
+            "lancedb",
+            "faiss",
+            "custom"
+          ],
+          "default": "qdrant",
+          "scope": "machine",
+          "description": "State-of-the-art RAG vector/hybrid database backend."
+        },
+        "codingagent.research.rag.endpoint": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "HTTP(S) endpoint URL for the configured RAG database (e.g. http://127.0.0.1:6333 for local Qdrant)."
+        },
+        "codingagent.research.rag.collection": {
+          "type": "string",
+          "default": "default",
+          "scope": "resource",
+          "description": "RAG collection, index, class, or table name."
+        },
+        "codingagent.research.rag.namespace": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Optional RAG namespace or partition name (Pinecone/Milvus)."
+        },
+        "codingagent.research.rag.searchMode": {
+          "type": "string",
+          "enum": [
+            "hybrid",
+            "dense",
+            "sparse",
+            "rerank"
+          ],
+          "default": "hybrid",
+          "scope": "machine",
+          "description": "RAG retrieval strategy: hybrid (dense + BM25/sparse), dense, sparse, or rerank."
+        },
+        "codingagent.research.rag.topK": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 50,
+          "scope": "machine",
+          "description": "Maximum number of RAG chunks to retrieve per query."
+        },
+        "codingagent.research.rag.minScore": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "scope": "machine",
+          "description": "Minimum similarity score threshold (0.0 to 1.0) for returned RAG chunks."
+        },
+        "codingagent.research.rag.embeddingEndpoint": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional OpenAI-compatible /v1/embeddings endpoint used when the RAG backend requires a dense query vector."
+        },
+        "codingagent.research.rag.embeddingModel": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional embedding model name for codingagent.research.rag.embeddingEndpoint."
+        },
+        "codingagent.research.rag.allowLocalhost": {
+          "type": "boolean",
+          "default": true,
+          "scope": "machine",
+          "description": "Allow loopback/private HTTP(S) endpoints for local RAG databases. Cloud metadata IPs (169.254.0.0/16) remain blocked."
+        },
+        "codingagent.research.rag.timeoutMs": {
+          "type": "integer",
+          "default": 5000,
+          "minimum": 500,
+          "maximum": 30000,
+          "scope": "machine",
+          "description": "Timeout in milliseconds for RAG database queries."
+        },
+        "codingagent.research.rag.ragOnly": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "When true, bounded research queries only the configured RAG database without web search."
+        },
+        "codingagent.research.rag.apiKey": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional API key for the configured RAG database."
         }
       }
     }

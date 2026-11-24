@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import uuid
 from .agent_runtime import Runtime
-from . import agent_checks,agent_planning
+from . import agent_checks,agent_planning,internet_research
 
 SPEC=json.loads((Path(__file__).parent.parent/'protocol.json').read_text())
 BROWSER_TOOLS={'read_current_project','apply_project'}
@@ -22,7 +22,7 @@ class Agent:
         session=self.runtime.get(session_id);turn=self.dispatch({'op':'turn','session':session_id});self.pending[session_id]=turn
         tools=[t for t in self.runtime.health()['tools'] if t['name'] not in BROWSER_TOOLS and (self.runtime.shared_skills or not t['name'].startswith('catalog_'))]
         schema=copy.deepcopy(SPEC['responseSchema']);schema['properties']['sessionId']['const']=session_id;schema['properties']['step']['const']=turn['step']
-        return {'projectKnowledge':turn.get('projectKnowledge'),'agentMemory':turn.get('agentMemory'),'projectInstructions':turn.get('projectInstructions'),'verificationFreshness':turn.get('verificationFreshness'),'protocol':SPEC['protocol'],'sessionId':session_id,'step':turn['step'],'goal':session['goal'],'workspace':str(self.runtime.root),'tools':tools,'events':copy.deepcopy(session['events']),'tasks':agent_planning.latest(session['events']),'permissions':{'allowEdits':session['allowEdits'],'allowCommands':session['allowCommands'],'applyProject':False},'responseSchema':schema,'instructions':SPEC['instructions']}
+        return {'projectKnowledge':turn.get('projectKnowledge'),'agentMemory':turn.get('agentMemory'),'projectInstructions':turn.get('projectInstructions'),'verificationFreshness':turn.get('verificationFreshness'),'researchConfig':internet_research.redact_research_config(self.runtime.research_config),'protocol':SPEC['protocol'],'sessionId':session_id,'step':turn['step'],'goal':session['goal'],'workspace':str(self.runtime.root),'tools':tools,'events':copy.deepcopy(session['events']),'tasks':agent_planning.latest(session['events']),'permissions':{'allowEdits':session['allowEdits'],'allowCommands':session['allowCommands'],'applyProject':False},'responseSchema':schema,'instructions':SPEC['instructions']}
     def submit(self,session_id,raw):
         turn=self.pending.pop(session_id,None)
         if not turn:raise ValueError('No reserved turn. Request the next turn; inspect tool_status before retrying an interrupted action.')

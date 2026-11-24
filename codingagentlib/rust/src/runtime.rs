@@ -153,6 +153,7 @@ pub struct Runtime {
     pub allowed: BTreeMap<String, PathBuf>,
     pub sessions: BTreeMap<String, Value>,
     pub(crate) processes: BTreeMap<String, InteractiveProcess>,
+    pub research_config: Value,
     _lock: File,
 }
 impl Runtime {
@@ -254,6 +255,7 @@ impl Runtime {
             allowed,
             sessions,
             processes: BTreeMap::new(),
+            research_config: crate::research::default_research_config(),
             _lock: lock,
         })
     }
@@ -615,6 +617,27 @@ impl Runtime {
         let op = text(&data, "op")?;
         if op == "health" {
             return Ok(self.health());
+        }
+        if op == "research_config" || op == "configure_research" {
+            let incoming = data.get("config").or_else(|| data.get("researchConfig"));
+            if let Some(cfg) = incoming {
+                let mut merged = self.research_config.clone();
+                if let (Some(base_map), Some(inc_map)) = (merged.as_object_mut(), cfg.as_object()) {
+                    for (k, v) in inc_map {
+                        if k == "rag" {
+                            if let (Some(base_rag), Some(inc_rag)) = (base_map.get_mut("rag").and_then(Value::as_object_mut), v.as_object()) {
+                                for (rk, rv) in inc_rag {
+                                    base_rag.insert(rk.clone(), rv.clone());
+                                }
+                                continue;
+                            }
+                        }
+                        base_map.insert(k.clone(), v.clone());
+                    }
+                }
+                self.research_config = crate::research::normalize_research_config(&merged)?;
+            }
+            return crate::research::redact_research_config(&self.research_config);
         }
         if op == "project_knowledge" { return crate::knowledge::dispatch(self,&data); }
         if op == "start" {
